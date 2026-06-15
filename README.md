@@ -43,7 +43,17 @@ The co-pilot UI shows which provider answered (a badge: "NVIDIA Llama 3.3", "Cla
 
 ## Stack
 
-Next.js (App Router) + React 19, TypeScript, Tailwind, Prisma + SQLite. SQLite is the source of truth for v1 and mirrors the Airtable schema in the plan, so an Airtable sync can be layered on without a model change.
+Next.js (App Router) + React 19, TypeScript, Tailwind, Prisma + SQLite (dev) / PostgreSQL (prod). The Airtable schema in the relaunch plan mirrors this data model so a sync can be layered on later without changes.
+
+## Deploy to Vercel
+
+1. Create a PostgreSQL database (Neon or Supabase free tier recommended).
+2. Push to GitHub.
+3. Connect to Vercel and set `DATABASE_URL` environment variable to your PostgreSQL connection string.
+4. Update `prisma/schema.prisma` to use `provider = "postgresql"` for production.
+5. Vercel will run migrations and seed automatically on first deploy.
+
+For local development, SQLite (`prisma/schema.prisma` with `provider = "sqlite"`) is sufficient and requires no external database.
 
 ## Production cron
 
