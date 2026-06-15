@@ -1,0 +1,38 @@
+{
+  "name": "meet-cute",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3009",
+    "build": "prisma generate && next build",
+    "start": "next start -p 3009",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:push": "prisma db push",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:reset": "rm -f prisma/dev.db && prisma db push && tsx scripts/seed.ts",
+    "embed": "tsx scripts/embed.ts",
+    "concierge:tick": "tsx scripts/concierge-tick.ts",
+    "demo:bot": "tsx scripts/demo-bot.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@prisma/client": "^6.1.0",
+    "next": "^16.2.9",
+    "openai": "^4.77.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "prisma": "^6.1.0",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: theme("colors.cream");
+  color: theme("colors.ink");
+}
+
+@layer components {
+  .container-mc {
+    @apply mx-auto w-full max-w-6xl px-6;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition duration-200 ease-soft;
+  }
+  .btn-primary {
+    @apply btn bg-claret text-cream hover:bg-claret-dark;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-transparent text-ink hover:border-ink/40;
+  }
+  .card {
+    @apply rounded-xl2 border border-line bg-white shadow-card;
+  }
+  .label {
+    @apply text-xs font-medium uppercase tracking-[0.14em] text-muted;
+  }
+  .field {
+    @apply w-full rounded-lg border border-line bg-cream/60 px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-claret/60 focus:bg-white;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 text-xs text-muted;
+  }
+}
+
+@keyframes fadeup {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeup { animation: fadeup 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeup { animation: none; }
+}

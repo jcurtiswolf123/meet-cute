@@ -1,0 +1,267 @@
+// Meet Cute data model. SQLite is the source of truth for v1.
+// (Mirrors the Airtable schema described in the relaunch plan so an Airtable
+//  sync can be layered on later without a model change.)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Person {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name      String
+  email     String   @unique
+  phone     String?
+  city      String // "NYC" | "SF"
+
+  // role
+  isOperator   Boolean @default(false)
+  isAmbassador Boolean @default(false)
+  isCoach      Boolean @default(false)
+  status       String  @default("applicant") // applicant | active | paused | exited
+
+  // profile
+  headline    String?
+  bio         String?
+  lookingFor  String?
+  dealBreakers String?
+  gender       String? // "woman" | "man" | "nonbinary"
+  seeking      String? // comma list of genders sought
+  age          Int?
+  neighborhood String?
+
+  // ambassador
+  ambassadorTitle String?
+  ambassadorSince DateTime?
+
+  // coach
+  coachBio String?
+
+  // supply / provenance
+  appliedAt   DateTime?
+  acceptedAt  DateTime?
+  fastTracked Boolean   @default(false)
+
+  // co-pilot semantic search
+  embedding String? // JSON array of floats
+
+  referredById String?
+  referredBy   Person?  @relation("Referrals", fields: [referredById], references: [id])
+  referred     Person[] @relation("Referrals")
+
+  photos  Photo[]
+  prompts Prompt[]
+
+  matchesAsA Match[] @relation("MatchA")
+  matchesAsB Match[] @relation("MatchB")
+
+  vouchesGiven    Vouch[] @relation("Voucher")
+  vouchesReceived Vouch[] @relation("Subject")
+
+  notesAuthored Note[] @relation("NoteAuthor")
+  notesAbout    Note[] @relation("NoteSubject")
+
+  invitesSent      Referral[] @relation("Inviter")
+  dinnerAttendance DinnerAttendee[]
+
+  coachingAsClient CoachingEngagement[] @relation("Client")
+  coachingAsCoach  CoachingEngagement[] @relation("Coach")
+}
+
+model Photo {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  url      String
+  order    Int    @default(0)
+}
+
+model Prompt {
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  question String
+  answer   String
+  order    Int    @default(0)
+}
+
+model Match {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  personAId String
+  personBId String
+  personA   Person @relation("MatchA", fields: [personAId], references: [id])
+  personB   Person @relation("MatchB", fields: [personBId], references: [id])
+
+  // matchmaker who created the suggestion
+  createdById String?
+
+  // pipeline: suggested -> mutual_yes -> date_scheduled -> first_date -> second_date -> relationship | exit
+  stage String @default("suggested")
+
+  aDecision String @default("pending") // pending | yes | pass
+  bDecision String @default("pending")
+
+  rationale     String? // why the matchmaker thinks they work
+  lastActorId   String?
+  stalledReason String?
+  exitReason    String?
+
+  thread     ConciergeThread?
+  references Reference[]
+  notes      Note[]
+
+  @@unique([personAId, personBId])
+}
+
+model Vouch {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  voucherId String
+  subjectId String
+  voucher   Person   @relation("Voucher", fields: [voucherId], references: [id])
+  subject   Person   @relation("Subject", fields: [subjectId], references: [id])
+  note      String?
+
+  @@unique([voucherId, subjectId])
+}
+
+// Active reference: post-match "ask a mutual friend for the inside scoop"
+model Reference {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  requesterId String
+  friendId    String
+  prompt      String
+  reply       String?
+  status      String   @default("requested") // requested | replied | declined
+  repliedAt   DateTime?
+}
+
+model Referral {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  code         String   @unique
+  inviterId    String
+  inviter      Person   @relation("Inviter", fields: [inviterId], references: [id])
+  inviteeEmail String?
+  inviteeId    String?
+  status       String   @default("open") // open | joined | accepted
+  fastTrack    Boolean  @default(true)
+}
+
+model Venue {
+  id    String      @id @default(cuid())
+  city  String
+  name  String
+  area  String?
+  notes String?
+  partner Boolean   @default(true)
+  slots VenueSlot[]
+  threads ConciergeThread[]
+}
+
+model VenueSlot {
+  id        String  @id @default(cuid())
+  venueId   String
+  venue     Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  dayOfWeek Int // 0=Sun..6=Sat
+  time      String // "19:00"
+  held      Boolean @default(true) // standing hold for Meet Cute
+}
+
+model ConciergeThread {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  matchId String @unique
+  match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  venueId String?
+  venue   Venue?  @relation(fields: [venueId], references: [id])
+
+  state String @default("proposing") // proposing | round2 | confirmed | stalled | handoff | post_date | closed
+  round Int    @default(1)
+
+  proposedSlots String? // JSON array of ISO datetimes
+  aPick         String?
+  bPick         String?
+  confirmedSlot DateTime?
+  holdsUntil    DateTime?
+  lastNudgeAt   DateTime?
+
+  messages ConciergeMessage[]
+}
+
+model ConciergeMessage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  threadId  String
+  thread    ConciergeThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  direction String // out | in
+  toPersonId String?
+  body      String
+  kind      String  @default("text") // text | propose | confirm | reminder | checkin | system
+}
+
+model Dinner {
+  id        String   @id @default(cuid())
+  city      String
+  date      DateTime
+  venue     String
+  capacity  Int      @default(12)
+  theme     String?
+  status    String   @default("planned") // planned | open | full | done
+  notes     String?
+  attendees DinnerAttendee[]
+}
+
+model DinnerAttendee {
+  id       String @id @default(cuid())
+  dinnerId String
+  personId String
+  dinner   Dinner @relation(fields: [dinnerId], references: [id], onDelete: Cascade)
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  status   String @default("invited") // invited | confirmed | attended | noshow
+
+  @@unique([dinnerId, personId])
+}
+
+model CoachingEngagement {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  clientId  String
+  coachId   String
+  client    Person   @relation("Client", fields: [clientId], references: [id])
+  coach     Person   @relation("Coach", fields: [coachId], references: [id])
+  type      String // dating | couples
+  partnerId String? // for couples
+  status    String   @default("active") // active | paused | done
+  sessions  Int      @default(0)
+  notes     String?
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  subjectId String
+  subject   Person   @relation("NoteSubject", fields: [subjectId], references: [id])
+  authorId  String?
+  author    Person?  @relation("NoteAuthor", fields: [authorId], references: [id])
+  matchId   String?
+  match     Match?   @relation(fields: [matchId], references: [id])
+  kind      String   @default("general") // rationale | postdate | general
+  body      String
+}
