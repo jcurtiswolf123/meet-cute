@@ -1,4 +1,4 @@
-// Meet Cute data model. SQLite is the source of truth for v1.
+// Meet Cute data model. SQLite for MVP (Vercel ephemeral), migrate to Neon/PostgreSQL for production persistence.
 // (Mirrors the Airtable schema described in the relaunch plan so an Airtable
 //  sync can be layered on later without a model change.)
 
