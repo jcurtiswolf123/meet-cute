@@ -23,6 +23,22 @@ export const CLAUDE_MODEL = "claude-sonnet-4-6";
 const anthropic = ANTHROPIC_KEY ? new Anthropic({ apiKey: ANTHROPIC_KEY }) : null;
 const openai = OPENAI_KEY ? new OpenAI({ apiKey: OPENAI_KEY }) : null;
 
+// NVIDIA's free tier latency is highly variable (occasionally 30 to 60s).
+// Bound every call so a slow upstream can never hang a request: on timeout we
+// fall through to the next provider / the local engine.
+const CHAT_TIMEOUT_MS = Number(process.env.MEETCUTE_CHAT_TIMEOUT_MS) || 18_000;
+const EMBED_TIMEOUT_MS = Number(process.env.MEETCUTE_EMBED_TIMEOUT_MS) || 12_000;
+
+async function fetchWithTimeout(url: string, opts: RequestInit, ms: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---- embeddings -----------------------------------------------------------
 
 // nv-embedqa is asymmetric: store profiles as "passage", search with "query".
@@ -31,11 +47,15 @@ export async function embed(text: string, inputType: "query" | "passage" = "pass
 
   if (NVIDIA_KEY) {
     try {
-      const res = await fetch(`${NVIDIA_BASE}/embeddings`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${NVIDIA_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: NVIDIA_EMBED_MODEL, input: [clean], input_type: inputType, truncate: "END" }),
-      });
+      const res = await fetchWithTimeout(
+        `${NVIDIA_BASE}/embeddings`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${NVIDIA_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: NVIDIA_EMBED_MODEL, input: [clean], input_type: inputType, truncate: "END" }),
+        },
+        EMBED_TIMEOUT_MS
+      );
       if (res.ok) {
         const data = await res.json();
         const v = data?.data?.[0]?.embedding;
@@ -92,19 +112,23 @@ export type ChatMsg = { role: "user" | "assistant"; content: string };
 export type CopilotResult = { text: string; live: boolean; provider: string };
 
 export async function copilotReply(system: string, history: ChatMsg[]): Promise<CopilotResult> {
-  // 1) NVIDIA (free, primary)
+  // 1) NVIDIA (free, primary). Bounded so a slow upstream cannot hang the UI.
   if (NVIDIA_KEY) {
     try {
-      const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${NVIDIA_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: NVIDIA_CHAT_MODEL,
-          messages: [{ role: "system", content: system }, ...history],
-          max_tokens: 1024,
-          temperature: 0.4,
-        }),
-      });
+      const res = await fetchWithTimeout(
+        `${NVIDIA_BASE}/chat/completions`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${NVIDIA_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: NVIDIA_CHAT_MODEL,
+            messages: [{ role: "system", content: system }, ...history],
+            max_tokens: 1024,
+            temperature: 0.4,
+          }),
+        },
+        CHAT_TIMEOUT_MS
+      );
       if (res.ok) {
         const data = await res.json();
         const text = data?.choices?.[0]?.message?.content?.trim();

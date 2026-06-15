@@ -1,8 +1,31 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Msg = { role: "user" | "assistant"; content: string };
+
+// Animated thinking indicator that reassures once a wait runs long.
+function Thinking() {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSecs((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="flex items-center gap-2 text-sm text-muted" aria-live="polite">
+      <span className="flex gap-1">
+        {[0, 1, 2].map((d) => (
+          <span
+            key={d}
+            className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-muted/60"
+            style={{ animationDelay: `${d * 150}ms` }}
+          />
+        ))}
+      </span>
+      <span>{secs >= 5 ? "still thinking, the model is busy (this can take a few seconds)" : "thinking"}</span>
+    </div>
+  );
+}
 
 const STARTERS = [
   "Show me candidates for Jordan and why",
@@ -27,19 +50,37 @@ export default function CopilotChat() {
     setMessages(next);
     setInput("");
     setBusy(true);
+    // Safety net: the server bounds the model to ~18s, so 30s here only fires
+    // on a genuinely stuck connection. The UI never hangs.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 30_000);
     try {
       const res = await fetch("/api/copilot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next }),
+        signal: ctrl.signal,
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 429) {
+        setMessages((m) => [...m, { role: "assistant", content: "That was quick. Give it a few seconds and try again." }]);
+        return;
+      }
+      if (!res.ok || !data.text) {
+        setMessages((m) => [...m, { role: "assistant", content: data.error ?? "The co-pilot had trouble with that one. Try rephrasing." }]);
+        return;
+      }
       setLive(data.live ?? null);
       setProvider(data.provider ?? "");
-      setMessages((m) => [...m, { role: "assistant", content: data.text ?? data.error ?? "Something went wrong." }]);
-    } catch {
-      setMessages((m) => [...m, { role: "assistant", content: "Network error." }]);
+      setMessages((m) => [...m, { role: "assistant", content: data.text }]);
+    } catch (e) {
+      const aborted = e instanceof DOMException && e.name === "AbortError";
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: aborted ? "That took too long. The model is busy right now, try again in a moment." : "Network error. Try again." },
+      ]);
     } finally {
+      clearTimeout(timer);
       setBusy(false);
       setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
@@ -76,7 +117,7 @@ export default function CopilotChat() {
             </div>
           </div>
         ))}
-        {busy && <div className="text-sm text-muted">thinking...</div>}
+        {busy && <Thinking />}
         <div ref={endRef} />
       </div>
 
