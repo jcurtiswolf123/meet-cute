@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { pickSlot, requestReference } from "@/lib/actions";
 import { mutualFriends } from "@/lib/social";
 import { Avatar, StageBadge } from "@/components/ui";
+import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ export default async function Matches() {
                         <div className="flex flex-wrap gap-2">
                           {slots.map((s) => (
                             <form key={s} action={pickSlot.bind(null, t.id, s)}>
-                              <button className="btn-ghost text-sm">{slotLabel(s)}</button>
+                              <SubmitButton className="btn-ghost text-sm" pendingText="Holding...">{slotLabel(s)}</SubmitButton>
                             </form>
                           ))}
                         </div>
@@ -129,7 +130,7 @@ export default async function Matches() {
                       <div className="flex flex-wrap gap-2">
                         {mutuals.map((f) => (
                           <form key={f.id} action={requestReference.bind(null, m.id, f.id)}>
-                            <button className="pill hover:border-claret/40">Ask {f.name.split(" ")[0]}</button>
+                            <SubmitButton className="pill hover:border-claret/40" pendingText="Asking...">Ask {f.name.split(" ")[0]}</SubmitButton>
                           </form>
                         ))}
                       </div>

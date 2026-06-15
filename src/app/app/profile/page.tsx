@@ -1,6 +1,7 @@
 import { getCurrentPerson } from "@/lib/auth";
 import { updateProfile } from "@/lib/actions";
 import { Avatar } from "@/components/ui";
+import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export default async function Profile() {
           ))}
         </div>
 
-        <button className="btn-primary w-full py-3" type="submit">Save profile</button>
+        <SubmitButton className="btn-primary w-full py-3" pendingText="Saving...">Save profile</SubmitButton>
       </form>
     </div>
   );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
+import { TestimonialMarquee } from "@/components/TestimonialMarquee";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -78,7 +79,14 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="container-mc py-20">
+      <section className="py-20">
+        <div className="container-mc">
+          <p className="label mb-8">From the roster</p>
+        </div>
+        <TestimonialMarquee />
+      </section>
+
+      <section className="container-mc pb-20">
         <div className="max-w-[60ch]">
           <h2 className="font-display text-3xl font-medium tracking-tight">The differentiator: people vouch for you.</h2>
           <p className="mt-4 text-lg leading-relaxed text-muted">

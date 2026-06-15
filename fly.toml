@@ -1,0 +1,23 @@
+app = "meet-cute"
+primary_region = "sjc"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  NEXT_PUBLIC_SITE_URL = "https://meet-cute.fly.dev"
+
+[[mounts]]
+  source = "meetcute_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 3009
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

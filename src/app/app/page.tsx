@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { decideMatch } from "@/lib/actions";
 import { mutualFriends, vouchesFor } from "@/lib/social";
 import { Avatar } from "@/components/ui";
+import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
@@ -114,10 +115,10 @@ export default async function ForYou() {
           ) : (
             <>
               <form action={decideMatch.bind(null, pending.id, "yes")} className="flex-1">
-                <button className="btn-primary w-full py-3">Yes, introduce us</button>
+                <SubmitButton className="btn-primary w-full py-3" pendingText="Introducing...">Yes, introduce us</SubmitButton>
               </form>
               <form action={decideMatch.bind(null, pending.id, "pass")}>
-                <button className="btn-ghost px-6 py-3">Not this time</button>
+                <SubmitButton className="btn-ghost px-6 py-3" pendingText="...">Not this time</SubmitButton>
               </form>
             </>
           )}

@@ -5,6 +5,7 @@ import { addNote, createSuggestion } from "@/lib/actions";
 import { candidatesFor } from "@/lib/copilot";
 import { connectionsOf, vouchesFor } from "@/lib/social";
 import { Avatar, StageBadge } from "@/components/ui";
+import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +86,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         <form action={saveNote} className="mt-2 flex gap-2">
           <input name="body" placeholder="Add a note (rationale, post-date feedback, anything)..." className="field" />
           <select name="kind" className="field max-w-[8rem]"><option value="general">General</option><option value="rationale">Rationale</option><option value="postdate">Post-date</option></select>
-          <button className="btn-primary">Add</button>
+          <SubmitButton className="btn-primary" pendingText="...">Add</SubmitButton>
         </form>
         <div className="mt-3 space-y-2">
           {notes.map((n) => (
