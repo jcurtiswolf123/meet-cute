@@ -1,5 +1,5 @@
 // AI layer. Primary provider is NVIDIA's free OpenAI-compatible endpoint
-// (integrate.api.nvidia.com): Llama 3.3 70B for the co-pilot chat, nv-embedqa
+// (integrate.api.nvidia.com): Llama 3.1 8B for the co-pilot chat, nv-embedqa
 // for embeddings. Claude and OpenAI are optional fallbacks. Everything degrades
 // gracefully: with no funded provider, embeddings use a deterministic lexical
 // vector and chat uses a local intent engine, so the product always runs.
@@ -15,7 +15,9 @@ export const hasClaude = !!ANTHROPIC_KEY;
 export const hasOpenAI = !!OPENAI_KEY;
 
 const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
-const NVIDIA_CHAT_MODEL = process.env.MEETCUTE_LLM_MODEL || "meta/llama-3.3-70b-instruct";
+// 8B is fast and consistent on NVIDIA's free tier (sub-second vs 5 to 55s for
+// 70B) and is plenty for ranking a small roster. Override with MEETCUTE_LLM_MODEL.
+const NVIDIA_CHAT_MODEL = process.env.MEETCUTE_LLM_MODEL || "meta/llama-3.1-8b-instruct";
 const NVIDIA_EMBED_MODEL = "nvidia/nv-embedqa-e5-v5";
 const OPENAI_EMBED_MODEL = "text-embedding-3-small";
 export const CLAUDE_MODEL = "claude-sonnet-4-6";
@@ -132,7 +134,7 @@ export async function copilotReply(system: string, history: ChatMsg[]): Promise<
       if (res.ok) {
         const data = await res.json();
         const text = data?.choices?.[0]?.message?.content?.trim();
-        if (text) return { text, live: true, provider: "NVIDIA Llama 3.3" };
+        if (text) return { text, live: true, provider: "NVIDIA Llama 3.1" };
       }
     } catch {
       /* fall through */
