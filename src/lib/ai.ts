@@ -1,29 +1,54 @@
-// AI layer: Claude for the matchmaker co-pilot chat, OpenAI for embeddings.
-// Both degrade gracefully: if a key is missing, embeddings fall back to a
-// deterministic bag-of-words vector and chat falls back to a templated reply,
-// so the product runs end-to-end with or without network access.
+// AI layer. Primary provider is NVIDIA's free OpenAI-compatible endpoint
+// (integrate.api.nvidia.com): Llama 3.3 70B for the co-pilot chat, nv-embedqa
+// for embeddings. Claude and OpenAI are optional fallbacks. Everything degrades
+// gracefully: with no funded provider, embeddings use a deterministic lexical
+// vector and chat uses a local intent engine, so the product always runs.
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 
+const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
+export const hasNvidia = !!NVIDIA_KEY;
 export const hasClaude = !!ANTHROPIC_KEY;
 export const hasOpenAI = !!OPENAI_KEY;
+
+const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
+const NVIDIA_CHAT_MODEL = process.env.MEETCUTE_LLM_MODEL || "meta/llama-3.3-70b-instruct";
+const NVIDIA_EMBED_MODEL = "nvidia/nv-embedqa-e5-v5";
+const OPENAI_EMBED_MODEL = "text-embedding-3-small";
+export const CLAUDE_MODEL = "claude-sonnet-4-6";
 
 const anthropic = ANTHROPIC_KEY ? new Anthropic({ apiKey: ANTHROPIC_KEY }) : null;
 const openai = OPENAI_KEY ? new OpenAI({ apiKey: OPENAI_KEY }) : null;
 
-const EMBED_MODEL = "text-embedding-3-small";
-export const CLAUDE_MODEL = "claude-sonnet-4-6";
-
 // ---- embeddings -----------------------------------------------------------
 
-export async function embed(text: string): Promise<number[]> {
-  const clean = text.replace(/\s+/g, " ").trim().slice(0, 8000);
+// nv-embedqa is asymmetric: store profiles as "passage", search with "query".
+export async function embed(text: string, inputType: "query" | "passage" = "passage"): Promise<number[]> {
+  const clean = text.replace(/\s+/g, " ").trim().slice(0, 8000) || "empty";
+
+  if (NVIDIA_KEY) {
+    try {
+      const res = await fetch(`${NVIDIA_BASE}/embeddings`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${NVIDIA_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: NVIDIA_EMBED_MODEL, input: [clean], input_type: inputType, truncate: "END" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const v = data?.data?.[0]?.embedding;
+        if (Array.isArray(v)) return v;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
   if (openai) {
     try {
-      const res = await openai.embeddings.create({ model: EMBED_MODEL, input: clean });
+      const res = await openai.embeddings.create({ model: OPENAI_EMBED_MODEL, input: clean });
       return res.data[0].embedding;
     } catch {
       return cheapEmbed(clean);
@@ -32,8 +57,7 @@ export async function embed(text: string): Promise<number[]> {
   return cheapEmbed(clean);
 }
 
-// Deterministic 256-dim hashed bag-of-words. Not as good as a real model but
-// gives meaningful keyword-overlap similarity offline.
+// Deterministic 256-dim hashed bag-of-words. Offline fallback only.
 export function cheapEmbed(text: string, dims = 256): number[] {
   const v = new Array(dims).fill(0);
   for (const tok of text.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
@@ -65,11 +89,33 @@ export function cosine(a: number[], b: number[]): number {
 // ---- co-pilot chat --------------------------------------------------------
 
 export type ChatMsg = { role: "user" | "assistant"; content: string };
+export type CopilotResult = { text: string; live: boolean; provider: string };
 
-export async function copilotReply(
-  system: string,
-  history: ChatMsg[]
-): Promise<{ text: string; live: boolean }> {
+export async function copilotReply(system: string, history: ChatMsg[]): Promise<CopilotResult> {
+  // 1) NVIDIA (free, primary)
+  if (NVIDIA_KEY) {
+    try {
+      const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${NVIDIA_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: NVIDIA_CHAT_MODEL,
+          messages: [{ role: "system", content: system }, ...history],
+          max_tokens: 1024,
+          temperature: 0.4,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = data?.choices?.[0]?.message?.content?.trim();
+        if (text) return { text, live: true, provider: "NVIDIA Llama 3.3" };
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  // 2) Claude (if funded)
   if (anthropic) {
     try {
       const res = await anthropic.messages.create({
@@ -83,20 +129,12 @@ export async function copilotReply(
         .map((b) => (b as { text: string }).text)
         .join("\n")
         .trim();
-      return { text, live: true };
-    } catch (e) {
-      return { text: fallbackReply(history), live: false };
+      if (text) return { text, live: true, provider: "Claude" };
+    } catch {
+      /* fall through */
     }
   }
-  return { text: fallbackReply(history), live: false };
-}
 
-function fallbackReply(history: ChatMsg[]): string {
-  const last = history.filter((m) => m.role === "user").at(-1)?.content ?? "";
-  return [
-    "(Co-pilot is running in offline mode - set ANTHROPIC_API_KEY for full reasoning.)",
-    "",
-    `I read your request: "${last.slice(0, 140)}".`,
-    "The matched candidates and roster facts below were retrieved from the live roster; I just can't add free-form reasoning without the model key.",
-  ].join("\n");
+  // 3) local intent engine (handled by caller)
+  return { text: "", live: false, provider: "local engine" };
 }

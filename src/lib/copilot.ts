@@ -37,7 +37,7 @@ function parseEmbedding(s: string | null): number[] | null {
 }
 
 export async function searchRoster(query: string, limit = 6) {
-  const qv = await embed(query);
+  const qv = await embed(query, "query");
   const people = await prisma.person.findMany({
     where: { status: "active", isOperator: false },
     include: { prompts: true, vouchesReceived: true },
@@ -207,7 +207,7 @@ export async function localAnswer(history: ChatMsg[]): Promise<string> {
   return [
     "Closest roster matches to your query:",
     ...hits.map(({ p, score }) => `  • ${p.name} (${p.city}) - ${score.toFixed(2)}: ${p.headline ?? ""}`),
-    "\n(Add credit to ANTHROPIC_API_KEY for full conversational reasoning. Retrieval above is live.)",
+    "\n(Conversational reasoning runs when an AI provider is funded. Retrieval above is live.)",
   ].join("\n");
 }
 
@@ -243,6 +243,7 @@ export async function answer(history: ChatMsg[]) {
     "You help run a premium, curated matchmaking roster. You are warm, concise, and decisive, like a great human matchmaker.",
     "You can: find candidates, draft outreach notes, recall facts from notes, summarize a person's history, and rank suggestions with reasoning.",
     "Only use the roster facts and notes provided below. If something isn't there, say you don't have it rather than inventing it. Never fabricate names, dates, or quotes.",
+    "Members only date within their own city (NYC or SF). Never suggest a cross-city match. Respect stated gender preferences.",
     "When suggesting matches, give a one-line rationale per person. Keep replies tight. No em-dashes.",
     "",
     "RELEVANT ROSTER (semantic search results):",
@@ -256,5 +257,5 @@ export async function answer(history: ChatMsg[]) {
   if (res.live) return res;
   // LLM unavailable (no key or unfunded): use the local intent engine, which
   // produces a real answer from the live roster rather than a stub.
-  return { text: await localAnswer(history), live: false };
+  return { text: await localAnswer(history), live: false, provider: "local engine" };
 }

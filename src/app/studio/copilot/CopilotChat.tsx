@@ -17,6 +17,7 @@ export default function CopilotChat() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState<boolean | null>(null);
+  const [provider, setProvider] = useState<string>("");
   const endRef = useRef<HTMLDivElement>(null);
 
   async function send(text: string) {
@@ -34,6 +35,7 @@ export default function CopilotChat() {
       });
       const data = await res.json();
       setLive(data.live ?? null);
+      setProvider(data.provider ?? "");
       setMessages((m) => [...m, { role: "assistant", content: data.text ?? data.error ?? "Something went wrong." }]);
     } catch {
       setMessages((m) => [...m, { role: "assistant", content: "Network error." }]);
@@ -49,7 +51,7 @@ export default function CopilotChat() {
         <h1 className="font-display text-2xl font-medium">Matchmaker co-pilot</h1>
         {live !== null && (
           <span className={`pill ${live ? "border-sage/40 text-sage" : ""}`}>
-            {live ? "Claude live" : "local engine"}
+            {provider || (live ? "AI live" : "local engine")}
           </span>
         )}
       </div>
