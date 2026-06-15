@@ -9,3 +9,4 @@ prisma/dev.db-journal
 next-env.d.ts
 .gstack/
 .vercel
+prisma/*.db
