@@ -30,14 +30,16 @@ npm run demo:bot         # exercises the full concierge flow with fast-forwarded
 npm run concierge:tick   # the cron entrypoint (run every ~15 min in prod)
 ```
 
-## The two AI providers
+## AI providers
 
-The co-pilot uses Claude (`ANTHROPIC_API_KEY`) for chat and OpenAI (`OPENAI_API_KEY`) for embeddings. Both are read from `.env`. The product is built to degrade gracefully:
+The AI layer (`src/lib/ai.ts`) is provider-agnostic and tries providers in order, picking the first that is configured and responds:
 
-- No / unfunded Claude key: the co-pilot runs a local intent engine over the live roster. It still finds candidates, recalls notes, summarizes, finds stale singles, and drafts intros. It just does not add free-form reasoning.
-- No / unfunded OpenAI key: semantic search falls back to a deterministic lexical embedding. Fine for a roster of hundreds; swap in real embeddings by funding the key and running `npm run embed`.
+1. **NVIDIA** (`NVIDIA_API_KEY`) - the default. Free, OpenAI-compatible endpoint at `integrate.api.nvidia.com`. Llama 3.3 70B for the co-pilot chat, `nv-embedqa-e5-v5` (1024-dim, asymmetric query/passage) for embeddings.
+2. **Claude** (`ANTHROPIC_API_KEY`) - chat fallback.
+3. **OpenAI** (`OPENAI_API_KEY`) - embedding fallback.
+4. **Local** - if nothing is funded: the co-pilot runs a real intent engine over the live roster (find candidates, recall notes, summarize, stale-finder, draft intros) and embeddings use a deterministic lexical vector. The product always runs.
 
-Adding credit to either provider lights up the richer behavior with zero code change.
+The co-pilot UI shows which provider answered (a badge: "NVIDIA Llama 3.3", "Claude", or "local engine"). After switching providers or bulk-editing profiles, re-embed with `npm run embed`.
 
 ## Stack
 
