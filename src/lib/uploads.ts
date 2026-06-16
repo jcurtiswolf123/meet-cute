@@ -5,7 +5,7 @@
 // For a multi-instance deployment, swap writeUpload/readUpload for signed S3 /
 // Vercel Blob uploads; the call sites stay the same.
 import { mkdir, writeFile, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 
 export const UPLOAD_DIR =
   process.env.UPLOAD_DIR || (process.env.NODE_ENV === "production" ? "/data/uploads" : "./.uploads");
@@ -28,7 +28,14 @@ export async function writeUpload(id: string, ext: string, bytes: Buffer): Promi
 }
 
 export async function readUpload(id: string, ext: string): Promise<Buffer> {
-  return readFile(join(UPLOAD_DIR, `${id}.${ext}`));
+  // Assert the resolved path stays inside UPLOAD_DIR, so a crafted id/ext can
+  // never escape the directory even if upstream validation is bypassed.
+  const base = resolve(UPLOAD_DIR);
+  const full = resolve(base, `${id}.${ext}`);
+  if (full !== base && !full.startsWith(base + sep)) {
+    throw new Error("invalid path");
+  }
+  return readFile(full);
 }
 
 const TYPE_BY_EXT: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" };

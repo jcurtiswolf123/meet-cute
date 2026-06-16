@@ -19,6 +19,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ file: s
   const id = file.slice(0, dot);
   const ext = file.slice(dot + 1);
 
+  // Strict validation before anything touches the filesystem: id must be a cuid
+  // shape and ext an allowlisted image type. Defends against path traversal even
+  // though the dynamic segment cannot contain a slash.
+  if (!/^[a-z0-9]{20,40}$/i.test(id) || !["jpg", "png", "webp"].includes(ext)) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+
   const photo = await prisma.photo.findUnique({ where: { id } });
   if (!photo) return new NextResponse("Not found", { status: 404 });
 
