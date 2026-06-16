@@ -16,6 +16,9 @@ export default {
           soft: "#c25a66",
         },
         sage: "#7c8a6f",
+        espresso: { DEFAULT: "#2b211b", deep: "#1c1511" },
+        champagne: { DEFAULT: "#c9a86a", soft: "#e2cfa6" },
+        blush: "#ead9c9",
       },
       fontFamily: {
         display: ["var(--font-display)", "Georgia", "serif"],

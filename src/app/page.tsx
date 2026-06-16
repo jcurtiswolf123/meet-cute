@@ -16,14 +16,16 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen">
-      <header className="container-mc flex items-center justify-between py-6">
-        <Logo />
-        <nav className="flex items-center gap-6 text-sm">
-          <Link href="/dinners" className="text-muted hover:text-ink">Dinners</Link>
-          <Link href="/coaching" className="text-muted hover:text-ink">Coaching</Link>
-          <Link href="/login" className="text-muted hover:text-ink">Sign in</Link>
-          <Link href="/apply" className="btn-primary">Apply</Link>
-        </nav>
+      <header className="absolute inset-x-0 top-0 z-20">
+        <div className="container-mc flex items-center justify-between py-6">
+          <Logo light />
+          <nav className="flex items-center gap-6 text-sm">
+            <Link href="/dinners" className="text-cream/80 hover:text-cream">Dinners</Link>
+            <Link href="/coaching" className="text-cream/80 hover:text-cream">Coaching</Link>
+            <Link href="/login" className="text-cream/80 hover:text-cream">Sign in</Link>
+            <Link href="/apply" className="rounded-full border border-cream/30 px-4 py-1.5 text-cream transition hover:bg-cream hover:text-espresso">Apply</Link>
+          </nav>
+        </div>
       </header>
 
       <Hero members={members} couples={couples} dinners={dinners} />
