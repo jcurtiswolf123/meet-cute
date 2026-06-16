@@ -9,10 +9,17 @@ export const dynamic = "force-dynamic";
 // or still-applying people to /apply to finish their application, active
 // members to the app.
 export async function GET(req: NextRequest) {
+  // Behind Fly, req.url's host is the internal bind (0.0.0.0:3009), so redirects
+  // must use the public origin or the browser lands on a dead address.
+  const base =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    `${req.headers.get("x-forwarded-proto") || "https"}://${req.headers.get("x-forwarded-host") || req.headers.get("host")}`;
+  const to = (path: string) => NextResponse.redirect(new URL(path, base));
+
   const token = req.nextUrl.searchParams.get("token") || "";
   const email = await consumeLoginToken(token);
   if (!email) {
-    return NextResponse.redirect(new URL("/login?error=expired", req.url));
+    return to("/login?error=expired");
   }
 
   let person = await prisma.person.findUnique({ where: { email } });
@@ -29,5 +36,5 @@ export async function GET(req: NextRequest) {
   await setSession(person.id, req.headers.get("user-agent") || undefined);
 
   const dest = person.isOperator ? "/studio" : person.status === "applicant" ? "/apply" : "/app";
-  return NextResponse.redirect(new URL(dest, req.url));
+  return to(dest);
 }
