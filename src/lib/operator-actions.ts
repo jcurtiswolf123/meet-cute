@@ -66,6 +66,42 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
     || /\b(book|schedule)\b.*\bfor\b/.test(lc);
   const wantsMatch = /\b(match|suggest|introduce|pair|set up)\b/.test(lc) && /\b(and|with|to)\b/.test(lc);
   const wantsNote = /\b(add )?note\b.*:/.test(lc) || /^note /.test(lc);
+  const wantsApprovePhotos = /\bapprove\b.*\bphoto/.test(lc);
+  const wantsCloseMatch = /\b(close|end|exit|cancel|pass on)\b.*\bmatch\b/.test(lc);
+  const wantsAttention = /\b(what|anything).*(need|attention|do next|priorit|to do|on my plate)\b/.test(lc)
+    || /\bwhat should i (do|work on)\b/.test(lc);
+
+  // --- operator dashboard in chat: what needs attention -----------------
+  if (wantsAttention) {
+    const [pendingPhotos, openReports, mutualReady] = await Promise.all([
+      prisma.photo.count({ where: { status: "pending" } }),
+      prisma.report.count({ where: { status: "open" } }),
+      prisma.match.count({ where: { stage: "mutual_yes" } }),
+    ]);
+    // singles with no suggestion in 60+ days
+    const since = new Date(Date.now() - 60 * 24 * 3600 * 1000);
+    const recent = await prisma.match.findMany({ select: { personAId: true, personBId: true, createdAt: true } });
+    const last = new Map<string, Date>();
+    recent.forEach((m) => [m.personAId, m.personBId].forEach((pid) => {
+      const c = last.get(pid);
+      if (!c || m.createdAt > c) last.set(pid, m.createdAt);
+    }));
+    const actives = await prisma.person.count({ where: { status: "active", isOperator: false, isAmbassador: false, isCoach: false } });
+    const stale = (await prisma.person.findMany({
+      where: { status: "active", isOperator: false, isAmbassador: false, isCoach: false },
+      select: { id: true },
+    })).filter((p) => !last.get(p.id) || last.get(p.id)! < since).length;
+    return {
+      handled: true,
+      text: [
+        "Here is what needs you:",
+        `- ${pendingPhotos} photo${pendingPhotos === 1 ? "" : "s"} to moderate`,
+        `- ${openReports} open report${openReports === 1 ? "" : "s"}`,
+        `- ${mutualReady} mutual-yes match${mutualReady === 1 ? "" : "es"} ready to book (say "book the date for <name>")`,
+        `- ${stale} of ${actives} active singles have no suggestion in 60+ days`,
+      ].join("\n"),
+    };
+  }
 
   // --- note on a person --------------------------------------------------
   if (wantsNote) {
@@ -135,6 +171,31 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
       handled: true,
       text: `Suggested ${a.name} and ${b.name}. It is in the pipeline at "suggested." Say "book the date for ${a.name.split(" ")[0]}" once they both opt in, or I can book it now.`,
     };
+  }
+
+  // --- approve a member's pending photos ---------------------------------
+  if (wantsApprovePhotos) {
+    const people = await peopleInText(q, 1);
+    if (!people[0]) return { handled: true, text: "Whose photos should I approve? Name the member." };
+    const r = await prisma.photo.updateMany({
+      where: { personId: people[0].id, status: "pending" },
+      data: { status: "approved" },
+    });
+    return {
+      handled: true,
+      text: r.count ? `Approved ${r.count} photo${r.count === 1 ? "" : "s"} for ${people[0].name}.` : `${people[0].name} has no pending photos.`,
+    };
+  }
+
+  // --- close / end a match -----------------------------------------------
+  if (wantsCloseMatch) {
+    const people = await peopleInText(q, 1);
+    if (!people[0]) return { handled: true, text: "Which member's match should I close? Name them." };
+    const match = await activeMatchFor(people[0].id);
+    if (!match) return { handled: true, text: `No active match for ${people[0].name}.` };
+    await prisma.match.update({ where: { id: match.id }, data: { stage: "exit", exitReason: "operator_closed" } });
+    const other = match.personAId === people[0].id ? match.personB.name : match.personA.name;
+    return { handled: true, text: `Closed the match between ${people[0].name} and ${other}.` };
   }
 
   return { handled: false };
