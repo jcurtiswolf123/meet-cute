@@ -12,6 +12,12 @@ primary_region = "sjc"
   NODE_ENV = "production"
   NEXT_PUBLIC_SITE_URL = "https://meet-cute.fly.dev"
 
+# Legacy SQLite volume, no longer used (DB is on Neon). Kept mounted to avoid a
+# detach prompt; safe to remove with `fly deploy -y` later.
+[[mounts]]
+  source = "meetcute_data"
+  destination = "/data"
+
 [http_service]
   internal_port = 3009
   force_https = true
