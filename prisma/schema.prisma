@@ -58,6 +58,7 @@ model Person {
 
   photos  Photo[]
   prompts Prompt[]
+  sessions Session[]
 
   matchesAsA Match[] @relation("MatchA")
   matchesAsB Match[] @relation("MatchB")
@@ -73,6 +74,36 @@ model Person {
 
   coachingAsClient CoachingEngagement[] @relation("Client")
   coachingAsCoach  CoachingEngagement[] @relation("Coach")
+}
+
+// Opaque, revocable session. The cookie holds a random token; we store only its
+// SHA-256 hash, so a DB leak cannot be replayed as a live session. Deleting the
+// row revokes the session (sign-out, account deletion, admin revoke).
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  personId  String
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  userAgent String?
+
+  @@index([personId])
+  @@index([expiresAt])
+}
+
+// Magic-link login token. Single-use, short-lived, hashed at rest. Email is
+// normalized (lowercased) so requests dedupe and verify can find/create the Person.
+model LoginToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  email      String
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  consumedAt DateTime?
+
+  @@index([email])
+  @@index([expiresAt])
 }
 
 model Photo {

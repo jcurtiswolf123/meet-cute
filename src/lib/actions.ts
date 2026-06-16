@@ -2,15 +2,44 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "./prisma";
-import { setSession, clearSession, getSessionPersonId, requireOperator } from "./auth";
+import {
+  setSession,
+  clearSession,
+  getSessionPersonId,
+  requireOperator,
+  createLoginToken,
+  normalizeEmail,
+} from "./auth";
+import { sendEmail, magicLinkEmail } from "./email";
 import { startThread, recordPick } from "./concierge";
 import { mutualFriends } from "./social";
 
-// Demo login. Validates the id exists. Operator access is open by default for
-// the demo, but if STUDIO_DEMO_PASSWORD is set in the environment, an operator
-// login requires it (one env var locks the matchmaker studio down).
+// Request a magic-link sign-in. Always returns the same "check your email"
+// result regardless of whether the address exists, so the form cannot be used
+// to enumerate members. The Person is found or created at verify time.
+export async function requestMagicLink(formData: FormData) {
+  const email = normalizeEmail(String(formData.get("email") || ""));
+  if (email.includes("@") && email.length <= 254) {
+    const token = await createLoginToken(email);
+    const h = await headers();
+    const host = h.get("host") || "";
+    const proto = h.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
+    const base = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`;
+    const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
+    const { subject, html, text } = magicLinkEmail(link);
+    await sendEmail({ to: email, subject, html, text });
+  }
+  redirect("/login?sent=1");
+}
+
+// Demo login. DISABLED in production. Local/dev only: pick any seeded user to
+// see their view. Operator access can still be gated with STUDIO_DEMO_PASSWORD.
 export async function loginAs(personId: string, formData?: FormData) {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Demo login is disabled. Use the email sign-in link.");
+  }
   const p = await prisma.person.findUnique({ where: { id: personId } });
   if (!p) throw new Error("Unknown user");
   if (p.isOperator) {

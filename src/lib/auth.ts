@@ -1,55 +1,69 @@
 import { cookies } from "next/headers";
-import { createHmac, timingSafeEqual } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { prisma } from "./prisma";
 
-// Session: the cookie holds `${personId}.${hmac}` signed with SESSION_SECRET.
-// httpOnly + sameSite + secure, and the signature is verified on every read,
-// so a cookie cannot be forged to impersonate an arbitrary id. (A real
-// deployment would use opaque tokens in a Session table for revocation; this
-// is the right shape for a single-tenant demo.)
+// Auth model: opaque, revocable sessions.
+//
+// The cookie holds a random 256-bit token. We store only its SHA-256 hash in
+// the Session table, so a database leak cannot be replayed as a live session.
+// Sign-out, account deletion, or an admin revoke just deletes the row. Magic
+// links are a second short-lived single-use token, also hashed at rest.
 const COOKIE = "mc_session";
-const SECRET = process.env.SESSION_SECRET || "meet-cute-dev-secret-change-me";
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
+const LOGIN_TTL_MS = 1000 * 60 * 15; // 15 minutes
 
-function sign(personId: string): string {
-  const mac = createHmac("sha256", SECRET).update(personId).digest("base64url");
-  return `${personId}.${mac}`;
+function newToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+function hash(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
-function verify(value: string | undefined): string | null {
-  if (!value || !value.includes(".")) return null;
-  const idx = value.lastIndexOf(".");
-  const personId = value.slice(0, idx);
-  const mac = value.slice(idx + 1);
-  const expected = createHmac("sha256", SECRET).update(personId).digest("base64url");
-  try {
-    const a = Buffer.from(mac);
-    const b = Buffer.from(expected);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  } catch {
-    return null;
-  }
-  return personId;
-}
+// --- sessions ----------------------------------------------------------------
 
-export async function setSession(personId: string) {
+export async function setSession(personId: string, userAgent?: string) {
+  const token = newToken();
+  await prisma.session.create({
+    data: {
+      tokenHash: hash(token),
+      personId,
+      expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+      userAgent: userAgent?.slice(0, 255),
+    },
+  });
   const jar = await cookies();
-  jar.set(COOKIE, sign(personId), {
+  jar.set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: Math.floor(SESSION_TTL_MS / 1000),
   });
 }
 
 export async function clearSession() {
   const jar = await cookies();
+  const token = jar.get(COOKIE)?.value;
+  if (token) {
+    await prisma.session.deleteMany({ where: { tokenHash: hash(token) } });
+  }
   jar.delete(COOKIE);
 }
 
 export async function getSessionPersonId(): Promise<string | null> {
   const jar = await cookies();
-  return verify(jar.get(COOKIE)?.value);
+  const token = jar.get(COOKIE)?.value;
+  if (!token) return null;
+  const session = await prisma.session.findUnique({ where: { tokenHash: hash(token) } });
+  if (!session) return null;
+  if (session.expiresAt.getTime() < Date.now()) {
+    await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+    return null;
+  }
+  return session.personId;
 }
 
 export async function getCurrentPerson() {
@@ -65,4 +79,29 @@ export async function requireOperator() {
   const p = await getCurrentPerson();
   if (!p || !p.isOperator) return null;
   return p;
+}
+
+// --- magic-link tokens -------------------------------------------------------
+
+/** Create a single-use login token for an email. Returns the raw token to embed
+ *  in the link (only its hash is stored). */
+export async function createLoginToken(email: string): Promise<string> {
+  const token = newToken();
+  await prisma.loginToken.create({
+    data: {
+      tokenHash: hash(token),
+      email: normalizeEmail(email),
+      expiresAt: new Date(Date.now() + LOGIN_TTL_MS),
+    },
+  });
+  return token;
+}
+
+/** Validate and burn a login token. Returns the normalized email or null. */
+export async function consumeLoginToken(rawToken: string): Promise<string | null> {
+  if (!rawToken) return null;
+  const row = await prisma.loginToken.findUnique({ where: { tokenHash: hash(rawToken) } });
+  if (!row || row.consumedAt || row.expiresAt.getTime() < Date.now()) return null;
+  await prisma.loginToken.update({ where: { id: row.id }, data: { consumedAt: new Date() } });
+  return row.email;
 }
