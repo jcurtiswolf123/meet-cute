@@ -209,6 +209,34 @@ export async function confirm(threadId: string, slotIso: string) {
   }
 }
 
+// Operator override: open a thread if needed and book the soonest held slot
+// immediately, without waiting for both members to tap. Used by the co-pilot so
+// an operator can say "book the date for X" and have a table confirmed.
+export async function autoBook(matchId: string, now: Now = new Date()) {
+  let thread = await prisma.conciergeThread.findUnique({
+    where: { matchId },
+    include: { venue: true, match: { include: { personA: true, personB: true } } },
+  });
+  if (!thread) {
+    await startThread(matchId, now);
+    thread = await prisma.conciergeThread.findUnique({
+      where: { matchId },
+      include: { venue: true, match: { include: { personA: true, personB: true } } },
+    });
+  }
+  if (!thread || !thread.venue || !thread.match) throw new Error("could not open a concierge thread");
+  const slots: string[] = JSON.parse(thread.proposedSlots ?? "[]");
+  const slot = slots[0];
+  if (!slot) throw new Error("no held slots available to book");
+  await confirm(thread.id, slot);
+  return {
+    venue: thread.venue.name,
+    time: slotLabel(slot),
+    a: thread.match.personA.name,
+    b: thread.match.personB.name,
+  };
+}
+
 export function icsForThread(t: {
   confirmedSlot: Date;
   id: string;

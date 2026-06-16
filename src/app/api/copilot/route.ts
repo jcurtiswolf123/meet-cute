@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOperator } from "@/lib/auth";
 import { answer } from "@/lib/copilot";
+import { tryOperatorAction } from "@/lib/operator-actions";
 import type { ChatMsg } from "@/lib/ai";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
 
@@ -29,6 +30,15 @@ export async function POST(req: Request) {
   }
   // Bound input size.
   const trimmed = messages.slice(-10).map((m) => ({ role: m.role, content: String(m.content).slice(0, 2000) }));
+
+  // Operator commands (book a date, suggest a match, log a note) are executed
+  // deterministically before falling through to the RAG answer.
+  const lastUser = [...trimmed].reverse().find((m) => m.role === "user")?.content ?? "";
+  const action = await tryOperatorAction(op.id, lastUser);
+  if (action.handled) {
+    return NextResponse.json({ text: action.text, live: true, provider: "operator-action" });
+  }
+
   const res = await answer(trimmed);
   return NextResponse.json(res);
 }
