@@ -365,6 +365,21 @@ export async function deletePhoto(formData: FormData) {
   revalidatePath("/app/profile");
 }
 
+// Operator: vet an applicant. Approve promotes to active (joins the roster);
+// decline marks them exited.
+export async function setMemberStatus(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const id = String(formData.get("personId") || "");
+  const action = String(formData.get("action") || "");
+  if (action === "approve") {
+    await prisma.person.update({ where: { id }, data: { status: "active", acceptedAt: new Date() } });
+  } else if (action === "decline") {
+    await prisma.person.update({ where: { id }, data: { status: "exited" } });
+  }
+  revalidatePath("/studio");
+}
+
 // Operator: log a note on a person or match.
 export async function addNote(subjectId: string, body: string, kind = "general", matchId?: string) {
   const op = await requireOperator();

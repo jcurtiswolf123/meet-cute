@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Avatar } from "@/components/ui";
+import { setMemberStatus } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,13 @@ export default async function Roster({
   ]);
   const stageCount = (s: string) => byStage.find((b) => b.stage === s)?._count ?? 0;
 
+  // New applicants awaiting review (what a fresh magic-link signup creates).
+  const pendingApplicants = await prisma.person.findMany({
+    where: { isOperator: false, isAmbassador: false, isCoach: false, status: "applicant" },
+    include: { photos: true },
+    orderBy: { createdAt: "desc" },
+  });
+
   return (
     <div>
       <div className="grid gap-3 sm:grid-cols-4">
@@ -59,6 +67,38 @@ export default async function Roster({
         <Metric label="In pipeline" value={stageCount("suggested") + stageCount("mutual_yes") + stageCount("date_scheduled")} />
         <Metric label="Together" value={stageCount("relationship")} tone="sage" />
       </div>
+
+      {pendingApplicants.length > 0 && (
+        <div className="mt-6 rounded-xl2 border border-claret/25 bg-claret/5 p-5">
+          <p className="label text-claret">New applicants ({pendingApplicants.length})</p>
+          <p className="mt-1 text-sm text-muted">Review and approve to add them to the roster.</p>
+          <ul className="mt-4 space-y-2">
+            {pendingApplicants.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white px-4 py-2.5">
+                <Link href={`/studio/person/${a.id}`} className="flex items-center gap-3">
+                  <Avatar url={a.photos[0]?.url} name={a.name} size={32} />
+                  <span>
+                    <span className="block text-sm font-medium text-ink">{a.name}{a.age ? `, ${a.age}` : ""}</span>
+                    <span className="block text-xs text-muted">{a.email} · {a.city}</span>
+                  </span>
+                </Link>
+                <div className="flex gap-2">
+                  <form action={setMemberStatus}>
+                    <input type="hidden" name="personId" value={a.id} />
+                    <input type="hidden" name="action" value="approve" />
+                    <button className="rounded-full bg-claret px-3 py-1 text-xs font-medium text-white">Approve</button>
+                  </form>
+                  <form action={setMemberStatus}>
+                    <input type="hidden" name="personId" value={a.id} />
+                    <input type="hidden" name="action" value="decline" />
+                    <button className="rounded-full border border-line px-3 py-1 text-xs">Decline</button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <form className="mt-6 flex flex-wrap items-center gap-2" action="/studio">
         <input name="q" defaultValue={sp.q} placeholder="Search name, headline, what they want..." className="field max-w-xs" />
