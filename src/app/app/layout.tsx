@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <NavLink href="/app/matches" label="Matches" />
             <NavLink href="/app/invite" label="Invite" />
             <NavLink href="/app/profile" label="Profile" />
+            <NavLink href="/app/settings" label="Settings" />
             <form action={logout} className="ml-2">
               <button className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 hover:bg-paper">
                 <Avatar url={me.photos[0]?.url} name={me.name} size={28} />

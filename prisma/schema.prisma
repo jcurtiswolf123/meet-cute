@@ -37,6 +37,10 @@ model Person {
   age          Int?
   neighborhood String?
 
+  // compliance / safety
+  birthdate    DateTime? // 18+ gate, collected at application
+  agreedTosAt  DateTime? // consent to Terms + Privacy at signup
+
   // ambassador
   ambassadorTitle String?
   ambassadorSince DateTime?
@@ -59,6 +63,11 @@ model Person {
   photos  Photo[]
   prompts Prompt[]
   sessions Session[]
+
+  blocksMade     Block[]  @relation("Blocker")
+  blocksAgainst  Block[]  @relation("Blocked")
+  reportsMade    Report[] @relation("Reporter")
+  reportsAgainst Report[] @relation("ReportSubject")
 
   matchesAsA Match[] @relation("MatchA")
   matchesAsB Match[] @relation("MatchB")
@@ -112,6 +121,37 @@ model Photo {
   person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
   url      String
   order    Int    @default(0)
+  status   String @default("approved") // pending | approved | rejected (moderation)
+}
+
+// One member blocks another: they are removed from each other's suggestions and
+// visibility, in both directions.
+model Block {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  blockerId String
+  blockedId String
+  blocker   Person   @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   Person   @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+// A safety report against a member, triaged by operators.
+model Report {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  reporterId String
+  subjectId  String
+  reporter   Person   @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  subject    Person   @relation("ReportSubject", fields: [subjectId], references: [id], onDelete: Cascade)
+  reason     String // harassment | fake | inappropriate | safety | other
+  detail     String?
+  status     String   @default("open") // open | reviewed | actioned | dismissed
+
+  @@index([subjectId])
+  @@index([status])
 }
 
 model Prompt {

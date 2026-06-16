@@ -2,6 +2,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import { updateProfile } from "@/lib/actions";
 import { Avatar } from "@/components/ui";
 import { SubmitButton } from "@/components/forms";
+import { PhotoManager } from "./PhotoManager";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,10 @@ export default async function Profile() {
           <h1 className="font-display text-3xl font-medium">{me.name}</h1>
           <p className="text-sm text-muted">{me.city} · {me.neighborhood}</p>
         </div>
+      </div>
+
+      <div className="mt-8">
+        <PhotoManager photos={me.photos.map((p) => ({ id: p.id, url: p.url, status: p.status }))} />
       </div>
 
       <form action={save} className="mt-8 space-y-5">

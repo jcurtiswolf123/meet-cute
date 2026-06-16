@@ -4,6 +4,7 @@ import { pickSlot, requestReference } from "@/lib/actions";
 import { mutualFriends } from "@/lib/social";
 import { Avatar, StageBadge } from "@/components/ui";
 import { SubmitButton } from "@/components/forms";
+import { SafetyControls } from "@/components/SafetyControls";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,10 @@ export default async function Matches() {
                     <div className="text-xs text-muted">{other.headline}</div>
                   </div>
                 </div>
-                <StageBadge stage={m.stage} />
+                <div className="flex items-center gap-1">
+                  <StageBadge stage={m.stage} />
+                  <SafetyControls subjectId={other.id} name={other.name.split(" ")[0]} />
+                </div>
               </div>
 
               {/* concierge transcript */}

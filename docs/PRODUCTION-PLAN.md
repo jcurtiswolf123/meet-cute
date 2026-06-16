@@ -42,18 +42,31 @@ public production. Started 2026-06-15. Update this as items land.
   rate-limited per-IP (10/hr) and per-email (3/15min) to stop inbox-bombing /
   mail-quota abuse (verified: 3 sends out of 5 rapid requests). Dev email fallback
   gated on `NODE_ENV !== production` and logs only the link in dev, never in prod.
-- [ ] **Per-account private state.** Today one shared synthetic roster. Real
-  members must only see their own data. Audit every query that lists people /
-  matches to scope by the session person. Reseed prod with an empty/real roster,
-  never the demo sandbox.
-- [ ] **Legal / PII.** Privacy policy, Terms of Service, signup consent
-  checkbox, data-retention statement, and **account + full-data deletion**
-  (cascade delete a Person and all related rows; honor on request).
-- [ ] **Safety (dating app).** Report + block between members, photo upload with
-  moderation (signed uploads to blob + automated + human review), and age 18+
-  gate. Vetting flow that backs the "by introduction only" promise.
-- [ ] **Config / secrets.** Rotate `SESSION_SECRET`, set `RESEND_API_KEY`,
-  `RESEND_FROM`, `STUDIO_DEMO_PASSWORD` (gate the studio), `NEXT_PUBLIC_APP_URL`.
+- [x] **Per-account private state.** DONE 2026-06-15. Audited member-facing
+  queries: `/app`, `/app/matches`, `/app/profile`, `/app/settings` all scope to
+  the session person (matches filtered to participant; studio is operator-only).
+  Block filtering added to `createSuggestion` and `blockPerson` (exits live
+  matches). Still TODO at deploy: reseed prod with an empty/real roster, never
+  the demo sandbox.
+- [x] **Legal / PII.** DONE 2026-06-15. `/privacy` + `/terms` pages (draft,
+  pending counsel). Signup consent checkbox + 18+ at `/apply`
+  (`completeApplication` stores `agreedTosAt`, `birthdate`). Account + full-data
+  deletion: `deleteAccount` cascade (verified: person, matches, sessions removed,
+  no FK errors) behind a typed-DELETE confirm on `/app/settings`. Data export:
+  `/api/me/export` (JSON download).
+- [x] **Safety (dating app).** DONE 2026-06-15. Report + block between members
+  (`reportPerson`, `blockPerson`, `unblockPerson`; `SafetyControls` on matches;
+  blocked excluded from suggestions). Photo upload with moderation: `/api/photos`
+  upload (auth, type+size allowlist, stored to volume) creates photos `pending`;
+  `/api/photos/[file]` serves approved to members, pending/rejected only to owner
+  or operator (verified: upload returns pending, badge shown); operator queue at
+  `/studio/moderation` (approve/reject photos, resolve reports). 18+ gate at
+  signup. NOTE: moderation is human-only; add an automated pre-filter (e.g.
+  Rekognition/Hive) before high volume. Vetting = applicant status + operator review.
+- [ ] **Config / secrets (at deploy).** Set `RESEND_API_KEY` (already on Fly),
+  `RESEND_FROM` (MUST be a Resend-verified domain), `NEXT_PUBLIC_APP_URL`,
+  `STUDIO_DEMO_PASSWORD`. `SESSION_SECRET` no longer used (safe to drop). Push the
+  new schema to the Fly volume DB and reseed prod empty before opening signups.
 
 ## Tier 1: to actually operate with members
 

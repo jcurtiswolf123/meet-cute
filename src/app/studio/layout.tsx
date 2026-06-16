@@ -21,6 +21,7 @@ export default async function StudioLayout({ children }: { children: React.React
           <nav className="flex items-center gap-1 text-sm">
             <NavLink href="/studio" label="Roster" />
             <NavLink href="/studio/pipeline" label="Pipeline" />
+            <NavLink href="/studio/moderation" label="Moderation" />
             <NavLink href="/studio/copilot" label="Co-pilot" />
             <form action={logout} className="ml-2">
               <button className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 hover:bg-paper">

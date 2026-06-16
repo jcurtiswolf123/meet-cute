@@ -8,6 +8,7 @@ import {
   setSession,
   clearSession,
   getSessionPersonId,
+  getCurrentPerson,
   requireOperator,
   createLoginToken,
   normalizeEmail,
@@ -174,6 +175,174 @@ export async function updateProfile(form: {
   revalidatePath("/app/profile");
 }
 
+// --- safety: report + block --------------------------------------------------
+
+const REPORT_REASONS = ["harassment", "fake", "inappropriate", "safety", "other"];
+
+export async function reportPerson(formData: FormData) {
+  const me = await getSessionPersonId();
+  if (!me) throw new Error("not logged in");
+  const subjectId = String(formData.get("subjectId") || "");
+  const reason = String(formData.get("reason") || "other");
+  const detail = String(formData.get("detail") || "").slice(0, 1000);
+  if (!subjectId || subjectId === me) throw new Error("invalid report");
+  const subject = await prisma.person.findUnique({ where: { id: subjectId } });
+  if (!subject) throw new Error("no such member");
+  await prisma.report.create({
+    data: { reporterId: me, subjectId, reason: REPORT_REASONS.includes(reason) ? reason : "other", detail },
+  });
+  revalidatePath("/app");
+  revalidatePath("/studio");
+}
+
+export async function blockPerson(formData: FormData) {
+  const me = await getSessionPersonId();
+  if (!me) throw new Error("not logged in");
+  const blockedId = String(formData.get("subjectId") || "");
+  if (!blockedId || blockedId === me) throw new Error("invalid block");
+  await prisma.block.upsert({
+    where: { blockerId_blockedId: { blockerId: me, blockedId } },
+    create: { blockerId: me, blockedId },
+    update: {},
+  });
+  // Pull any live match between them out of circulation.
+  await prisma.match.updateMany({
+    where: {
+      OR: [
+        { personAId: me, personBId: blockedId },
+        { personAId: blockedId, personBId: me },
+      ],
+    },
+    data: { stage: "exit", exitReason: "blocked" },
+  });
+  revalidatePath("/app");
+  revalidatePath("/app/matches");
+}
+
+export async function unblockPerson(formData: FormData) {
+  const me = await getSessionPersonId();
+  if (!me) throw new Error("not logged in");
+  const blockedId = String(formData.get("subjectId") || "");
+  await prisma.block.deleteMany({ where: { blockerId: me, blockedId } });
+  revalidatePath("/app/settings");
+}
+
+/** Ids the given person can never be shown (blocks in either direction). */
+export async function blockedIdsFor(personId: string): Promise<string[]> {
+  const rows = await prisma.block.findMany({
+    where: { OR: [{ blockerId: personId }, { blockedId: personId }] },
+    select: { blockerId: true, blockedId: true },
+  });
+  const ids = new Set<string>();
+  for (const r of rows) ids.add(r.blockerId === personId ? r.blockedId : r.blockerId);
+  return [...ids];
+}
+
+// --- account rights: complete application (18+ + consent), delete account -----
+
+export async function completeApplication(formData: FormData) {
+  const me = await getCurrentPerson();
+  if (!me) redirect("/login");
+
+  const first = String(formData.get("first") || "").trim();
+  const last = String(formData.get("last") || "").trim();
+  const city = String(formData.get("city") || "").includes("Francisco") ? "SF" : "NYC";
+  const lookingFor = String(formData.get("lookingFor") || "").slice(0, 2000);
+  const birthdateRaw = String(formData.get("birthdate") || "");
+  const agreed = formData.get("agree") === "on";
+
+  if (!agreed) throw new Error("You must accept the Terms and Privacy Policy to continue.");
+  const birthdate = birthdateRaw ? new Date(birthdateRaw) : null;
+  if (!birthdate || Number.isNaN(birthdate.getTime())) throw new Error("Enter your date of birth.");
+  const age = Math.floor((Date.now() - birthdate.getTime()) / (365.25 * 24 * 3600 * 1000));
+  if (age < 18) throw new Error("You must be 18 or older to join Meet Cute.");
+
+  const name = `${first} ${last}`.trim() || me!.name;
+  await prisma.person.update({
+    where: { id: me!.id },
+    data: { name, city, lookingFor, birthdate, age, agreedTosAt: new Date() },
+  });
+  redirect("/apply/thanks");
+}
+
+/** Permanently delete the signed-in member and all of their data. */
+export async function deleteAccount() {
+  const me = await getSessionPersonId();
+  if (!me) throw new Error("not logged in");
+
+  const myMatches = await prisma.match.findMany({
+    where: { OR: [{ personAId: me }, { personBId: me }] },
+    select: { id: true },
+  });
+  const matchIds = myMatches.map((m) => m.id);
+
+  await prisma.$transaction([
+    // Notes that reference me, my matches, or were authored by me (operators).
+    prisma.note.deleteMany({
+      where: { OR: [{ subjectId: me }, { authorId: me }, { matchId: { in: matchIds } }] },
+    }),
+    // References tied to me (requester/friend are plain ids, no cascade).
+    prisma.reference.deleteMany({ where: { OR: [{ requesterId: me }, { friendId: me }] } }),
+    // My matches (cascades concierge threads, messages, remaining references).
+    prisma.match.deleteMany({ where: { OR: [{ personAId: me }, { personBId: me }] } }),
+    // Vouches in either direction.
+    prisma.vouch.deleteMany({ where: { OR: [{ voucherId: me }, { subjectId: me }] } }),
+    // Referrals I sent; detach invites/referrals that point at me.
+    prisma.referral.deleteMany({ where: { inviterId: me } }),
+    prisma.referral.updateMany({ where: { inviteeId: me }, data: { inviteeId: null } }),
+    prisma.person.updateMany({ where: { referredById: me }, data: { referredById: null } }),
+    // Coaching engagements I am part of.
+    prisma.coachingEngagement.deleteMany({ where: { OR: [{ clientId: me }, { coachId: me }] } }),
+    // Finally the person; cascades photos, prompts, sessions, blocks, reports,
+    // dinner attendance.
+    prisma.person.delete({ where: { id: me } }),
+  ]);
+
+  await clearSession();
+  redirect("/?deleted=1");
+}
+
+// Operator: moderate a pending photo.
+export async function approvePhoto(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const id = String(formData.get("photoId") || "");
+  await prisma.photo.update({ where: { id }, data: { status: "approved" } });
+  revalidatePath("/studio/moderation");
+}
+
+export async function rejectPhoto(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const id = String(formData.get("photoId") || "");
+  await prisma.photo.update({ where: { id }, data: { status: "rejected" } });
+  revalidatePath("/studio/moderation");
+}
+
+// Operator: resolve a safety report.
+export async function resolveReport(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const id = String(formData.get("reportId") || "");
+  const status = String(formData.get("status") || "reviewed");
+  await prisma.report.update({
+    where: { id },
+    data: { status: ["reviewed", "actioned", "dismissed"].includes(status) ? status : "reviewed" },
+  });
+  revalidatePath("/studio/moderation");
+}
+
+// Member: remove one of their own photos.
+export async function deletePhoto(formData: FormData) {
+  const me = await getSessionPersonId();
+  if (!me) throw new Error("not logged in");
+  const id = String(formData.get("photoId") || "");
+  const photo = await prisma.photo.findUnique({ where: { id } });
+  if (!photo || photo.personId !== me) throw new Error("not your photo");
+  await prisma.photo.delete({ where: { id } });
+  revalidatePath("/app/profile");
+}
+
 // Operator: log a note on a person or match.
 export async function addNote(subjectId: string, body: string, kind = "general", matchId?: string) {
   const op = await requireOperator();
@@ -196,6 +365,16 @@ export async function createSuggestion(aId: string, bId: string, rationale: stri
     },
   });
   if (existing) throw new Error("already suggested");
+  // Never suggest a pair where either has blocked the other.
+  const blocked = await prisma.block.findFirst({
+    where: {
+      OR: [
+        { blockerId: aId, blockedId: bId },
+        { blockerId: bId, blockedId: aId },
+      ],
+    },
+  });
+  if (blocked) throw new Error("these members cannot be matched");
   await prisma.match.create({
     data: { personAId: aId, personBId: bId, rationale, createdById: me ?? undefined, stage: "suggested" },
   });
