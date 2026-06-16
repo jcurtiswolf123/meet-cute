@@ -3,13 +3,14 @@ primary_region = "sjc"
 
 [build]
 
+[deploy]
+  # Apply the Prisma schema to Neon once per deploy (not per instance), so
+  # horizontal scaling never races on DDL.
+  release_command = "npx prisma db push --skip-generate"
+
 [env]
   NODE_ENV = "production"
   NEXT_PUBLIC_SITE_URL = "https://meet-cute.fly.dev"
-
-[[mounts]]
-  source = "meetcute_data"
-  destination = "/data"
 
 [http_service]
   internal_port = 3009

@@ -1,6 +1,6 @@
 import { getCurrentPerson } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { pickSlot, requestReference } from "@/lib/actions";
+import { pickSlot, requestReference, blockedIdsFor } from "@/lib/actions";
 import { mutualFriends } from "@/lib/social";
 import { Avatar, StageBadge } from "@/components/ui";
 import { SubmitButton } from "@/components/forms";
@@ -33,7 +33,12 @@ export default async function Matches() {
     orderBy: { updatedAt: "desc" },
   });
 
-  if (!matches.length) {
+  const blocked = new Set(await blockedIdsFor(me.id));
+  const visibleMatches = matches.filter(
+    (m) => !blocked.has(m.personAId === me.id ? m.personBId : m.personAId),
+  );
+
+  if (!visibleMatches.length) {
     return (
       <div className="mx-auto max-w-md py-16 text-center text-muted">
         <h1 className="font-display text-2xl text-ink">No matches yet</h1>
@@ -46,7 +51,7 @@ export default async function Matches() {
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="font-display text-3xl font-medium">Your matches</h1>
       {await Promise.all(
-        matches.map(async (m) => {
+        visibleMatches.map(async (m) => {
           const other = m.personAId === me.id ? m.personB : m.personA;
           const t = m.thread;
           const slots: string[] = t?.proposedSlots ? JSON.parse(t.proposedSlots) : [];

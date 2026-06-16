@@ -4,7 +4,7 @@ import { Avatar, Logo } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
-const isDev = process.env.NODE_ENV !== "production";
+const isDev = process.env.NODE_ENV !== "production" && process.env.MEETCUTE_DEMO_LOGIN === "1";
 
 export default async function Login({
   searchParams,

@@ -12,6 +12,7 @@ import {
   requireOperator,
   createLoginToken,
   normalizeEmail,
+  purgeExpiredAuth,
 } from "./auth";
 import { sendEmail, magicLinkEmail } from "./email";
 import { rateLimit } from "./ratelimit";
@@ -37,7 +38,13 @@ export async function requestMagicLink(formData: FormData) {
 
   // Per-IP and per-email caps stop inbox-bombing a victim and burning the mail
   // provider's quota. (In-memory; single instance. Swap to Upstash for multi.)
-  const ip = (h.get("x-forwarded-for")?.split(",")[0] || h.get("x-real-ip") || "anon").trim();
+  const xff = h.get("x-forwarded-for");
+  const ip = (
+    h.get("fly-client-ip") ||
+    (xff ? xff.split(",").map((s) => s.trim()).filter(Boolean).at(-1) : "") ||
+    h.get("x-real-ip") ||
+    "anon"
+  ).trim();
   const validEmail = email.includes("@") && email.length <= 254;
   const ipOk = rateLimit(`magic:ip:${ip}`, 10, 60 * 60 * 1000).ok;
   const emailOk = validEmail && rateLimit(`magic:email:${email}`, 3, 15 * 60 * 1000).ok;
@@ -47,6 +54,7 @@ export async function requestMagicLink(formData: FormData) {
     const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
     const { subject, html, text } = magicLinkEmail(link);
     await sendEmail({ to: email, subject, html, text });
+    void purgeExpiredAuth();
   } else if (!base) {
     console.error("[auth] NEXT_PUBLIC_APP_URL must be set in production to send magic links");
   }
@@ -56,7 +64,9 @@ export async function requestMagicLink(formData: FormData) {
 // Demo login. DISABLED in production. Local/dev only: pick any seeded user to
 // see their view. Operator access can still be gated with STUDIO_DEMO_PASSWORD.
 export async function loginAs(personId: string, formData?: FormData) {
-  if (process.env.NODE_ENV === "production") {
+  // Disabled unless explicitly enabled AND not production, so a misconfigured
+  // staging that shares the prod DB can never impersonate accounts.
+  if (process.env.NODE_ENV === "production" || process.env.MEETCUTE_DEMO_LOGIN !== "1") {
     throw new Error("Demo login is disabled. Use the email sign-in link.");
   }
   const p = await prisma.person.findUnique({ where: { id: personId } });
@@ -85,6 +95,18 @@ export async function decideMatch(matchId: string, decision: "yes" | "pass") {
   if (!match) throw new Error("no match");
   const isA = match.personAId === me;
   if (!isA && match.personBId !== me) throw new Error("not your match");
+
+  // Re-check blocks at decision time: if either party blocked the other after
+  // the suggestion was created, the match cannot proceed.
+  const other = isA ? match.personBId : match.personAId;
+  const blocked = await prisma.block.findFirst({
+    where: { OR: [{ blockerId: me, blockedId: other }, { blockerId: other, blockedId: me }] },
+  });
+  if (blocked) {
+    await prisma.match.update({ where: { id: matchId }, data: { stage: "exit", exitReason: "blocked" } });
+    revalidatePath("/app");
+    return;
+  }
 
   const data = isA ? { aDecision: decision } : { bDecision: decision };
   const updated = await prisma.match.update({

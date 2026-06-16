@@ -1,6 +1,6 @@
 import { getCurrentPerson } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { decideMatch } from "@/lib/actions";
+import { decideMatch, blockedIdsFor } from "@/lib/actions";
 import { mutualFriends, vouchesFor } from "@/lib/social";
 import { Avatar } from "@/components/ui";
 import { SubmitButton } from "@/components/forms";
@@ -23,12 +23,16 @@ export default async function ForYou() {
     orderBy: { createdAt: "asc" },
   });
 
-  const pending = matches.find((m) =>
+  // Never surface a match with someone in a block relationship (either way).
+  const blocked = new Set(await blockedIdsFor(me.id));
+  const visible = matches.filter((m) => !blocked.has(m.personAId === me.id ? m.personBId : m.personAId));
+
+  const pending = visible.find((m) =>
     m.personAId === me.id ? m.aDecision === "pending" : m.bDecision === "pending"
   );
 
   if (!pending) {
-    const waiting = matches.find((m) =>
+    const waiting = visible.find((m) =>
       m.personAId === me.id ? m.aDecision === "yes" && m.bDecision === "pending" : m.bDecision === "yes" && m.aDecision === "pending"
     );
     return (

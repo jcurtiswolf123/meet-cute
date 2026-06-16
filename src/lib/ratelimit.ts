@@ -19,6 +19,15 @@ export function rateLimit(key: string, limit: number, windowMs: number): { ok: b
 }
 
 export function clientKey(req: Request): string {
+  // Prefer the platform-set client IP (not spoofable). x-forwarded-for's
+  // leftmost token is client-controlled, so fall back to its RIGHTMOST entry
+  // (the hop the trusted proxy saw) before x-real-ip.
+  const fly = req.headers.get("fly-client-ip");
+  if (fly) return fly.trim();
   const xff = req.headers.get("x-forwarded-for");
-  return (xff?.split(",")[0] || req.headers.get("x-real-ip") || "anon").trim();
+  if (xff) {
+    const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length) return parts[parts.length - 1];
+  }
+  return (req.headers.get("x-real-ip") || "anon").trim();
 }

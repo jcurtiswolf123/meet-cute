@@ -97,6 +97,22 @@ export async function createLoginToken(email: string): Promise<string> {
   return token;
 }
 
+/** Best-effort cleanup of expired sessions and spent/expired login tokens so
+ *  those tables do not grow unbounded at scale. Safe to call opportunistically. */
+export async function purgeExpiredAuth(): Promise<void> {
+  const now = new Date();
+  try {
+    await prisma.$transaction([
+      prisma.session.deleteMany({ where: { expiresAt: { lt: now } } }),
+      prisma.loginToken.deleteMany({
+        where: { OR: [{ expiresAt: { lt: now } }, { consumedAt: { not: null } }] },
+      }),
+    ]);
+  } catch {
+    /* non-fatal */
+  }
+}
+
 /** Validate and burn a login token. Returns the normalized email or null. */
 export async function consumeLoginToken(rawToken: string): Promise<string | null> {
   if (!rawToken) return null;

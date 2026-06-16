@@ -106,10 +106,13 @@ export async function recordPick(threadId: string, personId: string, slotIso: st
     include: { match: { include: { personA: true, personB: true } }, venue: true },
   });
   if (!thread || !thread.match) throw new Error("thread not found");
+  // Only a participant of this match may pick a slot. Without this, any member
+  // could write into a stranger's thread and force-confirm their date.
+  const isA = thread.match.personAId === personId;
+  const isB = thread.match.personBId === personId;
+  if (!isA && !isB) throw new Error("not your thread");
   const slots: string[] = JSON.parse(thread.proposedSlots ?? "[]");
   if (!slots.includes(slotIso)) throw new Error("slot not on offer");
-
-  const isA = thread.match.personAId === personId;
   await prisma.conciergeMessage.create({
     data: {
       threadId,
