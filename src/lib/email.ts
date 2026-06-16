@@ -26,11 +26,22 @@ export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<
     return { ok: true };
   }
 
+  // Reply-To a real inbox (improves deliverability vs a bare noreply) and a
+  // List-Unsubscribe header, both of which lower spam scoring.
+  const replyTo = process.env.RESEND_REPLY_TO || "josh@shiftsupportnetwork.com";
   try {
     const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to, subject, html, text }),
+      body: JSON.stringify({
+        from,
+        to,
+        subject,
+        html,
+        text,
+        reply_to: replyTo,
+        headers: { "List-Unsubscribe": `<mailto:${replyTo}>` },
+      }),
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
