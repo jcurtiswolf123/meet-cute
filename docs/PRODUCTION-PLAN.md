@@ -68,8 +68,15 @@ public production. Started 2026-06-15. Update this as items land.
   `STUDIO_DEMO_PASSWORD`. `SESSION_SECRET` no longer used (safe to drop). Push the
   new schema to the Fly volume DB and reseed prod empty before opening signups.
 
-## Tier 1: to actually operate with members
+## Tier 1: design polish + operations (THIS WEEK)
 
+Design polish:
+- [x] **High-end landing page hero.** Espresso dark full-bleed, optional video, aurora motion fallback, warm film-grain aesthetic. DONE 2026-06-15.
+- [x] **Landing page design spec.** Type scale (modular 12-72), section alternation (espresso backgrounds), champagne gradient dividers, numbered steps instead of cards, button polish with distinct states, footer polish. DONE 2026-06-15.
+- [x] **In-app member UI polish.** Full-height photo hero, better whitespace, new typography scale, refined decision states, improved empty state. DONE 2026-06-15.
+- [ ] **Hero video asset.** Acquire or create /hero.mp4 (6 min, warm cinematic, film-grained intimacy). Currently fallback aurora motion works great.
+
+Operations (for actual member usage):
 - [ ] **Concierge over real channels.** Swap the `say()` transport in
   `src/lib/concierge.ts` to SMS/WhatsApp (Twilio). Run `scripts/concierge-tick.ts`
   on a 15-min cron (Fly scheduled machine).

@@ -32,15 +32,15 @@ export default async function ForYou() {
       m.personAId === me.id ? m.aDecision === "yes" && m.bDecision === "pending" : m.bDecision === "yes" && m.aDecision === "pending"
     );
     return (
-      <div className="mx-auto max-w-xl py-16 text-center">
-        <div className="font-display text-6xl text-claret/30">♥</div>
-        <h1 className="mt-4 font-display text-3xl font-medium">
-          {waiting ? "You said yes. Sit tight." : "No new introductions right now."}
+      <div className="mx-auto max-w-xl px-4 py-24 text-center">
+        <div className="font-display text-6xl font-light text-claret/20">♥</div>
+        <h1 className="mt-8 font-display text-4xl font-medium">
+          {waiting ? "You said yes." : "No new introductions yet."}
         </h1>
-        <p className="mt-3 text-muted">
+        <p className="mt-4 max-w-sm text-lg leading-relaxed text-muted">
           {waiting
-            ? "We let you know the moment it is mutual, and the concierge takes it from there."
-            : "Your matchmaker is working on your next introduction. Quality over quantity, always."}
+            ? "Waiting on the other person to say yes. We'll let you know the moment it is mutual, and the concierge takes it from there."
+            : "Your matchmaker is working on your next introduction. We'd rather take our time and get it right. Quality over quantity, always."}
         </p>
       </div>
     );
@@ -51,80 +51,109 @@ export default async function ForYou() {
   const [mutuals, vouches] = await Promise.all([mutualFriends(me.id, other.id), vouchesFor(other.id)]);
 
   return (
-    <div className="mx-auto max-w-2xl animate-fadeup">
-      <p className="label mb-4 text-center">Your matchmaker thinks you should meet</p>
+    <div className="mx-auto max-w-2xl animate-fadeup px-4 py-8">
+      <p className="label mb-8 text-center">Your matchmaker thinks you should meet</p>
 
       <div className="card overflow-hidden">
-        <div className="grid sm:grid-cols-[200px_1fr]">
-          <div className="bg-paper">
-            <Avatar url={other.photos[0]?.url} name={other.name} size={200} />
-          </div>
-          <div className="p-6">
-            <div className="flex items-baseline justify-between">
-              <h1 className="font-display text-3xl font-medium">{other.name.split(" ")[0]}, {other.age}</h1>
-              <span className="text-sm text-muted">{other.neighborhood}</span>
+        {/* hero photo section */}
+        <div className="relative h-64 bg-paper sm:h-80">
+          {other.photos[0]?.url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={other.photos[0].url}
+              alt={other.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Avatar url={other.photos[0]?.url} name={other.name} size={120} />
             </div>
-            <p className="mt-1 text-claret">{other.headline}</p>
-            <p className="mt-4 text-sm leading-relaxed text-ink/90">{other.bio}</p>
-
-            {(mutuals.length > 0 || vouches.length > 0) && (
-              <div className="mt-5 rounded-lg border border-sage/30 bg-sage/10 p-4">
-                {vouches.length > 0 && (
-                  <p className="text-sm font-medium text-ink">
-                    {vouches.length} {vouches.length === 1 ? "person vouches" : "people vouch"} for {other.name.split(" ")[0]}
-                  </p>
-                )}
-                {mutuals.length > 0 && (
-                  <p className="mt-1 text-sm text-muted">
-                    You both know {mutuals.map((m) => m.name.split(" ")[0]).join(", ")}.
-                  </p>
-                )}
-                {vouches[0]?.note && (
-                  <p className="mt-2 text-sm italic text-ink/80">&ldquo;{vouches[0].note}&rdquo; - {vouches[0].voucher.name.split(" ")[0]}</p>
-                )}
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
-        <div className="border-t border-line p-6">
-          <div className="grid gap-4 sm:grid-cols-2">
+        {/* header: name, age, location */}
+        <div className="border-b border-line px-6 py-6 sm:px-8">
+          <div className="flex items-baseline justify-between gap-4">
+            <div>
+              <h1 className="font-display text-4xl font-medium">{other.name.split(" ")[0]}</h1>
+              <p className="mt-1 text-lg text-muted">{other.age} · {other.neighborhood}</p>
+            </div>
+          </div>
+          <p className="mt-3 text-lg leading-relaxed text-ink/90">{other.bio}</p>
+          {other.headline && (
+            <p className="mt-2 font-display text-lg text-claret">{other.headline}</p>
+          )}
+        </div>
+
+        {/* vouching / mutual friends */}
+        {(mutuals.length > 0 || vouches.length > 0) && (
+          <div className="border-b border-line bg-sage/8 px-6 py-6 sm:px-8">
+            <div className="space-y-3">
+              {vouches.length > 0 && (
+                <div>
+                  <p className="font-medium text-ink">
+                    {vouches.length} {vouches.length === 1 ? "person vouches" : "people vouch"} for {other.name.split(" ")[0]}
+                  </p>
+                  {vouches[0]?.note && (
+                    <p className="mt-2 border-l-2 border-sage pl-3 italic text-ink/80">&ldquo;{vouches[0].note}&rdquo;</p>
+                  )}
+                </div>
+              )}
+              {mutuals.length > 0 && (
+                <p className="text-sm text-muted">
+                  You both know {mutuals.map((m) => m.name.split(" ")[0]).join(", ")}.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Q&A and details */}
+        <div className="border-b border-line px-6 py-6 sm:px-8">
+          <p className="label mb-4">A bit more about {other.name.split(" ")[0]}</p>
+          <div className="space-y-4">
             {other.prompts.map((p) => (
               <div key={p.id}>
-                <p className="label">{p.question}</p>
-                <p className="mt-1 text-sm">{p.answer}</p>
+                <p className="text-xs font-medium uppercase tracking-wider text-muted">{p.question}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-ink/90">{p.answer}</p>
               </div>
             ))}
           </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="mt-6 space-y-4">
             <Detail label="Looking for" value={other.lookingFor} />
             <Detail label="Deal-breakers" value={other.dealBreakers} />
           </div>
         </div>
 
+        {/* matchmaker's note */}
         {pending.rationale && (
-          <div className="border-t border-line bg-cream/60 p-6">
-            <p className="label">Why your matchmaker picked this</p>
-            <p className="mt-1 text-sm italic leading-relaxed text-ink/85">{pending.rationale}</p>
+          <div className="border-b border-line bg-cream/40 px-6 py-6 sm:px-8">
+            <p className="label mb-3">Why this introduction</p>
+            <p className="text-sm italic leading-relaxed text-ink/85">{pending.rationale}</p>
           </div>
         )}
 
-        <div className="flex items-center gap-3 border-t border-line p-6">
+        {/* decision section */}
+        <div className="px-6 py-6 sm:px-8">
           {iSaidYes ? (
-            <p className="text-sm text-muted">You said yes. Waiting on {other.name.split(" ")[0]}.</p>
+            <div className="rounded-lg border border-sage/30 bg-sage/5 p-4 text-center">
+              <p className="font-medium text-sage">You said yes.</p>
+              <p className="mt-1 text-sm text-muted">Waiting on {other.name.split(" ")[0]}'s response.</p>
+            </div>
           ) : (
-            <>
-              <form action={decideMatch.bind(null, pending.id, "yes")} className="flex-1">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <form action={decideMatch.bind(null, pending.id, "yes")}>
                 <SubmitButton className="btn-primary w-full py-3" pendingText="Introducing...">Yes, introduce us</SubmitButton>
               </form>
               <form action={decideMatch.bind(null, pending.id, "pass")}>
-                <SubmitButton className="btn-ghost px-6 py-3" pendingText="...">Not this time</SubmitButton>
+                <SubmitButton className="btn-ghost w-full py-3" pendingText="...">Pass</SubmitButton>
               </form>
-            </>
+            </div>
           )}
         </div>
       </div>
-      <p className="mt-4 text-center text-xs text-muted">
+
+      <p className="mt-6 text-center text-xs text-muted">
         One introduction at a time. No swiping. If you both say yes, the concierge books the first date.
       </p>
     </div>

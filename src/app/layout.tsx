@@ -1,18 +1,22 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Fraunces, Hanken_Grotesk } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
+// Distinctive, editorial pairing (no Inter / system-default tell): Fraunces is a
+// characterful old-style display serif; Hanken Grotesk is a warm, slightly
+// humanist grotesque for UI and body that reads friendlier than Inter.
 const display = Fraunces({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["300", "400", "500", "600"],
   style: ["normal", "italic"],
   variable: "--font-display",
   display: "swap",
 });
 
-const sans = Inter({
+const sans = Hanken_Grotesk({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
   display: "swap",
 });

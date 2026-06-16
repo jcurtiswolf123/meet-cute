@@ -31,11 +31,15 @@ function QuoteCard({ q }: { q: Quote }) {
   );
 }
 
-function Row({ data, reverse, speed }: { data: Quote[]; reverse?: boolean; speed: number }) {
+function Row({ data, reverse, speed, dark = false }: { data: Quote[]; reverse?: boolean; speed: number; dark?: boolean }) {
   const doubled = [...data, ...data];
+  const bgFrom = dark ? "from-espresso" : "from-cream";
+  const bgGradient = dark ? "bg-gradient-to-r from-espresso to-transparent" : "bg-gradient-to-r from-cream to-transparent";
+  const bgGradientReverse = dark ? "bg-gradient-to-l from-espresso to-transparent" : "bg-gradient-to-l from-cream to-transparent";
+
   return (
     <div className="relative w-full overflow-hidden">
-      <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-24 bg-gradient-to-r from-cream to-transparent" />
+      <div className={`pointer-events-none absolute left-0 top-0 z-10 h-full w-24 ${bgGradient}`} />
       <div
         className="flex min-w-[200%] py-3 motion-reduce:!animate-none"
         style={{ animation: `mc-marquee ${speed}s linear infinite`, animationDirection: reverse ? "reverse" : "normal" }}
@@ -44,18 +48,18 @@ function Row({ data, reverse, speed }: { data: Quote[]; reverse?: boolean; speed
           <QuoteCard key={i} q={q} />
         ))}
       </div>
-      <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-24 bg-gradient-to-l from-cream to-transparent" />
+      <div className={`pointer-events-none absolute right-0 top-0 z-10 h-full w-24 ${bgGradientReverse}`} />
     </div>
   );
 }
 
-export function TestimonialMarquee() {
+export function TestimonialMarquee({ dark = false }: { dark?: boolean }) {
   return (
     <>
       <style>{`@keyframes mc-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
       <div className="flex flex-col gap-2">
-        <Row data={ROW_A} speed={42} />
-        <Row data={ROW_B} reverse speed={48} />
+        <Row data={ROW_A} speed={42} dark={dark} />
+        <Row data={ROW_B} reverse speed={48} dark={dark} />
       </div>
     </>
   );
