@@ -46,8 +46,8 @@ export async function requestMagicLink(formData: FormData) {
     "anon"
   ).trim();
   const validEmail = email.includes("@") && email.length <= 254;
-  const ipOk = rateLimit(`magic:ip:${ip}`, 10, 60 * 60 * 1000).ok;
-  const emailOk = validEmail && rateLimit(`magic:email:${email}`, 3, 15 * 60 * 1000).ok;
+  const ipOk = (await rateLimit(`magic:ip:${ip}`, 10, 60 * 60 * 1000)).ok;
+  const emailOk = validEmail && (await rateLimit(`magic:email:${email}`, 3, 15 * 60 * 1000)).ok;
 
   if (base && validEmail && ipOk && emailOk) {
     const token = await createLoginToken(email);

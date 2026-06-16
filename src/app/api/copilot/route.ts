@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   if (!op) return NextResponse.json({ error: "operators only" }, { status: 403 });
 
   // Cap LLM-backed calls to protect cost / quota.
-  const rl = rateLimit(`copilot:${op.id}:${clientKey(req)}`, 15, 60_000);
+  const rl = await rateLimit(`copilot:${op.id}:${clientKey(req)}`, 15, 60_000);
   if (!rl.ok) {
     return NextResponse.json(
       { error: "Too many requests. Give it a moment." },

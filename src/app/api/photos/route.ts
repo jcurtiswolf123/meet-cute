@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   const me = await getSessionPersonId();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const limit = rateLimit(`photo:${clientKey(req)}:${me}`, 10, 60 * 60 * 1000);
+  const limit = await rateLimit(`photo:${clientKey(req)}:${me}`, 10, 60 * 60 * 1000);
   if (!limit.ok) {
     return NextResponse.json(
       { error: "Too many uploads. Try again later." },
