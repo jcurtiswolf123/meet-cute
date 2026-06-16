@@ -3,10 +3,9 @@ primary_region = "sjc"
 
 [build]
 
-[deploy]
-  # Apply the Prisma schema to Neon once per deploy (not per instance), so
-  # horizontal scaling never races on DDL.
-  release_command = "npx prisma db push --skip-generate"
+# Schema changes are applied manually with `npx prisma db push` against Neon
+# (rare). No release_command, so deploys never block on a DB round-trip from the
+# ephemeral release machine.
 
 [env]
   NODE_ENV = "production"
