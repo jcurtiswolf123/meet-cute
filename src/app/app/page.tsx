@@ -44,7 +44,7 @@ export default async function ForYou() {
         <p className="mt-4 max-w-sm text-lg leading-relaxed text-muted">
           {waiting
             ? "Waiting on the other person to say yes. We'll let you know the moment it is mutual, and the concierge takes it from there."
-            : "Your matchmaker is working on your next introduction. We'd rather take our time and get it right. Quality over quantity, always."}
+            : "Your matchmaker is working on your next introduction. A good one is worth the wait, so hang tight."}
         </p>
       </div>
     );
@@ -150,7 +150,7 @@ export default async function ForYou() {
                 <SubmitButton className="btn-primary w-full py-3" pendingText="Introducing...">Yes, introduce us</SubmitButton>
               </form>
               <form action={decideMatch.bind(null, pending.id, "pass")}>
-                <SubmitButton className="btn-ghost w-full py-3" pendingText="...">Pass</SubmitButton>
+                <SubmitButton className="btn-ghost w-full py-3" pendingText="...">Not this time</SubmitButton>
               </form>
             </div>
           )}
