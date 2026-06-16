@@ -13,8 +13,16 @@ export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<
   const from = process.env.RESEND_FROM || "Meet Cute <hello@meet-cute.app>";
 
   if (!key) {
-    // Dev fallback: surface the content so the flow can be exercised locally.
-    console.log(`\n[email:dev] to=${to} subject=${subject}\n${text || html}\n`);
+    // In production a missing key is a misconfiguration: fail loudly, never
+    // silently "succeed" (which would strand users without a link) and never
+    // log the token-bearing link.
+    if (process.env.NODE_ENV === "production") {
+      console.error("[email] RESEND_API_KEY is not set; refusing to send in production");
+      return { ok: false };
+    }
+    // Dev only: surface just the sign-in link so the flow can be tested locally.
+    const link = (text || "").match(/https?:\/\/\S+/)?.[0] ?? "(no link)";
+    console.log(`[email:dev] to=${to} subject="${subject}" link=${link}`);
     return { ok: true };
   }
 

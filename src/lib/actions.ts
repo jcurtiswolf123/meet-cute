@@ -13,23 +13,41 @@ import {
   normalizeEmail,
 } from "./auth";
 import { sendEmail, magicLinkEmail } from "./email";
+import { rateLimit } from "./ratelimit";
 import { startThread, recordPick } from "./concierge";
 import { mutualFriends } from "./social";
 
 // Request a magic-link sign-in. Always returns the same "check your email"
-// result regardless of whether the address exists, so the form cannot be used
-// to enumerate members. The Person is found or created at verify time.
+// result regardless of whether the address exists, is rate-limited, or is
+// invalid, so the form cannot enumerate members or signal rate-limit state.
 export async function requestMagicLink(formData: FormData) {
   const email = normalizeEmail(String(formData.get("email") || ""));
-  if (email.includes("@") && email.length <= 254) {
+  const h = await headers();
+
+  // Resolve the link base. Never trust the Host header for an outbound,
+  // security-sensitive URL: a forged Host would point the emailed magic link at
+  // an attacker domain and leak the token (account takeover). Require
+  // NEXT_PUBLIC_APP_URL in production; only fall back to the request host in
+  // local dev.
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  const base =
+    configured ||
+    (process.env.NODE_ENV !== "production" ? `http://${h.get("host") || "localhost:3009"}` : null);
+
+  // Per-IP and per-email caps stop inbox-bombing a victim and burning the mail
+  // provider's quota. (In-memory; single instance. Swap to Upstash for multi.)
+  const ip = (h.get("x-forwarded-for")?.split(",")[0] || h.get("x-real-ip") || "anon").trim();
+  const validEmail = email.includes("@") && email.length <= 254;
+  const ipOk = rateLimit(`magic:ip:${ip}`, 10, 60 * 60 * 1000).ok;
+  const emailOk = validEmail && rateLimit(`magic:email:${email}`, 3, 15 * 60 * 1000).ok;
+
+  if (base && validEmail && ipOk && emailOk) {
     const token = await createLoginToken(email);
-    const h = await headers();
-    const host = h.get("host") || "";
-    const proto = h.get("x-forwarded-proto") || (host.startsWith("localhost") ? "http" : "https");
-    const base = process.env.NEXT_PUBLIC_APP_URL || `${proto}://${host}`;
     const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
     const { subject, html, text } = magicLinkEmail(link);
     await sendEmail({ to: email, subject, html, text });
+  } else if (!base) {
+    console.error("[auth] NEXT_PUBLIC_APP_URL must be set in production to send magic links");
   }
   redirect("/login?sent=1");
 }

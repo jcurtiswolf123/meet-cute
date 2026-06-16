@@ -33,6 +33,15 @@ public production. Started 2026-06-15. Update this as items land.
   `src/lib/actions.ts`, `src/app/login/page.tsx`, `src/app/auth/verify/route.ts`.
   Note: `SESSION_SECRET` is no longer used by auth (sessions are DB-backed); safe
   to drop. Set `RESEND_API_KEY`, `RESEND_FROM`, `NEXT_PUBLIC_APP_URL` for prod.
+  `RESEND_FROM` MUST be on a domain verified in Resend (the default placeholder
+  `hello@meet-cute.app` returns Resend 403 "domain is not verified"). Verify the
+  meet-cute domain in Resend, or send from an already-verified domain.
+  Hardening (post-review, 2026-06-15): magic-link base is NEVER derived from the
+  Host header in production (host-injection -> token-leak / account takeover);
+  requires `NEXT_PUBLIC_APP_URL`, host fallback is dev-only. `requestMagicLink`
+  rate-limited per-IP (10/hr) and per-email (3/15min) to stop inbox-bombing /
+  mail-quota abuse (verified: 3 sends out of 5 rapid requests). Dev email fallback
+  gated on `NODE_ENV !== production` and logs only the link in dev, never in prod.
 - [ ] **Per-account private state.** Today one shared synthetic roster. Real
   members must only see their own data. Audit every query that lists people /
   matches to scope by the session person. Reseed prod with an empty/real roster,
