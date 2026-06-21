@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionPersonId } from "@/lib/auth";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
-import { extFor, writeUpload, MAX_BYTES } from "@/lib/uploads";
+import { extFor, writeUpload, normalizeImage, MAX_BYTES, STORED_EXT } from "@/lib/uploads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,14 +39,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Only JPEG, PNG, or WebP images." }, { status: 415 });
   }
 
-  const buf = Buffer.from(await file.arrayBuffer());
+  // Re-encode to a clean WebP: strips EXIF/GPS metadata, bakes orientation,
+  // and bounds dimensions. Reject anything sharp cannot decode as an image
+  // (catches mislabeled content-types and corrupt/malicious payloads).
+  const raw = Buffer.from(await file.arrayBuffer());
+  let buf: Buffer;
+  try {
+    buf = await normalizeImage(raw);
+  } catch {
+    return NextResponse.json({ error: "That image could not be processed." }, { status: 422 });
+  }
+
   const count = await prisma.photo.count({ where: { personId: me } });
   const photo = await prisma.photo.create({
     data: { personId: me, url: "", order: count, status: "pending" },
   });
-  await writeUpload(photo.id, ext, buf);
-  const url = `/api/photos/${photo.id}.${ext}`;
-  await prisma.photo.update({ where: { id: photo.id }, data: { url } });
+  const storageUrl = await writeUpload(photo.id, STORED_EXT, buf);
+  const url = `/api/photos/${photo.id}.${STORED_EXT}`;
+  await prisma.photo.update({ where: { id: photo.id }, data: { url, storageUrl } });
 
   return NextResponse.json({ ok: true, id: photo.id, url, status: "pending" });
 }

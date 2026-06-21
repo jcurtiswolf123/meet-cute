@@ -36,7 +36,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ file: s
 
   let bytes: Buffer;
   try {
-    bytes = await readUpload(id, ext);
+    bytes = await readUpload(id, ext, photo.storageUrl);
   } catch {
     return new NextResponse("Not found", { status: 404 });
   }

@@ -18,6 +18,7 @@ import { sendEmail, magicLinkEmail } from "./email";
 import { rateLimit } from "./ratelimit";
 import { startThread, recordPick } from "./concierge";
 import { mutualFriends } from "./social";
+import { deleteUpload } from "./uploads";
 
 // Request a magic-link sign-in. Always returns the same "check your email"
 // result regardless of whether the address exists, is rate-limited, or is
@@ -298,6 +299,13 @@ export async function deleteAccount() {
   });
   const matchIds = myMatches.map((m) => m.id);
 
+  // Capture photo storage locations before the cascade removes the rows, so we
+  // can free the backing Blob objects (the DB cascade only drops the records).
+  const myPhotos = await prisma.photo.findMany({
+    where: { personId: me },
+    select: { storageUrl: true },
+  });
+
   await prisma.$transaction([
     // Notes that reference me, my matches, or were authored by me (operators).
     prisma.note.deleteMany({
@@ -319,6 +327,9 @@ export async function deleteAccount() {
     // dinner attendance.
     prisma.person.delete({ where: { id: me } }),
   ]);
+
+  // Free the photo objects from the store after the rows are gone.
+  await Promise.all(myPhotos.map((p) => deleteUpload(p.storageUrl)));
 
   await clearSession();
   redirect("/?deleted=1");
@@ -362,6 +373,8 @@ export async function deletePhoto(formData: FormData) {
   const photo = await prisma.photo.findUnique({ where: { id } });
   if (!photo || photo.personId !== me) throw new Error("not your photo");
   await prisma.photo.delete({ where: { id } });
+  // Free the backing object (Blob is billed); best-effort, never blocks delete.
+  await deleteUpload(photo.storageUrl);
   revalidatePath("/app/profile");
 }
 
@@ -378,6 +391,71 @@ export async function setMemberStatus(formData: FormData) {
     await prisma.person.update({ where: { id }, data: { status: "exited" } });
   }
   revalidatePath("/studio");
+}
+
+// --- operator (admin) accounts ----------------------------------------------
+//
+// There is one login mechanism for everyone (magic link by email); an account
+// is an operator iff Person.isOperator is true, which routes them to /studio and
+// unlocks every operators-only action. These let an existing operator add or
+// revoke other operators self-serve, instead of editing the DB.
+
+// Operator: add another operator by email. Creates the account if new, promotes
+// it if it exists, and emails them a sign-in link so they can log in right away.
+export async function addOperator(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+
+  const email = normalizeEmail(String(formData.get("email") || ""));
+  if (!email.includes("@") || email.length > 254) throw new Error("Enter a valid email.");
+  const rawName = String(formData.get("name") || "").trim().slice(0, 60);
+  const city = String(formData.get("city") || "").includes("Francisco") ? "SF" : "NYC";
+
+  const existing = await prisma.person.findUnique({ where: { email } });
+  if (existing) {
+    await prisma.person.update({
+      where: { id: existing.id },
+      data: { isOperator: true, status: "active" },
+    });
+  } else {
+    const local = email.split("@")[0].replace(/[._-]+/g, " ").trim();
+    const name = rawName || (local ? local.replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 60) : "Operator");
+    await prisma.person.create({
+      data: { email, name, city, isOperator: true, status: "active", headline: "Matchmaker" },
+    });
+  }
+
+  // Best-effort invite: email them a one-time sign-in link if we can build the
+  // public URL. Never block on mail; the account works regardless.
+  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  if (base) {
+    try {
+      const token = await createLoginToken(email);
+      const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
+      const { subject, html, text } = magicLinkEmail(link);
+      await sendEmail({ to: email, subject, html, text });
+    } catch {
+      /* invite email is best-effort */
+    }
+  }
+
+  revalidatePath("/studio/team");
+}
+
+// Operator: revoke operator (admin) access. Keeps the person/account; just drops
+// the flag. Guards against removing yourself or the last operator (lockout).
+export async function removeOperator(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const id = String(formData.get("personId") || "");
+  if (!id) throw new Error("missing operator");
+  if (id === op.id) throw new Error("You cannot revoke your own operator access.");
+
+  const count = await prisma.person.count({ where: { isOperator: true } });
+  if (count <= 1) throw new Error("Cannot remove the last operator.");
+
+  await prisma.person.update({ where: { id }, data: { isOperator: false } });
+  revalidatePath("/studio/team");
 }
 
 // Operator: log a note on a person or match.

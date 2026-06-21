@@ -120,7 +120,8 @@ model Photo {
   id       String @id @default(cuid())
   personId String
   person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
-  url      String
+  url      String // app proxy path the UI renders: /api/photos/{id}.{ext}
+  storageUrl String? // external object-store URL (Vercel Blob) when not on local disk
   order    Int    @default(0)
   status   String @default("approved") // pending | approved | rejected (moderation)
 }
