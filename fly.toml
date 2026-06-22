@@ -9,7 +9,7 @@ primary_region = "sjc"
 
 [env]
   NODE_ENV = "production"
-  NEXT_PUBLIC_SITE_URL = "https://meet-cute.fly.dev"
+  NEXT_PUBLIC_SITE_URL = "https://meetcutehq.com"
 
 # Legacy SQLite volume, no longer used (DB is on Neon). Kept mounted to avoid a
 # detach prompt; safe to remove with `fly deploy -y` later.
