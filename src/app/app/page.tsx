@@ -41,7 +41,7 @@ export default async function ForYou() {
         <h1 className="mt-8 font-display text-4xl font-medium">
           {waiting ? "You said yes." : "No new introductions yet."}
         </h1>
-        <p className="mt-4 max-w-sm text-lg leading-relaxed text-muted">
+        <p className="mx-auto mt-4 max-w-sm text-lg leading-relaxed text-muted">
           {waiting
             ? "Waiting on the other person to say yes. We'll let you know the moment it is mutual, and the concierge takes it from there."
             : "Your matchmaker is working on your next introduction. A good one is worth the wait, so hang tight."}
