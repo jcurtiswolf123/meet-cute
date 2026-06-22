@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Meet Cute - Quick Start</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #faf7f2;
+    --paper: #f3ede3;
+    --ink: #1f1a16;
+    --muted: #6b6258;
+    --line: #e4dccf;
+    --claret: #9b2d3b;
+    --claret-dark: #7c2230;
+    --claret-soft: #c25a66;
+    --champagne: #c9a86a;
+    --champagne-soft: #e2cfa6;
+    --sage: #7c8a6f;
+    --blush: #ead9c9;
+  }
+
+  @page {
+    size: letter;
+    margin: 22mm 20mm 20mm 20mm;
+    @top-center {
+      content: "";
+    }
+  }
+
+  /* Running header + page number drawn via fixed elements so Chrome honors them */
+  @page {
+    @bottom-center {
+      content: "";
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    margin: 0;
+    font-family: "Inter", system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--cream);
+    font-size: 10.5pt;
+    line-height: 1.62;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  /* ---------- Cover ---------- */
+  .cover {
+    position: relative;
+    height: 228mm;            /* fits first printed page within margins, no spill */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    page-break-after: always;
+    background:
+      radial-gradient(120% 80% at 80% 0%, rgba(201,168,106,0.10) 0%, rgba(201,168,106,0) 55%),
+      radial-gradient(100% 70% at 0% 100%, rgba(155,45,59,0.06) 0%, rgba(155,45,59,0) 50%);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 26mm 22mm;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: "";
+    position: absolute;
+    inset: 6mm;
+    border: 1px solid var(--champagne-soft);
+    border-radius: 10px;
+    pointer-events: none;
+  }
+  .cover .kicker {
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    font-size: 8.5pt;
+    color: var(--claret);
+    margin: 0 0 14mm 0;
+  }
+  .cover h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 500;
+    font-size: 50pt;
+    line-height: 1.02;
+    letter-spacing: -0.015em;
+    margin: 0;
+    color: var(--ink);
+  }
+  .cover h1 .amp {
+    color: var(--claret);
+    font-style: italic;
+    font-weight: 400;
+  }
+  .cover .rule {
+    width: 58mm;
+    height: 2px;
+    background: linear-gradient(90deg, var(--claret) 0%, var(--champagne) 100%);
+    margin: 9mm 0 9mm 0;
+    border-radius: 2px;
+  }
+  .cover .standfirst {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 14pt;
+    line-height: 1.5;
+    font-weight: 400;
+    color: var(--muted);
+    max-width: 130mm;
+    margin: 0;
+  }
+  .cover .standfirst em { color: var(--ink); font-style: italic; }
+  .cover .meta {
+    position: absolute;
+    left: 22mm;
+    bottom: 20mm;
+    display: flex;
+    gap: 16mm;
+    font-size: 9pt;
+    color: var(--muted);
+  }
+  .cover .meta .label {
+    display: block;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 7.5pt;
+    color: var(--claret);
+    margin-bottom: 2mm;
+  }
+  .cover .meta a { color: var(--ink); text-decoration: none; font-weight: 500; }
+
+  /* ---------- Body sections ---------- */
+  .content { padding: 0 1mm; }
+
+  section { margin: 0 0 9mm 0; }
+
+  h2 {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 500;
+    font-size: 19pt;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 10mm 0 4mm 0;
+    padding-bottom: 2.5mm;
+    border-bottom: 1px solid var(--line);
+    page-break-after: avoid;
+  }
+  h2 .num {
+    color: var(--champagne);
+    font-size: 13pt;
+    font-weight: 600;
+    margin-right: 3mm;
+    font-family: "Inter", sans-serif;
+    vertical-align: 1.5pt;
+  }
+  h3 {
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    font-size: 10.5pt;
+    text-transform: uppercase;
+    color: var(--claret);
+    margin: 7mm 0 3mm 0;
+    page-break-after: avoid;
+  }
+
+  p { margin: 0 0 3.5mm 0; max-width: 165mm; }
+  .lead {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 12.5pt;
+    line-height: 1.6;
+    color: var(--ink);
+    max-width: 165mm;
+  }
+
+  strong { font-weight: 600; color: var(--ink); }
+  a { color: var(--claret-dark); text-decoration: none; border-bottom: 1px solid var(--champagne-soft); }
+
+  code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 8.8pt;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: var(--claret-dark);
+    white-space: nowrap;
+  }
+
+  /* ---------- Live app pill ---------- */
+  .liveapp {
+    display: inline-flex;
+    align-items: center;
+    gap: 3mm;
+    background: var(--ink);
+    color: var(--cream);
+    border-radius: 999px;
+    padding: 2mm 5mm;
+    font-size: 9.5pt;
+    margin: 0 0 6mm 0;
+  }
+  .liveapp .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sage); box-shadow: 0 0 0 3px rgba(124,138,111,0.25); }
+  .liveapp .label { letter-spacing: 0.14em; text-transform: uppercase; font-size: 7.5pt; font-weight: 600; color: var(--champagne-soft); }
+  .liveapp a { color: var(--cream); border: none; font-family: "JetBrains Mono", monospace; font-size: 9.5pt; }
+
+  /* ---------- Surfaces table ---------- */
+  table { width: 100%; border-collapse: collapse; margin: 4mm 0 5mm 0; font-size: 9.5pt; page-break-inside: avoid; }
+  thead th {
+    text-align: left;
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    font-size: 7.5pt;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 4mm 2.5mm 0;
+    border-bottom: 1.5px solid var(--champagne);
+  }
+  tbody td { padding: 3.5mm 4mm 3.5mm 0; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.5; }
+  tbody td:first-child { font-weight: 600; color: var(--claret-dark); white-space: nowrap; font-family: "Fraunces", serif; font-size: 11pt; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ---------- Steps ---------- */
+  ol.steps { list-style: none; counter-reset: step; margin: 3mm 0; padding: 0; }
+  ol.steps > li {
+    counter-increment: step;
+    position: relative;
+    padding: 0 0 4mm 13mm;
+    page-break-inside: avoid;
+    max-width: 165mm;
+  }
+  ol.steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0; top: -0.5mm;
+    width: 8mm; height: 8mm;
+    background: var(--cream);
+    border: 1.5px solid var(--claret);
+    color: var(--claret);
+    border-radius: 50%;
+    font-family: "Fraunces", serif;
+    font-size: 10pt;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  ul.plain { margin: 3mm 0; padding: 0; list-style: none; }
+  ul.plain > li { position: relative; padding: 0 0 2.5mm 6mm; max-width: 165mm; }
+  ul.plain > li::before { content: ""; position: absolute; left: 0; top: 2.6mm; width: 4px; height: 4px; border-radius: 50%; background: var(--champagne); }
+
+  /* command sub-list inside a step */
+  ul.cmds { margin: 2.5mm 0 1mm 0; padding: 0; list-style: none; }
+  ul.cmds > li { padding: 0 0 2mm 0; }
+  ul.cmds code { white-space: normal; }
+
+  /* ---------- Code block ---------- */
+  pre {
+    background: var(--ink);
+    color: #f3ede3;
+    border-radius: 9px;
+    padding: 5mm 6mm;
+    margin: 4mm 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 8.6pt;
+    line-height: 1.75;
+    overflow: hidden;
+    page-break-inside: avoid;
+    border: 1px solid #2b211b;
+  }
+  pre .cmt { color: var(--champagne); }
+  pre .tok { color: var(--champagne-soft); }
+  pre code { background: none; border: none; padding: 0; color: inherit; white-space: pre; font-size: inherit; }
+
+  /* ---------- Callout (production notes) ---------- */
+  .note {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--champagne);
+    border-radius: 8px;
+    padding: 4mm 5mm;
+    margin: 3mm 0;
+    page-break-inside: avoid;
+  }
+  .note p { margin: 0 0 2mm 0; }
+  .note p:last-child { margin: 0; }
+
+  .callout-privacy {
+    background: linear-gradient(180deg, rgba(124,138,111,0.08), rgba(124,138,111,0.02));
+    border: 1px solid #d8ddcf;
+    border-radius: 9px;
+    padding: 4mm 5mm;
+    margin: 4mm 0 0 0;
+    font-size: 9.5pt;
+    color: var(--muted);
+    page-break-inside: avoid;
+  }
+  .callout-privacy strong { color: var(--sage); }
+
+  .divider { height: 1px; background: var(--line); border: none; margin: 7mm 0; }
+
+  /* running footer on every page */
+  .pagefoot {
+    position: fixed;
+    bottom: -14mm;
+    left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.5pt;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+  <!-- COVER -->
+  <div class="cover">
+    <p class="kicker">Concierge Matchmaking</p>
+    <h1>Meet&nbsp;Cute<br><span class="amp">Quick Start</span></h1>
+    <div class="rule"></div>
+    <p class="standfirst">An invite-only, matchmaker-run introduction service. No swiping. A human curates <em>one</em> introduction at a time, both people opt in, and a concierge books the first date.</p>
+    <div class="meta">
+      <div>
+        <span class="label">Live App</span>
+        <a href="https://meetcutehq.com">meetcutehq.com</a>
+      </div>
+      <div>
+        <span class="label">Prepared</span>
+        June 21, 2026
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <div class="liveapp">
+      <span class="dot"></span>
+      <span class="label">Live</span>
+      <a href="https://meetcutehq.com">meetcutehq.com</a>
+    </div>
+
+    <p class="lead">Everyone signs in the same way: a passwordless magic link sent to their email. What you can see is decided by one flag on your account. Members get the app, operators get the studio.</p>
+
+    <section>
+      <h2><span class="num">01</span>Two surfaces</h2>
+      <table>
+        <thead>
+          <tr><th>Surface</th><th>URL</th><th>Who</th><th>What they do</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Member app</td>
+            <td><code>/app</code></td>
+            <td>Applicants &amp; active members</td>
+            <td>Build a profile, review one curated suggestion at a time, opt in or pass, get a date booked, vouch for friends, manage safety and privacy.</td>
+          </tr>
+          <tr>
+            <td>Matchmaker studio</td>
+            <td><code>/studio</code></td>
+            <td>Operators only</td>
+            <td>Vet applicants, search the roster, create suggestions, run the pipeline, moderate photos and reports, manage the team, use the AI co-pilot.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Members can never see or reach the studio. Every <code>/studio/*</code> route redirects non-operators to <code>/app</code>, and every operator action is enforced server-side.</p>
+    </section>
+
+    <section>
+      <h2><span class="num">02</span>Member workflow</h2>
+      <ol class="steps">
+        <li><strong>Apply</strong> at <code>/apply</code>: enter email, click the sign-in link.</li>
+        <li><strong>Complete the application</strong>: name, date of birth (18+ gate), city, what you are looking for, and consent to Terms and Privacy.</li>
+        <li>An operator <strong>vets and approves</strong> you (status goes <code>applicant</code> to <code>active</code>).</li>
+        <li><strong>Build your profile</strong> at <code>/app/profile</code>: headline, bio, what you are looking for, deal-breakers, and photos (reviewed before others see them).</li>
+        <li><strong>For You</strong> (<code>/app</code>) shows <strong>one</strong> introduction at a time with the matchmaker's note on why. Choose <strong>Yes, introduce us</strong> or <strong>Not this time</strong>.</li>
+        <li>If <strong>both</strong> say yes, it becomes mutual and the <strong>concierge</strong> takes over in <code>/app/matches</code>: it proposes a venue and specific time slots; when your picks overlap it confirms and sends a calendar invite.</li>
+        <li><strong>Safety and privacy</strong> in <code>/app/settings</code>: block or report anyone, export your data, or permanently delete your account and all its data.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2><span class="num">03</span>Operator workflow</h2>
+      <ol class="steps">
+        <li>Sign in: you land in <code>/studio</code>.</li>
+        <li><strong>Roster</strong> (<code>/studio</code>): search and filter members; vet applicants (approve to active, or decline).</li>
+        <li><strong>Person view</strong> (<code>/studio/person/[id]</code>): full history, notes, mutual-friend graph; one-click create a suggestion with a rationale.</li>
+        <li><strong>Pipeline</strong> (<code>/studio/pipeline</code>): every match from suggested to together; see who is waiting on whom.</li>
+        <li><strong>Events</strong> (<code>/studio/events</code>): create a dinner or gathering (theme, venue, city, date, capacity), then <strong>one-click add invitees</strong> from the roster; each checked member is added and <strong>emailed automatically</strong>. Manage RSVPs (invited, confirmed, attended, no-show) on the event page.</li>
+        <li><strong>Moderation</strong> (<code>/studio/moderation</code>): approve or reject pending photos; resolve safety reports.</li>
+        <li><strong>Co-pilot</strong> (<code>/studio/copilot</code>): your command line for the platform. As well as answering questions over the roster and notes, <strong>typed commands run for real</strong>:
+          <ul class="cmds">
+            <li><code>Match Maya and Alex</code></li>
+            <li><code>Invite Maya and Alex to the next NYC dinner</code> (adds and emails them)</li>
+            <li><code>Create a NYC dinner at Via Carota on 2026-07-12 7pm</code></li>
+            <li><code>Book the date for Maya</code></li>
+            <li><code>Approve Maya's photos</code> &nbsp;&middot;&nbsp; <code>Close the match for Maya</code> &nbsp;&middot;&nbsp; <code>What needs my attention?</code></li>
+          </ul>
+        </li>
+        <li><strong>Team</strong> (<code>/studio/team</code>): add another operator by email (sends them a sign-in link) or revoke access. You cannot remove yourself or the last operator.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2><span class="num">04</span>Logins &amp; testing</h2>
+      <p>Everyone signs in with a magic link. For accounts whose inbox you do not control (such as test accounts), mint a <strong>direct one-click link</strong> instead (single-use, expires in 15 minutes):</p>
+      <pre><code><span class="tok">npm run login-link --</span> jesswolflord@gmail.com   <span class="cmt"># operator -&gt; /studio</span>
+<span class="tok">npm run login-link --</span> maya@meetcute.test        <span class="cmt"># member   -&gt; /app</span>
+<span class="tok">npm run login-link --</span> alex@meetcute.test        <span class="cmt"># member   -&gt; /app</span></code></pre>
+
+      <h3>Seed / reset the test scenario</h3>
+      <pre><code><span class="tok">npm run test:fixture</span></code></pre>
+      <p>Creates two members (<strong>Maya Rosen</strong> and <strong>Alex Chen</strong>) and one curated suggestion between them, reset to a clean "both undecided" state. Walk it:</p>
+      <ol class="steps">
+        <li>Open Maya's link: on <strong>For You</strong> you will see Alex suggested with the matchmaker's note. Click <strong>Yes, introduce us</strong>.</li>
+        <li>Open Alex's link: he sees Maya, clicks <strong>Yes, introduce us</strong>. It is now mutual.</li>
+        <li>Either member's <strong>Matches</strong> tab shows the concierge proposing a venue and time slots. Pick slots on both sides to see it confirm and send the invite.</li>
+        <li>Open Jessica's (operator) link: <strong>Studio</strong> to <strong>Pipeline</strong> shows the match advancing; <strong>Roster</strong>, <strong>Moderation</strong>, and <strong>Team</strong> are all here.</li>
+      </ol>
+
+      <h3>Manage operators</h3>
+      <pre><code><span class="tok">npm run ops --</span> list
+<span class="tok">npm run ops --</span> add you@email.com <span class="cmt">"Your Name"</span> NYC   <span class="cmt"># or use /studio/team</span>
+<span class="tok">npm run ops --</span> remove someone@email.com</code></pre>
+    </section>
+
+    <section>
+      <h2><span class="num">05</span>Production notes</h2>
+      <div class="note">
+        <p><strong>Photo uploads at scale:</strong> set <code>BLOB_READ_WRITE_TOKEN</code> (Vercel Blob) as a Fly secret. Without it, uploads fall back to local disk on a single machine.</p>
+        <p><strong>Schema changes:</strong> apply with <code>npm run db:deploy</code> (never via the build).</p>
+      </div>
+    </section>
+
+  </div>
+
+</body>
+</html>
