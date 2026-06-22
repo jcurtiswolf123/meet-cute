@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Logo } from "@/components/ui";
 import { TestimonialMarquee } from "@/components/TestimonialMarquee";
 import { Hero } from "@/components/Hero";
 import { Reveal } from "@/components/motion";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -16,17 +17,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen">
-      <header className="border-b border-line bg-cream/80 backdrop-blur">
-        <div className="container-mc flex items-center justify-between py-5">
-          <Logo />
-          <nav className="flex items-center gap-6 text-sm">
-            <Link href="/dinners" className="text-muted hover:text-ink">Dinners</Link>
-            <Link href="/coaching" className="text-muted hover:text-ink">Coaching</Link>
-            <Link href="/login" className="text-muted hover:text-ink">Sign in</Link>
-            <Link href="/apply" className="btn-primary">Apply</Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <Hero members={members} couples={couples} dinners={dinners} />
 
@@ -69,11 +60,11 @@ export default async function Home() {
 
       {/* the differentiator */}
       <section className="bg-paper/50 py-section-lg">
-        <div className="container-mc">
-          <Reveal className="max-w-[60ch]">
+        <div className="container-mc grid items-center gap-12 md:grid-cols-[1fr_0.85fr]">
+          <Reveal>
             <p className="label mb-3 text-claret">Why it works</p>
             <h2 className="font-display text-4xl font-medium leading-tight tracking-tight">Friends vouch for you.</h2>
-            <p className="mt-6 text-lg leading-relaxed text-muted">
+            <p className="mt-6 max-w-[52ch] text-lg leading-relaxed text-muted">
               Members can vouch for people they know, and when two people match, either one can ask a
               mutual friend for the inside scoop. It is the warm, human thing a great matchmaker does,
               and it is what makes the introductions feel safe and real.
@@ -82,19 +73,22 @@ export default async function Home() {
               Apply to join
             </Link>
           </Reveal>
+          <Reveal delay={0.12}>
+            <figure className="rounded-xl2 border border-line bg-cream p-8 shadow-card ring-1 ring-claret/10">
+              <span className="font-display text-4xl leading-none text-claret/40">&ldquo;</span>
+              <blockquote className="mt-2 font-display text-2xl font-medium leading-snug text-ink">
+                A mutual friend vouched for him before we met. That one note changed how I walked in.
+              </blockquote>
+              <figcaption className="mt-6 flex items-baseline justify-between border-t border-line pt-4 text-sm">
+                <span className="font-display text-base text-ink">Lena &amp; Chris</span>
+                <span className="text-muted">introduced, SF</span>
+              </figcaption>
+            </figure>
+          </Reveal>
         </div>
       </section>
 
-      {/* footer */}
-      <footer className="border-t border-line bg-cream">
-        <div className="container-mc flex items-center justify-between py-section-md text-sm text-muted">
-          <Logo subtle />
-          <div className="text-right">
-            <p className="font-medium text-ink">NYC · San Francisco</p>
-            <p className="mt-1">© {new Date().getFullYear()} Meet Cute</p>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

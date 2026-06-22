@@ -1,19 +1,17 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { Avatar, Logo } from "@/components/ui";
+import { Avatar } from "@/components/ui";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 
 export const dynamic = "force-dynamic";
 
 export default async function Coaching() {
   const coaches = await prisma.person.findMany({ where: { isCoach: true }, orderBy: { name: "asc" } });
   return (
-    <main className="container-mc min-h-screen py-12">
-      <header className="flex items-center justify-between">
-        <Logo />
-        <Link href="/apply" className="btn-primary">Apply</Link>
-      </header>
-
-      <div className="mt-10 max-w-[58ch]">
+    <>
+      <SiteHeader />
+      <main className="container-mc min-h-screen py-12">
+      <div className="max-w-[58ch]">
         <p className="label mb-3">Coaching</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">
           We helped you meet. Now we help you build it.
@@ -36,6 +34,8 @@ export default async function Coaching() {
           </div>
         ))}
       </div>
-    </main>
+      </main>
+      <SiteFooter />
+    </>
   );
 }

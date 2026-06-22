@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { Logo } from "@/components/ui";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 
 export const dynamic = "force-dynamic";
 
@@ -13,13 +14,10 @@ export default async function Dinners() {
   const past = dinners.filter((d) => d.status === "done");
 
   return (
-    <main className="container-mc min-h-screen py-12">
-      <header className="flex items-center justify-between">
-        <Logo />
-        <Link href="/apply" className="btn-primary">Apply</Link>
-      </header>
-
-      <div className="mt-10 max-w-[58ch]">
+    <>
+      <SiteHeader />
+      <main className="container-mc min-h-screen py-12">
+      <div className="max-w-[58ch]">
         <p className="label mb-3">Meet Cute Dinners</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Twelve people, one long table.</h1>
         <p className="mt-3 text-lg leading-relaxed text-muted">
@@ -55,6 +53,8 @@ export default async function Dinners() {
           </li>
         ))}
       </ul>
-    </main>
+      </main>
+      <SiteFooter />
+    </>
   );
 }
