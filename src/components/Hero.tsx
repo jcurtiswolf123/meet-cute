@@ -48,12 +48,17 @@ export function Hero({ members, couples, dinners }: { members: number; couples: 
             Come to a dinner
           </Link>
         </motion.div>
-        {[members, couples, dinners].some((n) => n > 0) && (
+        {[members, couples, dinners].some((n) => n > 0) ? (
           <motion.div {...v} className="mt-10 flex gap-8 text-sm text-muted">
             {members > 0 && <Stat n={members} label="members on the roster" />}
-            {couples > 0 && <Stat n={couples} label="couples, and counting" />}
+            {couples > 0 && <Stat n={couples} label="couples introduced" />}
             {dinners > 0 && <Stat n={dinners} label="dinners hosted" />}
           </motion.div>
+        ) : (
+          <motion.p {...v} className="mt-10 text-sm text-muted">
+            By introduction only. Currently inviting members in <span className="text-ink">NYC</span> and{" "}
+            <span className="text-ink">San Francisco</span>.
+          </motion.p>
         )}
       </motion.div>
 
@@ -71,6 +76,9 @@ export function Hero({ members, couples, dinners }: { members: number; couples: 
             muted
             playsInline
             preload="metadata"
+            poster="/hero-poster.jpg"
+            aria-hidden="true"
+            tabIndex={-1}
           >
             <source src="/hero.mp4" type="video/mp4" />
           </video>
@@ -87,7 +95,7 @@ export function Hero({ members, couples, dinners }: { members: number; couples: 
 function Stat({ n, label }: { n: number; label: string }) {
   return (
     <div>
-      <div className="font-display text-2xl text-ink">{n}</div>
+      <div className="font-display text-2xl tabular-nums text-ink">{n.toLocaleString()}</div>
       <div className="mt-0.5 text-xs">{label}</div>
     </div>
   );
