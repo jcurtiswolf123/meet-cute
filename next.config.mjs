@@ -32,14 +32,18 @@ const nextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
   async redirects() {
-    // Send www to the bare apex so there is one canonical host.
+    // Canonical host is hellomeetcute.com. Send www and the old meetcutehq.com
+    // domain (and its www) there so there is one canonical address.
+    const toApex = (host) => ({
+      source: "/:path*",
+      has: [{ type: "host", value: host }],
+      destination: "https://hellomeetcute.com/:path*",
+      permanent: true,
+    });
     return [
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "www.meetcutehq.com" }],
-        destination: "https://meetcutehq.com/:path*",
-        permanent: true,
-      },
+      toApex("www.hellomeetcute.com"),
+      toApex("meetcutehq.com"),
+      toApex("www.meetcutehq.com"),
     ];
   },
 };

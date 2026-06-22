@@ -1,6 +1,6 @@
 # Meet Cute - Quick Start
 
-**Live app:** https://meetcutehq.com
+**Live app:** https://hellomeetcute.com
 
 Meet Cute is an invite-only, matchmaker-run dating service. There is no swiping:
 a human operator (matchmaker) curates one introduction at a time, both people
