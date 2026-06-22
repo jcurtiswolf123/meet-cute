@@ -10,6 +10,7 @@
 // RAG answer.
 import { prisma } from "./prisma";
 import { autoBook } from "./concierge";
+import { findEvent, inviteToEvent, createEventRecord, formatWhen } from "./events";
 
 export type ActionResult = { handled: boolean; text?: string };
 
@@ -64,7 +65,9 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
 
   const wantsBook = /\b(book|auto[-\s]?book|confirm|schedule|set up|lock in)\b.*\b(date|table|restaurant|reservation|dinner|time)\b/.test(lc)
     || /\b(book|schedule)\b.*\bfor\b/.test(lc);
-  const wantsMatch = /\b(match|suggest|introduce|pair|set up)\b/.test(lc) && /\b(and|with|to)\b/.test(lc);
+  const wantsInvite = /\binvite\b/.test(lc) && /\bto\b/.test(lc);
+  const wantsCreateEvent = /\b(create|add|schedule|set ?up|plan|host)\b.*\b(dinner|event|gathering|party)\b/.test(lc);
+  const wantsMatch = /\b(match|suggest|introduce|pair|set up)\b/.test(lc) && /\b(and|with|to)\b/.test(lc) && !wantsInvite;
   const wantsNote = /\b(add )?note\b.*:/.test(lc) || /^note /.test(lc);
   const wantsApprovePhotos = /\bapprove\b.*\bphoto/.test(lc);
   const wantsCloseMatch = /\b(close|end|exit|cancel|pass on)\b.*\bmatch\b/.test(lc);
@@ -134,6 +137,54 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
     } catch (e) {
       return { handled: true, text: `Could not book that date: ${(e as Error).message}.` };
     }
+  }
+
+  // --- invite members to an event ----------------------------------------
+  if (wantsInvite) {
+    const people = await peopleInText(q, 12);
+    if (!people.length) {
+      return { handled: true, text: "Who should I invite? Name the members, for example: invite Maya and Alex to the next NYC dinner." };
+    }
+    const event = await findEvent(q);
+    if (!event) {
+      return { handled: true, text: "I don't see an upcoming event to invite them to. Create one in Studio > Events (or say 'create a dinner...'), then invite." };
+    }
+    const r = await inviteToEvent(event.id, people.map((p) => p.id));
+    if (!r.invited.length) {
+      return { handled: true, text: `Everyone you named is already on the list for ${event.label}.` };
+    }
+    const names = r.invited.map((p) => p.name).join(", ");
+    return {
+      handled: true,
+      text: `Invited ${names} to ${event.label}. ${r.emailed} invite email${r.emailed === 1 ? "" : "s"} sent${r.alreadyOn ? `, ${r.alreadyOn} were already on the list` : ""}.`,
+    };
+  }
+
+  // --- create an event ---------------------------------------------------
+  if (wantsCreateEvent) {
+    const city = /\bsf\b|san franc/.test(lc) ? "SF" : "NYC";
+    // venue: text after " at " up to a date/"on" boundary
+    const venueMatch = q.match(/\bat\s+(.+?)(?:\s+on\s+|\s*,|\s+\d|$)/i);
+    const venue = venueMatch?.[1]?.trim();
+    // date: try the chunk after " on ", else any parseable tail
+    const onMatch = q.match(/\bon\s+(.+)$/i);
+    const candidate = onMatch?.[1]?.trim();
+    let date: Date | null = null;
+    for (const s of [candidate, q].filter(Boolean) as string[]) {
+      const d = new Date(s);
+      if (!Number.isNaN(d.getTime()) && d.getFullYear() > 2000) { date = d; break; }
+    }
+    if (!venue || !date) {
+      return {
+        handled: true,
+        text: "I can create it — give me a venue and a readable date, e.g. 'create a NYC dinner at Via Carota on 2026-07-12 7pm'. Or use Studio > Events for a date picker.",
+      };
+    }
+    const ev = await createEventRecord({ city, date, venue });
+    return {
+      handled: true,
+      text: `Created ${ev.theme} at ${venue} (${city}) for ${formatWhen(ev.date)}. Add invitees in Studio > Events, or say 'invite <names> to ${venue}'.`,
+    };
   }
 
   // --- create a suggestion between two people ----------------------------

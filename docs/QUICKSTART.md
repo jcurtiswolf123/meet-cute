@@ -48,10 +48,21 @@ non-operators to `/app`, and every operator action is enforced server-side.
    graph; one-click create a suggestion with a rationale.
 4. **Pipeline** (`/studio/pipeline`): every match from suggested → together;
    see who's waiting on whom.
-5. **Moderation** (`/studio/moderation`): approve/reject pending photos; resolve
+5. **Events** (`/studio/events`): create a dinner/gathering (theme, venue, city,
+   date, capacity), then **one-click add invitees** from the roster — each
+   checked member is added and **emailed automatically**. Manage RSVPs
+   (invited/confirmed/attended/no-show) on the event page.
+6. **Moderation** (`/studio/moderation`): approve/reject pending photos; resolve
    safety reports.
-6. **Co-pilot** (`/studio/copilot`): ask questions over the roster + notes.
-7. **Team** (`/studio/team`): add another operator by email (sends them a
+7. **Co-pilot** (`/studio/copilot`): your command line for the platform. As well
+   as answering questions over the roster + notes, **typed commands run for
+   real**:
+   - `Match Maya and Alex`
+   - `Invite Maya and Alex to the next NYC dinner` (adds + emails them)
+   - `Create a NYC dinner at Via Carota on 2026-07-12 7pm`
+   - `Book the date for Maya`
+   - `Approve Maya's photos` · `Close the match for Maya` · `What needs my attention?`
+8. **Team** (`/studio/team`): add another operator by email (sends them a
    sign-in link) or revoke access. You can't remove yourself or the last
    operator.
 

@@ -55,6 +55,34 @@ export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<
   }
 }
 
+export function eventInviteEmail(args: {
+  name: string;
+  theme: string;
+  city: string;
+  venue: string;
+  when: string; // human-readable date/time
+  link: string;
+}): { subject: string; html: string; text: string } {
+  const { name, theme, city, venue, when, link } = args;
+  const first = name.split(" ")[0];
+  const subject = `You're invited: ${theme} (${city})`;
+  const text = `Hi ${first},\n\nYou're invited to a Meet Cute dinner.\n\n${theme}\n${when}\n${venue}, ${city}\n\nSign in to see details: ${link}\n\nReply to this email to RSVP or with any questions.`;
+  const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#2a2320">
+    <h1 style="font-size:22px;font-weight:500;color:#7a1f2b">Meet Cute</h1>
+    <p style="font-size:15px;line-height:1.6">Hi ${first}, you're invited to a Meet Cute dinner.</p>
+    <div style="margin:16px 0;padding:16px;border:1px solid #ece6df;border-radius:12px">
+      <p style="margin:0;font-size:18px;font-weight:500">${theme}</p>
+      <p style="margin:6px 0 0;font-size:14px;color:#6b625c">${when}</p>
+      <p style="margin:2px 0 0;font-size:14px;color:#6b625c">${venue}, ${city}</p>
+    </div>
+    <p style="margin:24px 0">
+      <a href="${link}" style="background:#7a1f2b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">View &amp; RSVP</a>
+    </p>
+    <p style="font-size:12px;color:#8a817c">Reply to this email to RSVP or with any questions.</p>
+  </div>`;
+  return { subject, html, text };
+}
+
 export function magicLinkEmail(link: string): { subject: string; html: string; text: string } {
   const subject = "Your Meet Cute sign-in link";
   const text = `Sign in to Meet Cute:\n${link}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;

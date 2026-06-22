@@ -19,6 +19,7 @@ import { rateLimit } from "./ratelimit";
 import { startThread, recordPick } from "./concierge";
 import { mutualFriends } from "./social";
 import { deleteUpload } from "./uploads";
+import { createEventRecord, inviteToEvent } from "./events";
 
 // Request a magic-link sign-in. Always returns the same "check your email"
 // result regardless of whether the address exists, is rate-limited, or is
@@ -456,6 +457,79 @@ export async function removeOperator(formData: FormData) {
 
   await prisma.person.update({ where: { id }, data: { isOperator: false } });
   revalidatePath("/studio/team");
+}
+
+// --- events (curated dinners) -----------------------------------------------
+
+// Operator: create an event. Redirects to the event detail page to add invitees.
+export async function createEvent(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+
+  const city = String(formData.get("city") || "NYC");
+  const venue = String(formData.get("venue") || "").trim();
+  const theme = String(formData.get("theme") || "").trim();
+  const dateRaw = String(formData.get("date") || "");
+  const capacity = parseInt(String(formData.get("capacity") || "12"), 10);
+  const notes = String(formData.get("notes") || "").trim();
+
+  if (!venue) throw new Error("Add a venue.");
+  const date = dateRaw ? new Date(dateRaw) : null;
+  if (!date || Number.isNaN(date.getTime())) throw new Error("Pick a valid date and time.");
+
+  const ev = await createEventRecord({ city, date, venue, theme, capacity, notes });
+  revalidatePath("/studio/events");
+  redirect(`/studio/events/${ev.id}`);
+}
+
+// Operator: one-click add invitees (checked members) to an event and email them.
+export async function addEventInvitees(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const dinnerId = String(formData.get("dinnerId") || "");
+  const ids = formData.getAll("memberId").map(String).filter(Boolean);
+  if (!dinnerId) throw new Error("missing event");
+  await inviteToEvent(dinnerId, ids);
+  revalidatePath(`/studio/events/${dinnerId}`);
+}
+
+const ATTENDEE_STATUS = ["invited", "confirmed", "attended", "noshow"];
+
+export async function setAttendeeStatus(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const id = String(formData.get("attendeeId") || "");
+  const status = String(formData.get("status") || "");
+  const att = await prisma.dinnerAttendee.update({
+    where: { id },
+    data: { status: ATTENDEE_STATUS.includes(status) ? status : "invited" },
+  });
+  revalidatePath(`/studio/events/${att.dinnerId}`);
+}
+
+export async function removeAttendee(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const id = String(formData.get("attendeeId") || "");
+  const att = await prisma.dinnerAttendee.findUnique({ where: { id } });
+  if (!att) return;
+  await prisma.dinnerAttendee.delete({ where: { id } });
+  revalidatePath(`/studio/events/${att.dinnerId}`);
+}
+
+const EVENT_STATUS = ["planned", "open", "full", "done"];
+
+export async function setEventStatus(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const id = String(formData.get("dinnerId") || "");
+  const status = String(formData.get("status") || "");
+  await prisma.dinner.update({
+    where: { id },
+    data: { status: EVENT_STATUS.includes(status) ? status : "planned" },
+  });
+  revalidatePath("/studio/events");
+  revalidatePath(`/studio/events/${id}`);
 }
 
 // Operator: log a note on a person or match.

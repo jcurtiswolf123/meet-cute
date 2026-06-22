@@ -27,12 +27,20 @@ function Thinking() {
   );
 }
 
-const STARTERS = [
-  "Show me candidates for Jordan and why",
-  "What did we note about Maya?",
-  "Catch me up on Ben",
+// Two kinds of prompts: ASK (read-only, retrieval) and DO (mutations that run
+// for real). Grouped so the operator sees the co-pilot is a control surface.
+const ASK_STARTERS = [
+  "Show me candidates for Maya and why",
+  "Catch me up on Alex",
   "Who haven't I suggested in 60 days?",
-  "Draft an intro note for Elena",
+  "What needs my attention?",
+];
+const DO_STARTERS = [
+  "Match Maya and Alex",
+  "Invite Maya and Alex to the next NYC dinner",
+  "Create a NYC dinner at Via Carota on 2026-07-12 7pm",
+  "Book the date for Maya",
+  "Approve Maya's photos",
 ];
 
 export default function CopilotChat() {
@@ -89,21 +97,37 @@ export default function CopilotChat() {
   return (
     <div className="mx-auto flex h-[calc(100vh-180px)] max-w-2xl flex-col">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-medium">Matchmaker co-pilot</h1>
+        <h1 className="font-display text-2xl font-medium">Co-pilot</h1>
         {live !== null && (
           <span className={`pill ${live ? "border-sage/40 text-sage" : ""}`}>
             {provider || (live ? "AI live" : "local engine")}
           </span>
         )}
       </div>
-      <p className="mt-1 text-sm text-muted">Internal only. Ask about the roster, draft notes, recall history, rank suggestions.</p>
+      <p className="mt-1 text-sm text-muted">
+        Your command line for the platform. Ask about the roster, or tell it to match people, invite
+        members to events, book dates, and more — typed commands run for real.
+      </p>
 
       <div className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-xl2 border border-line bg-white p-4">
         {!messages.length && (
-          <div className="flex flex-wrap gap-2">
-            {STARTERS.map((s) => (
-              <button key={s} onClick={() => send(s)} className="pill hover:border-claret/40">{s}</button>
-            ))}
+          <div className="space-y-4">
+            <div>
+              <p className="label mb-2 text-muted">Ask</p>
+              <div className="flex flex-wrap gap-2">
+                {ASK_STARTERS.map((s) => (
+                  <button key={s} onClick={() => send(s)} className="pill hover:border-claret/40">{s}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="label mb-2 text-muted">Do <span className="font-normal normal-case">(runs live)</span></p>
+              <div className="flex flex-wrap gap-2">
+                {DO_STARTERS.map((s) => (
+                  <button key={s} onClick={() => send(s)} className="pill border-claret/30 text-claret hover:bg-claret/5">{s}</button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
         {messages.map((m, i) => (
