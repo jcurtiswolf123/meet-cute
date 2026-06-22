@@ -42,6 +42,11 @@ export default async function Apply() {
 
   // Signed in: complete the application (name, age, city, what you want, consent).
   const [first = "", last = ""] = (me.name || "").split(" ");
+  // 18+ gate computed at render time so the max date never goes stale.
+  const today = new Date();
+  const maxBirthdate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())
+    .toISOString()
+    .slice(0, 10);
   return (
     <main className="container-mc min-h-screen py-12">
       <Logo />
@@ -59,21 +64,22 @@ export default async function Apply() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="label">Date of birth</label>
-              <input className="field mt-1.5" name="birthdate" type="date" required max="2008-01-01" />
+              <label className="label" htmlFor="birthdate">Date of birth</label>
+              <input id="birthdate" className="field mt-1.5" name="birthdate" type="date" required max={maxBirthdate} />
               <p className="mt-1 text-xs text-muted">You must be 18 or older to join.</p>
             </div>
             <div>
-              <label className="label">City</label>
-              <select className="field mt-1.5" name="city" defaultValue={me.city === "SF" ? "San Francisco" : "New York"}>
-                <option>New York</option>
-                <option>San Francisco</option>
+              <label className="label" htmlFor="city">City</label>
+              <select id="city" className="field mt-1.5" name="city" defaultValue={me.city === "SF" ? "SF" : "NYC"}>
+                <option value="NYC">New York</option>
+                <option value="SF">San Francisco</option>
               </select>
             </div>
           </div>
           <div>
-            <label className="label">What are you looking for?</label>
+            <label className="label" htmlFor="lookingFor">What are you looking for?</label>
             <textarea
+              id="lookingFor"
               className="field mt-1.5 min-h-28"
               name="lookingFor"
               defaultValue={me.lookingFor ?? ""}
@@ -122,8 +128,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="label">{label}</label>
+      <label className="label" htmlFor={name}>{label}</label>
       <input
+        id={name}
         className="field mt-1.5"
         name={name}
         type={type}

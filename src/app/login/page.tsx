@@ -51,7 +51,7 @@ export default async function Login({
               required
               autoComplete="email"
               placeholder="you@email.com"
-              className="w-full rounded-xl border border-line bg-paper px-4 py-3 text-sm outline-none focus:border-claret/50 focus:ring-2 focus:ring-claret/15"
+              className="field"
             />
             <button type="submit" className="btn-primary w-full">
               Send me a sign-in link

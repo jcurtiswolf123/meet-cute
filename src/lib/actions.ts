@@ -270,7 +270,8 @@ export async function completeApplication(formData: FormData) {
 
   const first = String(formData.get("first") || "").trim();
   const last = String(formData.get("last") || "").trim();
-  const city = String(formData.get("city") || "").includes("Francisco") ? "SF" : "NYC";
+  const cityRaw = String(formData.get("city") || "");
+  const city = cityRaw === "SF" || cityRaw.includes("Francisco") ? "SF" : "NYC";
   const lookingFor = String(formData.get("lookingFor") || "").slice(0, 2000);
   const birthdateRaw = String(formData.get("birthdate") || "");
   const agreed = formData.get("agree") === "on";
