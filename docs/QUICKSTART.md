@@ -1,11 +1,11 @@
-# Meet Cute — Quick Start
+# Meet Cute - Quick Start
 
 **Live app:** https://meet-cute.fly.dev
 
 Meet Cute is an invite-only, matchmaker-run dating service. There is no swiping:
 a human operator (matchmaker) curates one introduction at a time, both people
 opt in, and a concierge bot books the first date. Everyone signs in the same
-way — a passwordless magic link sent to their email. What you can see is
+way: a passwordless magic link sent to their email. What you can see is
 determined by one flag on your account: members get the app, operators get the
 studio.
 
@@ -18,7 +18,7 @@ studio.
 | **Member app** | `/app` | Applicants & active members | Build a profile, review one curated suggestion at a time, opt in/pass, get a date booked, vouch for friends, manage safety + privacy. |
 | **Matchmaker studio** | `/studio` | Operators only | Vet applicants, search the roster, create suggestions, run the pipeline, moderate photos/reports, manage the team, use the AI co-pilot. |
 
-Members can never see or reach the studio — every `/studio/*` route redirects
+Members can never see or reach the studio. Every `/studio/*` route redirects
 non-operators to `/app`, and every operator action is enforced server-side.
 
 ---
@@ -49,7 +49,7 @@ non-operators to `/app`, and every operator action is enforced server-side.
 4. **Pipeline** (`/studio/pipeline`): every match from suggested → together;
    see who's waiting on whom.
 5. **Events** (`/studio/events`): create a dinner/gathering (theme, venue, city,
-   date, capacity), then **one-click add invitees** from the roster — each
+   date, capacity), then **one-click add invitees** from the roster; each
    checked member is added and **emailed automatically**. Manage RSVPs
    (invited/confirmed/attended/no-show) on the event page.
 6. **Moderation** (`/studio/moderation`): approve/reject pending photos; resolve
@@ -71,8 +71,8 @@ non-operators to `/app`, and every operator action is enforced server-side.
 ## Logins & testing
 
 Everyone signs in with a magic link. For accounts whose inbox you don't control
-(e.g. test accounts), mint a **direct one-click link** instead — single-use,
-expires in 15 minutes:
+(e.g. test accounts), mint a **direct one-click link** instead (single-use,
+expires in 15 minutes):
 
 ```bash
 npm run login-link -- jesswolflord@gmail.com   # operator → /studio
@@ -86,7 +86,7 @@ npm run login-link -- alex@meetcute.test        # member  → /app
 npm run test:fixture
 ```
 
-Creates two members — **Maya Rosen** and **Alex Chen** — and one curated
+Creates two members (**Maya Rosen** and **Alex Chen**) and one curated
 suggestion between them, reset to a clean "both undecided" state. Walk it:
 
 1. Open Maya's link → on **For You** you'll see Alex suggested with the

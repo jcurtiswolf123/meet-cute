@@ -73,7 +73,7 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
       <section className="card p-6">
         <h2 className="label">Add invitees</h2>
         <p className="mt-1 text-xs text-muted">
-          Active {event.city} members not already invited. Check anyone and add them — each gets an
+          Active {event.city} members not already invited. Check anyone and add them. Each gets an
           email automatically.
         </p>
         {eligible.length === 0 ? (

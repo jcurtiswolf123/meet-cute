@@ -106,7 +106,7 @@ export default function CopilotChat() {
       </div>
       <p className="mt-1 text-sm text-muted">
         Your command line for the platform. Ask about the roster, or tell it to match people, invite
-        members to events, book dates, and more — typed commands run for real.
+        members to events, book dates, and more. Typed commands run for real.
       </p>
 
       <div className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-xl2 border border-line bg-white p-4">

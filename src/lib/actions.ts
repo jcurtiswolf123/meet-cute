@@ -493,7 +493,21 @@ export async function addEventInvitees(formData: FormData) {
   revalidatePath(`/studio/events/${dinnerId}`);
 }
 
-const ATTENDEE_STATUS = ["invited", "confirmed", "attended", "noshow"];
+// Member: RSVP to an event they were invited to (their own attendee row only).
+export async function setMyRsvp(formData: FormData) {
+  const me = await getSessionPersonId();
+  if (!me) throw new Error("not logged in");
+  const attendeeId = String(formData.get("attendeeId") || "");
+  const choice = String(formData.get("choice") || "");
+  const status = choice === "confirmed" ? "confirmed" : choice === "declined" ? "declined" : null;
+  if (!status) throw new Error("invalid RSVP");
+  const att = await prisma.dinnerAttendee.findUnique({ where: { id: attendeeId } });
+  if (!att || att.personId !== me) throw new Error("not your invitation");
+  await prisma.dinnerAttendee.update({ where: { id: attendeeId }, data: { status } });
+  revalidatePath("/app/events");
+}
+
+const ATTENDEE_STATUS = ["invited", "confirmed", "declined", "attended", "noshow"];
 
 export async function setAttendeeStatus(formData: FormData) {
   const op = await requireOperator();

@@ -42,7 +42,7 @@ function blobEnabled(): boolean {
  *
  * Why this exists: phone photos carry EXIF metadata, and EXIF routinely
  * includes GPS coordinates. Serving the original bytes would leak a member's
- * home/where-the-photo-was-taken to anyone who can view the photo — a real
+ * home/where-the-photo-was-taken to anyone who can view the photo, a real
  * safety problem for a dating product. sharp drops all metadata by default;
  * .rotate() first bakes the EXIF orientation into the pixels so the image is
  * not sideways once the orientation tag is gone. We also cap dimensions to

@@ -25,7 +25,7 @@ export default async function Team() {
         <h1 className="font-display text-3xl font-medium">Team</h1>
         <p className="mt-1 text-sm text-muted">
           Operators have full studio access: roster, pipeline, moderation, and the co-pilot. Everyone
-          signs in with their own email — there is no shared password. Adding someone emails them a
+          signs in with their own email, with no shared password. Adding someone emails them a
           one-time sign-in link.
         </p>
       </div>
@@ -84,7 +84,7 @@ export default async function Team() {
                     </button>
                   </form>
                 ) : (
-                  <span className="text-xs text-muted">{isMe ? "—" : "last operator"}</span>
+                  <span className="text-xs text-muted">{isMe ? "you" : "last operator"}</span>
                 )}
               </li>
             );

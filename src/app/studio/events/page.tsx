@@ -23,7 +23,7 @@ export default async function Events() {
         <h1 className="font-display text-3xl font-medium">Events</h1>
         <p className="mt-1 text-sm text-muted">
           Curated dinners and gatherings. Create an event, then add invitees from the roster in one
-          click — they get an email automatically.
+          click. They get an email automatically.
         </p>
       </div>
 

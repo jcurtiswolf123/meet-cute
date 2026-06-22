@@ -1,4 +1,4 @@
-// Mint a one-click sign-in link for any account (bypasses the email inbox —
+// Mint a one-click sign-in link for any account (bypasses the email inbox,
 // useful for testing accounts whose email you don't control). The token is
 // single-use and expires in 15 minutes, same as a real magic link.
 //

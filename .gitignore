@@ -14,4 +14,7 @@ prisma/*.db
 # uploaded photos (local dev)
 .uploads/
 
+# watchdog worker status/logs
+.watchdog/
+
 tsconfig.tsbuildinfo

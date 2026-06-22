@@ -13,6 +13,7 @@
     "ops": "tsx scripts/operators.ts",
     "test:fixture": "tsx scripts/test-fixture.ts",
     "login-link": "tsx scripts/login-link.ts",
+    "watchdog": "tsx scripts/watchdog.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "rm -f prisma/dev.db && prisma db push && tsx scripts/seed.ts",
     "embed": "tsx scripts/embed.ts",

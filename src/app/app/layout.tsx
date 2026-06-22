@@ -19,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <nav className="flex items-center gap-1 text-sm">
             <NavLink href="/app" label="For you" />
             <NavLink href="/app/matches" label="Matches" />
+            <NavLink href="/app/events" label="Events" />
             <NavLink href="/app/invite" label="Invite" />
             <NavLink href="/app/profile" label="Profile" />
             <NavLink href="/app/settings" label="Settings" />

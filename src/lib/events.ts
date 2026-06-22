@@ -73,7 +73,7 @@ export async function inviteToEvent(
   }
 
   const when = formatWhen(dinner.date);
-  const link = `${appBase()}/app`;
+  const link = `${appBase()}/app/events`;
   let emailed = 0;
   await Promise.all(
     toAdd.map(async (p) => {

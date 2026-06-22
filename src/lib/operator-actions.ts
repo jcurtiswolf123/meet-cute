@@ -177,7 +177,7 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
     if (!venue || !date) {
       return {
         handled: true,
-        text: "I can create it — give me a venue and a readable date, e.g. 'create a NYC dinner at Via Carota on 2026-07-12 7pm'. Or use Studio > Events for a date picker.",
+        text: "I can create it. Give me a venue and a readable date, e.g. 'create a NYC dinner at Via Carota on 2026-07-12 7pm'. Or use Studio > Events for a date picker.",
       };
     }
     const ev = await createEventRecord({ city, date, venue });

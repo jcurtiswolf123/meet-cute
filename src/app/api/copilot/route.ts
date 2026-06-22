@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOperator } from "@/lib/auth";
 import { answer } from "@/lib/copilot";
+import { answerWithTools, toolsEnabled } from "@/lib/copilot-tools";
 import { tryOperatorAction } from "@/lib/operator-actions";
 import type { ChatMsg } from "@/lib/ai";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
@@ -31,8 +32,15 @@ export async function POST(req: Request) {
   // Bound input size.
   const trimmed = messages.slice(-10).map((m) => ({ role: m.role, content: String(m.content).slice(0, 2000) }));
 
-  // Operator commands (book a date, suggest a match, log a note) are executed
-  // deterministically before falling through to the RAG answer.
+  // Preferred path: a real tool-calling agent (Claude) that can read the roster
+  // and take actions. Enabled when ANTHROPIC_API_KEY is set (COPILOT_TOOLS!="0").
+  if (toolsEnabled()) {
+    const res = await answerWithTools(op.id, trimmed);
+    if (res.text) return NextResponse.json(res);
+    // fall through to the deterministic path if the agent returned nothing
+  }
+
+  // Fallback path: deterministic operator commands first, then the RAG answer.
   const lastUser = [...trimmed].reverse().find((m) => m.role === "user")?.content ?? "";
   const action = await tryOperatorAction(op.id, lastUser);
   if (action.handled) {

@@ -33,7 +33,7 @@ const ALEX: Spec = {
   email: "alex@meetcute.test", name: "Alex Chen", city: "NYC", age: 31, gender: "man", seeking: "woman",
   neighborhood: "Fort Greene", headline: "Architect who cooks, climbs, and overthinks playlists",
   bio: "I design schools and libraries. Weekends are climbing, the farmers market, and pretending I'll finally fix my road bike. Looking for someone with their own thing going on.",
-  lookingFor: "A real partner — ambitious but warm, up for a Tuesday adventure as much as a quiet Sunday.",
+  lookingFor: "A real partner, ambitious but warm, up for a Tuesday adventure as much as a quiet Sunday.",
   dealBreakers: "Flakiness, and anyone who won't try the tasting menu.",
   prompts: [
     ["We'll get along if", "you have a restaurant list and strong opinions about it."],
@@ -75,7 +75,7 @@ async function upsertMember(s: Spec) {
 
     // One curated suggestion, reset to a clean undecided state each run.
     const rationale =
-      "You're both builders who treat food as the main event — Maya edits cookbooks, Alex plans his week around the farmers market. Similar ambition, complementary energy (her planning, his spontaneity), and neither suffers flakiness. Worth a dinner.";
+      "You're both builders who treat food as the main event. Maya edits cookbooks, Alex plans his week around the farmers market. Similar ambition, complementary energy (her planning, his spontaneity), and neither suffers flakiness. Worth a dinner.";
     const existing = await prisma.match.findFirst({
       where: {
         OR: [
