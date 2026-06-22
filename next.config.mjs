@@ -31,6 +31,17 @@ const nextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  async redirects() {
+    // Send www to the bare apex so there is one canonical host.
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.meetcutehq.com" }],
+        destination: "https://meetcutehq.com/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 // Only wrap with Sentry once a DSN is configured. With no DSN the build is
