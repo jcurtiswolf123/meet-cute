@@ -1,10 +1,10 @@
 // Always-on watchdog worker.
 //
 // Every cycle it checks the things that actually break a deploy or the live
-// site, records status, and alerts on failure. When WATCHDOG_AUTOFIX=1 and an
-// Anthropic key is present, a typecheck regression triggers an AI fix attempt
-// that is committed to a NEW branch and (if `gh` is available) opened as a PR.
-// It NEVER edits the working branch or touches production.
+// site, records status, and alerts on failure. When WATCHDOG_AUTOFIX=1 and an AI
+// key is present (OPENAI_API_KEY or ANTHROPIC_API_KEY), a typecheck regression
+// triggers an AI fix attempt that is committed to a NEW branch and (if `gh` is
+// available) opened as a PR. It NEVER edits the working branch or touches prod.
 //
 //   npm run watchdog                 # run forever (default 5 min interval)
 //   WATCHDOG_ONCE=1 npm run watchdog # single pass (CI / cron)
@@ -16,6 +16,7 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { sendEmail } from "../src/lib/email";
 
 const ROOT = process.cwd();
@@ -26,6 +27,31 @@ const BUILD_EVERY = Number(process.env.WATCHDOG_BUILD_EVERY) || 12; // ~hourly a
 const ALERT_EMAIL = process.env.WATCHDOG_ALERT_EMAIL || process.env.RESEND_REPLY_TO || "";
 const AUTOFIX = process.env.WATCHDOG_AUTOFIX === "1";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+
+// Ask whichever AI provider is configured for a minimal patch. Returns the raw
+// model text (expected to contain the JSON patch object).
+async function askForPatch(prompt: string): Promise<string> {
+  if (ANTHROPIC_KEY) {
+    const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY });
+    const res = await anthropic.messages.create({
+      model: process.env.COPILOT_TOOLS_MODEL || "claude-sonnet-4-6",
+      max_tokens: 8000,
+      messages: [{ role: "user", content: prompt }],
+    });
+    return res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("\n");
+  }
+  if (OPENAI_KEY) {
+    const openai = new OpenAI({ apiKey: OPENAI_KEY });
+    const res = await openai.chat.completions.create({
+      model: process.env.COPILOT_OPENAI_MODEL || "gpt-4o-mini",
+      max_tokens: 8000,
+      messages: [{ role: "user", content: prompt }],
+    });
+    return res.choices[0]?.message?.content ?? "";
+  }
+  return "";
+}
 
 type Check = { name: string; ok: boolean; detail: string };
 
@@ -102,7 +128,7 @@ function filesFromTsc(out: string): string[] {
 }
 
 async function attemptAutofix(tscOut: string): Promise<void> {
-  if (!AUTOFIX || !ANTHROPIC_KEY) return;
+  if (!AUTOFIX || (!ANTHROPIC_KEY && !OPENAI_KEY)) return;
   const files = filesFromTsc(tscOut);
   if (!files.length) {
     log("autofix: could not identify offending files; skipping");
@@ -121,7 +147,6 @@ async function attemptAutofix(tscOut: string): Promise<void> {
   }
   if (!current.length) return;
 
-  const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY });
   const prompt = [
     "You are fixing TypeScript compile errors in a Next.js + Prisma project.",
     "Make the MINIMAL change needed to fix the errors. Do not refactor or change behavior.",
@@ -135,12 +160,7 @@ async function attemptAutofix(tscOut: string): Promise<void> {
 
   let proposed: { path: string; content: string }[] = [];
   try {
-    const res = await anthropic.messages.create({
-      model: process.env.COPILOT_TOOLS_MODEL || "claude-sonnet-4-6",
-      max_tokens: 8000,
-      messages: [{ role: "user", content: prompt }],
-    });
-    const text = res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("\n");
+    const text = await askForPatch(prompt);
     const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
     proposed = (JSON.parse(json).files ?? []).filter(
       (f: { path: string }) => files.includes(f.path), // only files we offered

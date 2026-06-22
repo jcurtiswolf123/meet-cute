@@ -2,33 +2,46 @@ name: Watchdog
 
 # Always-on monitor (option B): runs on a schedule, checks the live site plus a
 # typecheck regression, and fails the job (GitHub notifies) on any problem.
-# Heavy build + DB checks are skipped here; the deploy workflow already builds,
-# and a DATABASE_URL secret is optional. Add WATCHDOG_ALERT_EMAIL + RESEND_API_KEY
-# repo secrets to also get an email on failure.
+# With WATCHDOG_AUTOFIX=1 + OPENAI_API_KEY, a typecheck regression also opens an
+# AI fix PR on a branch (re-verified, never merged automatically, never deploys).
 
 on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write        # push the fix branch
+  pull-requests: write   # open the fix PR
+
 jobs:
   watchdog:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: master       # stay on a branch (not detached HEAD) so autofix can branch/PR
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npx prisma generate
+      - name: Configure git identity (for autofix commits)
+        run: |
+          git config user.name "meetcute-watchdog[bot]"
+          git config user.email "watchdog@users.noreply.github.com"
       - name: Run watchdog (single pass)
         run: npm run watchdog
         env:
           WATCHDOG_ONCE: "1"
           WATCHDOG_BUILD_EVERY: "999" # skip the heavy build in CI
+          WATCHDOG_AUTOFIX: "1"
           WATCHDOG_URL: ${{ vars.WATCHDOG_URL || 'https://meet-cute.fly.dev' }}
           WATCHDOG_ALERT_EMAIL: ${{ secrets.WATCHDOG_ALERT_EMAIL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # gh pr create
