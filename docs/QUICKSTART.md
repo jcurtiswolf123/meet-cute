@@ -111,6 +111,4 @@ npm run ops -- remove someone@email.com
 
 - **Photo uploads at scale:** set `BLOB_READ_WRITE_TOKEN` (Vercel Blob) as a Fly
   secret. Without it, uploads fall back to local disk on a single machine.
-- **Error tracking:** set `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` to turn Sentry
-  on (no-op until then).
 - **Schema changes:** apply with `npm run db:deploy` (never via the build).
