@@ -108,8 +108,8 @@ export default async function Roster({
         <button className="btn-ghost">Filter</button>
       </form>
 
-      <div className="mt-5 overflow-hidden rounded-xl2 border border-line bg-white">
-        <table className="w-full text-sm">
+      <div className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-white">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="border-b border-line bg-paper/60 text-left text-xs uppercase tracking-wide text-muted">
             <tr>
               <th className="px-4 py-3 font-medium">Member</th>
