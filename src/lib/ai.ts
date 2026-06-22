@@ -161,6 +161,22 @@ export async function copilotReply(system: string, history: ChatMsg[]): Promise<
     }
   }
 
-  // 3) local intent engine (handled by caller)
+  // 3) OpenAI (if funded)
+  if (openai) {
+    try {
+      const res = await openai.chat.completions.create({
+        model: process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
+        max_tokens: 1024,
+        temperature: 0.4,
+        messages: [{ role: "system", content: system }, ...history],
+      });
+      const text = res.choices[0]?.message?.content?.trim();
+      if (text) return { text, live: true, provider: "OpenAI" };
+    } catch {
+      /* fall through */
+    }
+  }
+
+  // 4) local intent engine (handled by caller)
   return { text: "", live: false, provider: "local engine" };
 }

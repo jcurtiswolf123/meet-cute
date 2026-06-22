@@ -554,6 +554,33 @@ export async function addNote(subjectId: string, body: string, kind = "general",
   revalidatePath(`/studio/person/${subjectId}`);
 }
 
+// Operator override: manually match any two members from a form, bypassing the
+// candidate/compatibility filter (operators can match across the usual rules on
+// purpose). Still blocks duplicates and respects member blocks.
+export async function manualMatch(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const aId = String(formData.get("personAId") || "");
+  const bId = String(formData.get("personBId") || "");
+  const rationale = String(formData.get("rationale") || "").slice(0, 1000);
+  if (!aId || !bId) throw new Error("Pick two members.");
+  if (aId === bId) throw new Error("Pick two different members.");
+
+  const existing = await prisma.match.findFirst({
+    where: { OR: [{ personAId: aId, personBId: bId }, { personAId: bId, personBId: aId }] },
+  });
+  if (existing) throw new Error("These two are already in the pipeline.");
+  const blocked = await prisma.block.findFirst({
+    where: { OR: [{ blockerId: aId, blockedId: bId }, { blockerId: bId, blockedId: aId }] },
+  });
+  if (blocked) throw new Error("Cannot match: a block exists between these members.");
+
+  await prisma.match.create({
+    data: { personAId: aId, personBId: bId, createdById: op.id, stage: "suggested", rationale: rationale || null },
+  });
+  revalidatePath("/studio/pipeline");
+}
+
 // Operator: create a suggestion (a Match in "suggested" stage).
 export async function createSuggestion(aId: string, bId: string, rationale: string) {
   const op = await requireOperator();

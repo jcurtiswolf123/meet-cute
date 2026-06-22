@@ -69,6 +69,7 @@ function checkBuild(): Check {
 }
 
 async function checkDb(): Promise<Check> {
+  if (!process.env.DATABASE_URL) return { name: "db", ok: true, detail: "skipped (no DATABASE_URL)" };
   try {
     const { prisma } = await import("../src/lib/prisma");
     await prisma.$queryRawUnsafe("SELECT 1");
@@ -185,7 +186,7 @@ async function attemptAutofix(tscOut: string): Promise<void> {
   }
 }
 
-async function cycle(n: number): Promise<void> {
+async function cycle(n: number): Promise<boolean> {
   const checks: Check[] = [];
   checks.push(await checkHealth());
   checks.push(await checkDb());
@@ -208,13 +209,15 @@ async function cycle(n: number): Promise<void> {
   } else {
     log(`all green (${checks.map((c) => c.name).join(", ")})`);
   }
+  return failed.length === 0;
 }
 
 (async () => {
   log(`starting. url=${URL} interval=${INTERVAL_MS}ms autofix=${AUTOFIX} once=${process.env.WATCHDOG_ONCE === "1"}`);
   let n = 0;
   if (process.env.WATCHDOG_ONCE === "1") {
-    await cycle(0);
+    const ok = await cycle(0);
+    process.exitCode = ok ? 0 : 1; // non-zero so CI / cron flags failures
     return;
   }
   // eslint-disable-next-line no-constant-condition

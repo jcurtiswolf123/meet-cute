@@ -5,18 +5,24 @@
 // the /api/copilot route and resolves names to ids server-side, so the model
 // can never act on an entity that does not exist.
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { prisma } from "./prisma";
 import { autoBook } from "./concierge";
 import { candidatesFor, searchRoster } from "./copilot";
 import { inviteToEvent, createEventRecord, formatWhen, findEvent } from "./events";
 import type { ChatMsg, CopilotResult } from "./ai";
 
-const KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.COPILOT_TOOLS_MODEL || "claude-sonnet-4-6";
-const anthropic = KEY ? new Anthropic({ apiKey: KEY }) : null;
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+const ANTHROPIC_MODEL = process.env.COPILOT_TOOLS_MODEL || "claude-sonnet-4-6";
+const OPENAI_MODEL = process.env.COPILOT_OPENAI_MODEL || "gpt-4o-mini";
+const anthropic = ANTHROPIC_KEY ? new Anthropic({ apiKey: ANTHROPIC_KEY }) : null;
+const openai = OPENAI_KEY ? new OpenAI({ apiKey: OPENAI_KEY }) : null;
 
+// Tool-calling works on either provider. Anthropic is preferred when both are
+// set; OpenAI is the fallback. COPILOT_TOOLS=0 forces the deterministic path.
 export function toolsEnabled(): boolean {
-  return !!anthropic && process.env.COPILOT_TOOLS !== "0";
+  return !!(anthropic || openai) && process.env.COPILOT_TOOLS !== "0";
 }
 
 // --- name resolution ---------------------------------------------------------
@@ -317,16 +323,20 @@ const SYSTEM = [
   "If a name is ambiguous, ask which person rather than guessing.",
 ].join("\n");
 
+const MAX_TURNS = 6;
+
 export async function answerWithTools(operatorId: string, history: ChatMsg[]): Promise<CopilotResult> {
-  if (!anthropic) return { text: "", live: false, provider: "local engine" };
+  if (anthropic) return anthropicTools(operatorId, history);
+  if (openai) return openaiTools(operatorId, history);
+  return { text: "", live: false, provider: "local engine" };
+}
 
+async function anthropicTools(operatorId: string, history: ChatMsg[]): Promise<CopilotResult> {
   const messages: Anthropic.MessageParam[] = history.map((m) => ({ role: m.role, content: m.content }));
-  const MAX_TURNS = 6;
-
   try {
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-      const res = await anthropic.messages.create({
-        model: MODEL,
+      const res = await anthropic!.messages.create({
+        model: ANTHROPIC_MODEL,
         max_tokens: 1200,
         system: SYSTEM,
         tools: TOOLS,
@@ -360,5 +370,55 @@ export async function answerWithTools(operatorId: string, history: ChatMsg[]): P
     return { text: "That needed too many steps. Try breaking it into smaller commands.", live: true, provider: "Claude (tools)" };
   } catch (e) {
     return { text: `The co-pilot hit an error: ${(e as Error).message}`, live: false, provider: "Claude (tools)" };
+  }
+}
+
+const OPENAI_TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = TOOLS.map((t) => ({
+  type: "function",
+  function: { name: t.name, description: t.description, parameters: t.input_schema as Record<string, unknown> },
+}));
+
+async function openaiTools(operatorId: string, history: ChatMsg[]): Promise<CopilotResult> {
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    { role: "system", content: SYSTEM },
+    ...history.map((m) => ({ role: m.role, content: m.content }) as OpenAI.Chat.Completions.ChatCompletionMessageParam),
+  ];
+  try {
+    for (let turn = 0; turn < MAX_TURNS; turn++) {
+      const res = await openai!.chat.completions.create({
+        model: OPENAI_MODEL,
+        max_tokens: 1200,
+        tools: OPENAI_TOOLS,
+        messages,
+      });
+      const msg = res.choices[0]?.message;
+      if (!msg) return { text: "No response.", live: true, provider: "OpenAI (tools)" };
+
+      if (msg.tool_calls?.length) {
+        messages.push(msg as OpenAI.Chat.Completions.ChatCompletionMessageParam);
+        for (const call of msg.tool_calls) {
+          if (call.type !== "function") continue;
+          let input: Record<string, unknown> = {};
+          try {
+            input = JSON.parse(call.function.arguments || "{}");
+          } catch {
+            /* malformed args -> empty */
+          }
+          let out: string;
+          try {
+            out = await runTool(operatorId, call.function.name, input);
+          } catch (e) {
+            out = `Error: ${(e as Error).message}`;
+          }
+          messages.push({ role: "tool", tool_call_id: call.id, content: out });
+        }
+        continue;
+      }
+
+      return { text: (msg.content ?? "Done.").trim() || "Done.", live: true, provider: "OpenAI (tools)" };
+    }
+    return { text: "That needed too many steps. Try breaking it into smaller commands.", live: true, provider: "OpenAI (tools)" };
+  } catch (e) {
+    return { text: `The co-pilot hit an error: ${(e as Error).message}`, live: false, provider: "OpenAI (tools)" };
   }
 }

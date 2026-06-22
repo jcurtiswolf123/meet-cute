@@ -1,0 +1,34 @@
+name: Watchdog
+
+# Always-on monitor (option B): runs on a schedule, checks the live site plus a
+# typecheck regression, and fails the job (GitHub notifies) on any problem.
+# Heavy build + DB checks are skipped here; the deploy workflow already builds,
+# and a DATABASE_URL secret is optional. Add WATCHDOG_ALERT_EMAIL + RESEND_API_KEY
+# repo secrets to also get an email on failure.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Run watchdog (single pass)
+        run: npm run watchdog
+        env:
+          WATCHDOG_ONCE: "1"
+          WATCHDOG_BUILD_EVERY: "999" # skip the heavy build in CI
+          WATCHDOG_URL: ${{ vars.WATCHDOG_URL || 'https://meet-cute.fly.dev' }}
+          WATCHDOG_ALERT_EMAIL: ${{ secrets.WATCHDOG_ALERT_EMAIL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
