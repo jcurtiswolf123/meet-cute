@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getCurrentPerson } from "@/lib/auth";
 import {
@@ -68,6 +69,19 @@ export default async function Matchmaking() {
           Your console for connecting people over text. No profiles required - just a name and a number.
         </p>
       </div>
+
+      {!me?.phone && (
+        <div className="rounded-xl border border-champagne/50 bg-champagne/15 px-4 py-3 text-sm">
+          <span className="font-medium text-ink">Set your mobile to enable group intros.</span>{" "}
+          <span className="text-muted">
+            Until you add your number, a mutual yes texts each person the other&apos;s number instead of
+            opening a three-way group thread with you.
+          </span>{" "}
+          <Link href="/studio/team" className="font-medium text-claret underline underline-offset-2">
+            Add your number
+          </Link>
+        </div>
+      )}
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
