@@ -74,7 +74,7 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
   const ready = a && b && !missingPhone && !sameTwice;
 
   return (
-    <div className="card p-5">
+    <div className="card-feature p-5">
       <h2 className="font-display text-lg font-medium">New introduction</h2>
       <p className="mt-1 text-sm text-muted">
         Pick two people, add a few bullets about each, and text them both. They reply Y to opt in;
@@ -196,7 +196,7 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
         )}
 
         <div className="sm:col-span-2">
-          <button type="submit" disabled={!ready} className="btn-primary disabled:opacity-40">
+          <button type="submit" disabled={!ready} className="btn-primary">
             Send intro texts
           </button>
         </div>
