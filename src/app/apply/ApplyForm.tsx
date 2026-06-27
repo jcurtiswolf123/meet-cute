@@ -30,8 +30,8 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
   return (
     <form className="mt-8 space-y-5" action={formAction} noValidate>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="First name" name="first" defaultValue={val("first")} error={e.first} required />
-        <Field label="Last name" name="last" defaultValue={val("last")} error={e.last} required />
+        <Field label="First name" name="first" defaultValue={val("first")} error={e.first} required autoFocus />
+        <Field label="Last name" name="last" defaultValue={val("last")} error={e.last} optionalHint />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -133,6 +133,8 @@ function Field({
   defaultValue,
   required,
   error,
+  autoFocus,
+  optionalHint,
 }: {
   label: string;
   name: string;
@@ -141,10 +143,15 @@ function Field({
   defaultValue?: string;
   required?: boolean;
   error?: string;
+  autoFocus?: boolean;
+  optionalHint?: boolean;
 }) {
   return (
     <div>
-      <label className="label" htmlFor={name}>{label}</label>
+      <label className="label" htmlFor={name}>
+        {label}
+        {optionalHint && <span className="text-muted"> (optional)</span>}
+      </label>
       <input
         id={name}
         className="field mt-1.5"
@@ -153,6 +160,7 @@ function Field({
         placeholder={placeholder}
         defaultValue={defaultValue}
         required={required}
+        autoFocus={autoFocus}
         aria-invalid={error ? true : undefined}
       />
       {error && <p className="mt-1 text-xs text-claret">{error}</p>}

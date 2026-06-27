@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { timingSafeEqual } from "crypto";
 import { prisma } from "./prisma";
 import {
   setSession,
@@ -139,8 +140,19 @@ export async function loginAs(personId: string, formData?: FormData) {
       throw new Error("Demo login is disabled. Use the email sign-in link.");
     }
     const gate = process.env.STUDIO_DEMO_PASSWORD;
-    const password = formData?.get("password");
-    if (gate && password !== gate) throw new Error("Studio access requires the demo passphrase");
+    if (gate) {
+      // Rate-limit attempts per IP so the shared passphrase is not brute-forceable,
+      // and compare in constant time so it cannot be guessed via a timing oracle.
+      const h = await headers();
+      const ip = (h.get("fly-client-ip") || h.get("x-real-ip") || "anon").trim();
+      if (!(await rateLimit(`demologin:ip:${ip}`, 10, 60 * 60 * 1000)).ok) {
+        throw new Error("Too many attempts. Try again later.");
+      }
+      const provided = Buffer.from(String(formData?.get("password") ?? ""));
+      const expected = Buffer.from(gate);
+      const okPass = provided.length === expected.length && timingSafeEqual(provided, expected);
+      if (!okPass) throw new Error("Studio access requires the demo passphrase");
+    }
   } else {
     if (!allowMemberDemoLogin()) {
       throw new Error("Demo login is disabled. Use the email sign-in link.");
@@ -378,7 +390,7 @@ export async function completeApplication(
 
   const fieldErrors: Record<string, string> = {};
   if (!first) fieldErrors.first = "Enter your first name.";
-  if (!last) fieldErrors.last = "Enter your last name.";
+  // Last name is optional: matching only needs a first name + phone.
   if (!phoneRaw.trim()) {
     fieldErrors.phone = "Enter a mobile number so your matchmaker can text you introductions.";
   } else if (!isTextablePhone(phone)) {
@@ -534,6 +546,9 @@ export async function setMemberStatus(formData: FormData) {
     await prisma.person.update({ where: { id }, data: { status: "active", acceptedAt: new Date() } });
   } else if (action === "decline") {
     await prisma.person.update({ where: { id }, data: { status: "exited" } });
+    // Revoke any live sessions so a removed member loses access immediately,
+    // not at the end of the 30-day session TTL.
+    await prisma.session.deleteMany({ where: { personId: id } });
   }
   revalidatePath("/studio");
 }

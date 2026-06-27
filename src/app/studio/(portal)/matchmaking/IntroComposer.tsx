@@ -81,46 +81,33 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
         when both say yes, you all land in one group thread together.
       </p>
 
-      <form action={createIntroduction} className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="block">
-          <span className="label">First person</span>
-          <select
-            name="personAId"
-            required
-            value={aId}
-            onChange={(e) => selectPerson("a", e.target.value)}
-            className="field mt-1.5"
-          >
-            <option value="" disabled>
-              Choose a person
-            </option>
-            {people.map((p) => (
-              <option key={p.id} value={p.id} disabled={p.id === bId}>
-                {p.name} ({p.city}){p.phone ? "" : " - no phone"}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="label">Second person</span>
-          <select
-            name="personBId"
-            required
-            value={bId}
-            onChange={(e) => selectPerson("b", e.target.value)}
-            className="field mt-1.5"
-          >
-            <option value="" disabled>
-              Choose a person
-            </option>
-            {people.map((p) => (
-              <option key={p.id} value={p.id} disabled={p.id === aId}>
-                {p.name} ({p.city}){p.phone ? "" : " - no phone"}
-              </option>
-            ))}
-          </select>
-        </label>
+      <form
+        action={createIntroduction}
+        className="mt-4 grid gap-3 sm:grid-cols-2"
+        onKeyDown={(e) => {
+          // Cmd/Ctrl+Enter sends without reaching for the mouse.
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && ready) {
+            e.preventDefault();
+            e.currentTarget.requestSubmit();
+          }
+        }}
+      >
+        <PersonCombobox
+          label="First person"
+          name="personAId"
+          people={people}
+          value={aId}
+          excludeId={bId}
+          onChange={(id) => selectPerson("a", id)}
+        />
+        <PersonCombobox
+          label="Second person"
+          name="personBId"
+          people={people}
+          value={bId}
+          excludeId={aId}
+          onChange={(id) => selectPerson("b", id)}
+        />
 
         <label className="block">
           <span className="label">
@@ -199,8 +186,93 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
           <button type="submit" disabled={!ready} className="btn-primary">
             Send intro texts
           </button>
+          <span className="ml-3 text-xs text-muted">or press Cmd/Ctrl + Enter</span>
         </div>
       </form>
     </div>
+  );
+}
+
+// Typeahead person picker. Replaces a flat alphabetical <select> so the operator
+// types 2-3 letters and hits Enter instead of scrolling a long roster. Writes the
+// chosen id to a hidden input so the server action receives it unchanged.
+function PersonCombobox({
+  label,
+  name,
+  people,
+  value,
+  excludeId,
+  onChange,
+}: {
+  label: string;
+  name: string;
+  people: Person[];
+  value: string;
+  excludeId?: string;
+  onChange: (id: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const selected = people.find((p) => p.id === value);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return people
+      .filter((p) => p.id !== excludeId)
+      .filter((p) => !q || p.name.toLowerCase().includes(q) || p.city.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [people, query, excludeId]);
+
+  // Show the chosen person's name when closed; typing reopens the search.
+  const display = open ? query : selected ? `${selected.name} (${selected.city})` : "";
+
+  function choose(id: string) {
+    onChange(id);
+    setQuery("");
+    setOpen(false);
+  }
+
+  return (
+    <label className="relative block">
+      <span className="label">{label}</span>
+      <input
+        type="text"
+        className="field mt-1.5"
+        placeholder="Type a name..."
+        value={display}
+        autoComplete="off"
+        role="combobox"
+        aria-expanded={open}
+        onFocus={() => { setOpen(true); setQuery(""); setActive(0); }}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); setActive(0); }}
+        onKeyDown={(e) => {
+          if (!open) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, filtered.length - 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
+          else if (e.key === "Enter" && filtered[active]) { e.preventDefault(); choose(filtered[active].id); }
+          else if (e.key === "Escape") setOpen(false);
+        }}
+      />
+      <input type="hidden" name={name} value={value} />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-line bg-white py-1 shadow-card">
+          {filtered.map((p, i) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                onMouseEnter={() => setActive(i)}
+                onMouseDown={(e) => { e.preventDefault(); choose(p.id); }}
+                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${i === active ? "bg-cream" : ""}`}
+              >
+                <span className="text-ink">{p.name}</span>
+                <span className="text-xs text-muted">{p.city}{p.phone ? "" : " · no phone"}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </label>
   );
 }

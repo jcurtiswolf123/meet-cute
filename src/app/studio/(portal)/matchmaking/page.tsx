@@ -110,8 +110,9 @@ export default async function Matchmaking() {
 
       <IntroComposer people={composerPeople} operatorName={operatorName} />
 
-      {/* Quick-add a person */}
-      <details className="card p-5">
+      {/* Quick-add a person. Stays open (a server-action submit re-renders and
+          would otherwise re-collapse it, re-charging the expand click each add). */}
+      <details open className="card p-5">
         <summary className="cursor-pointer font-display text-lg font-medium">Add someone to match</summary>
         <p className="mt-1 text-sm text-muted">
           A name and mobile number is all you need. They don&apos;t have to sign up or build a profile.
