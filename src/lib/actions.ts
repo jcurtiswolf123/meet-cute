@@ -20,6 +20,7 @@ import { startThread, recordPick } from "./concierge";
 import { mutualFriends } from "./social";
 import { deleteUpload } from "./uploads";
 import { createEventRecord, inviteToEvent } from "./events";
+import { allowMemberDemoLogin, allowOperatorDemoLogin } from "./demo-login";
 
 // Request a magic-link sign-in. Always returns the same "check your email"
 // result regardless of whether the address exists, is rate-limited, or is
@@ -60,26 +61,73 @@ export async function requestMagicLink(formData: FormData) {
   } else if (!base) {
     console.error("[auth] NEXT_PUBLIC_APP_URL must be set in production to send magic links");
   }
-  redirect("/login?sent=1");
+
+  const rawAfter = String(formData.get("after") || "/login");
+  const after = rawAfter.startsWith("/") && !rawAfter.startsWith("//") ? rawAfter : "/login";
+  const dest = after.includes("sent=") ? after : `${after}${after.includes("?") ? "&" : "?"}sent=1`;
+  redirect(dest);
 }
 
-// Demo login. DISABLED in production. Local/dev only: pick any seeded user to
-// see their view. Operator access can still be gated with STUDIO_DEMO_PASSWORD.
-export async function loginAs(personId: string, formData?: FormData) {
-  // Disabled unless explicitly enabled AND not production, so a misconfigured
-  // staging that shares the prod DB can never impersonate accounts.
-  if (process.env.NODE_ENV === "production" || process.env.MEETCUTE_DEMO_LOGIN !== "1") {
-    throw new Error("Demo login is disabled. Use the email sign-in link.");
+// Operator-only magic link (studio sign-in). Sends a link only when the email
+// belongs to an active operator so members/applicants are not silently routed
+// to /app or /apply after clicking.
+export async function requestOperatorMagicLink(formData: FormData) {
+  const email = normalizeEmail(String(formData.get("email") || ""));
+  const h = await headers();
+
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  const base =
+    configured ||
+    (process.env.NODE_ENV !== "production" ? `http://${h.get("host") || "localhost:3009"}` : null);
+
+  const xff = h.get("x-forwarded-for");
+  const ip = (
+    h.get("fly-client-ip") ||
+    (xff ? xff.split(",").map((s) => s.trim()).filter(Boolean).at(-1) : "") ||
+    h.get("x-real-ip") ||
+    "anon"
+  ).trim();
+  const validEmail = email.includes("@") && email.length <= 254;
+  const ipOk = (await rateLimit(`magic:ip:${ip}`, 10, 60 * 60 * 1000)).ok;
+  const emailOk = validEmail && (await rateLimit(`magic:email:${email}`, 3, 15 * 60 * 1000)).ok;
+
+  let sent = false;
+  if (base && validEmail && ipOk && emailOk) {
+    const person = await prisma.person.findUnique({ where: { email }, select: { isOperator: true } });
+    if (person?.isOperator) {
+      const token = await createLoginToken(email);
+      const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
+      const { subject, html, text } = magicLinkEmail(link);
+      await sendEmail({ to: email, subject, html, text });
+      void purgeExpiredAuth();
+      sent = true;
+    }
+  } else if (!base) {
+    console.error("[auth] NEXT_PUBLIC_APP_URL must be set in production to send magic links");
   }
+
+  redirect(sent ? "/studio/login?sent=1" : "/studio/login?error=not-operator");
+}
+
+// Demo login. Local dev: any seeded user. Production: operators only, passphrase-gated.
+export async function loginAs(personId: string, formData?: FormData) {
   const p = await prisma.person.findUnique({ where: { id: personId } });
   if (!p) throw new Error("Unknown user");
+
   if (p.isOperator) {
+    if (!allowOperatorDemoLogin()) {
+      throw new Error("Demo login is disabled. Use the email sign-in link.");
+    }
     const gate = process.env.STUDIO_DEMO_PASSWORD;
     const password = formData?.get("password");
     if (gate && password !== gate) throw new Error("Studio access requires the demo passphrase");
-  } else if (p.status !== "active") {
-    throw new Error("This account is not active");
+  } else {
+    if (!allowMemberDemoLogin()) {
+      throw new Error("Demo login is disabled. Use the email sign-in link.");
+    }
+    if (p.status !== "active") throw new Error("This account is not active");
   }
+
   await setSession(personId);
   redirect(p.isOperator ? "/studio" : "/app");
 }
