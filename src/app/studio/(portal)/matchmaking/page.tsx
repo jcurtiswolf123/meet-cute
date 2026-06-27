@@ -59,7 +59,16 @@ export default async function Matchmaking() {
   const noPhone = people.filter((p) => !p.phone).length;
 
   // Composer leads with people who've opted in (those are the ones to match).
-  const composerPeople = people.map((p) => ({ id: p.id, name: p.name, phone: p.phone, city: p.city, instagram: p.instagram }));
+  // Carry a starter blurb (their bio, or what they're looking for) so the composer
+  // can prefill the "about" bullets and save the operator retyping what we know.
+  const composerPeople = people.map((p) => ({
+    id: p.id,
+    name: p.name,
+    phone: p.phone,
+    city: p.city,
+    instagram: p.instagram,
+    blurb: (p.bio || p.lookingFor || "").trim(),
+  }));
 
   return (
     <div className="space-y-6">

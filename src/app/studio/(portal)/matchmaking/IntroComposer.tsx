@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { createIntroduction } from "@/lib/actions";
 
-type Person = { id: string; name: string; phone: string | null; city: string; instagram: string | null };
+type Person = { id: string; name: string; phone: string | null; city: string; instagram: string | null; blurb?: string };
 
 function first(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
@@ -53,6 +53,21 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
   const a = useMemo(() => people.find((p) => p.id === aId), [people, aId]);
   const b = useMemo(() => people.find((p) => p.id === bId), [people, bId]);
 
+  // Selecting a person seeds their "about" box from what we already know (bio /
+  // what they're looking for), but only when the box is still empty, so the
+  // operator never loses anything they typed.
+  function selectPerson(side: "a" | "b", id: string) {
+    const person = people.find((p) => p.id === id);
+    const seed = (person?.blurb ?? "").trim();
+    if (side === "a") {
+      setAId(id);
+      if (seed && !aboutA.trim()) setAboutA(seed);
+    } else {
+      setBId(id);
+      if (seed && !aboutB.trim()) setAboutB(seed);
+    }
+  }
+
   const missingPhone =
     (a && !a.phone ? a.name : null) || (b && !b.phone ? b.name : null);
   const sameTwice = aId && bId && aId === bId;
@@ -73,7 +88,7 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
             name="personAId"
             required
             value={aId}
-            onChange={(e) => setAId(e.target.value)}
+            onChange={(e) => selectPerson("a", e.target.value)}
             className="field mt-1.5"
           >
             <option value="" disabled>
@@ -93,7 +108,7 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
             name="personBId"
             required
             value={bId}
-            onChange={(e) => setBId(e.target.value)}
+            onChange={(e) => selectPerson("b", e.target.value)}
             className="field mt-1.5"
           >
             <option value="" disabled>
