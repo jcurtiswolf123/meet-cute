@@ -45,18 +45,30 @@ export default async function Roster({
   else enriched.sort((a, b) => a.p.name.localeCompare(b.p.name));
 
   // metrics
+  // Accept rate is measured within the application funnel: of people who actually
+  // applied, how many were accepted. Counting all acceptedAt rows (which include
+  // seeded/operator-added actives that never applied) let the rate exceed 100%.
   const [applicants, accepted, byStage] = await Promise.all([
     prisma.person.count({ where: { appliedAt: { not: null } } }),
-    prisma.person.count({ where: { acceptedAt: { not: null } } }),
+    prisma.person.count({ where: { appliedAt: { not: null }, acceptedAt: { not: null } } }),
     prisma.match.groupBy({ by: ["stage"], _count: true }),
   ]);
   const stageCount = (s: string) => byStage.find((b) => b.stage === s)?._count ?? 0;
 
-  // New applicants awaiting review (what a fresh magic-link signup creates).
+  // New applicants awaiting review. Gate on appliedAt so only people who actually
+  // completed the application show up here. A bare magic-link click creates an
+  // "applicant" row with no appliedAt; surfacing those would bury the operator in
+  // half-finished signups.
   const pendingApplicants = await prisma.person.findMany({
-    where: { isOperator: false, isAmbassador: false, isCoach: false, status: "applicant" },
+    where: {
+      isOperator: false,
+      isAmbassador: false,
+      isCoach: false,
+      status: "applicant",
+      appliedAt: { not: null },
+    },
     include: { photos: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: { appliedAt: "desc" },
   });
 
   return (
@@ -130,7 +142,7 @@ export default async function Roster({
                   <Link href={`/studio/person/${p.id}`} className="flex items-center gap-3">
                     <Avatar url={p.photos[0]?.url} name={p.name} size={36} />
                     <span>
-                      <span className="block font-medium text-ink">{p.name}, {p.age}</span>
+                      <span className="block font-medium text-ink">{p.name}{p.age ? `, ${p.age}` : ""}</span>
                       <span className="block text-xs text-muted">{p.city} · {p.neighborhood}</span>
                     </span>
                   </Link>
