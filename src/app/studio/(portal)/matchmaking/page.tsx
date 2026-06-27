@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentPerson } from "@/lib/auth";
-import { quickAddPerson, resendIntro, closeIntroduction, connectIntroNow } from "@/lib/actions";
+import {
+  quickAddPerson,
+  resendIntro,
+  closeIntroduction,
+  connectIntroNow,
+  askForFeedback,
+  setIntroFollowUp,
+} from "@/lib/actions";
 import { IntroComposer } from "./IntroComposer";
 
 export const dynamic = "force-dynamic";
@@ -31,23 +38,26 @@ export default async function Matchmaking() {
   const [people, intros] = await Promise.all([
     prisma.person.findMany({
       where: { isOperator: false, isAmbassador: false, isCoach: false, status: { in: ["active", "applicant"] } },
-      select: { id: true, name: true, phone: true, city: true, bio: true },
-      orderBy: { name: "asc" },
+      select: { id: true, name: true, phone: true, city: true, bio: true, openToMatch: true, lookingFor: true },
+      orderBy: [{ openToMatch: "desc" }, { name: "asc" }],
     }),
     prisma.match.findMany({
       where: { stage: { in: ["invited", "mutual_yes", "connected"] } },
       include: {
         personA: { select: { id: true, name: true, phone: true } },
         personB: { select: { id: true, name: true, phone: true } },
+        notes: { where: { kind: "feedback" }, orderBy: { createdAt: "desc" }, select: { id: true, body: true, createdAt: true } },
       },
       orderBy: { updatedAt: "desc" },
     }),
   ]);
 
+  const ready = people.filter((p) => p.openToMatch).length;
   const awaiting = intros.filter((m) => m.stage !== "connected").length;
   const connected = intros.filter((m) => m.stage === "connected").length;
   const noPhone = people.filter((p) => !p.phone).length;
 
+  // Composer leads with people who've opted in (those are the ones to match).
   const composerPeople = people.map((p) => ({ id: p.id, name: p.name, phone: p.phone, city: p.city }));
 
   return (
@@ -60,8 +70,9 @@ export default async function Matchmaking() {
       </div>
 
       {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
+          { label: "Ready to match", value: ready },
           { label: "Awaiting replies", value: awaiting },
           { label: "Connected", value: connected },
           { label: "People", value: people.length },
@@ -123,41 +134,71 @@ export default async function Matchmaking() {
           <div className="mt-3 space-y-2">
             {intros.map((m) => {
               const s = statusFor(m);
+              const isConnected = m.stage === "connected";
               return (
-                <div key={m.id} className="card flex flex-wrap items-center justify-between gap-3 p-4">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                <div key={m.id} className="card flex flex-wrap items-start justify-between gap-3 p-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-ink">
                         {firstName(m.personA.name)} + {firstName(m.personB.name)}
                       </span>
                       <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${s.tone}`}>
                         {s.label}
                       </span>
+                      {m.followUpAt && (
+                        <span className="inline-flex items-center rounded-full border border-line bg-paper px-2.5 py-0.5 text-xs text-muted">
+                          Follow up {m.followUpAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                      )}
                     </div>
                     {m.rationale && <p className="mt-1 max-w-prose text-xs text-muted">{m.rationale}</p>}
+                    {m.notes.length > 0 && (
+                      <div className="mt-2 space-y-1 border-l-2 border-sage/40 pl-3">
+                        <p className="label text-sage">Feedback</p>
+                        {m.notes.map((n) => (
+                          <p key={n.id} className="text-xs text-ink/80">
+                            &ldquo;{n.body}&rdquo;{" "}
+                            <span className="text-muted">
+                              ({n.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })})
+                            </span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
                     <p className="mt-1 text-[11px] text-muted">
                       Updated {m.updatedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    {m.stage !== "connected" && (
-                      <form action={resendIntro}>
-                        <input type="hidden" name="matchId" value={m.id} />
-                        <button className="btn-ghost text-xs">Resend</button>
-                      </form>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {!isConnected && (
+                      <>
+                        <form action={resendIntro}>
+                          <input type="hidden" name="matchId" value={m.id} />
+                          <button className="btn-ghost text-xs">Resend</button>
+                        </form>
+                        <form action={connectIntroNow}>
+                          <input type="hidden" name="matchId" value={m.id} />
+                          <button className="rounded-full bg-claret px-3 py-1 text-xs font-medium text-white">Connect now</button>
+                        </form>
+                        <form action={closeIntroduction}>
+                          <input type="hidden" name="matchId" value={m.id} />
+                          <button className="btn-ghost text-xs text-muted">Close</button>
+                        </form>
+                      </>
                     )}
-                    {m.stage !== "connected" && (
-                      <form action={connectIntroNow}>
-                        <input type="hidden" name="matchId" value={m.id} />
-                        <button className="rounded-full bg-claret px-3 py-1 text-xs font-medium text-white">Connect now</button>
-                      </form>
-                    )}
-                    {m.stage !== "connected" && (
-                      <form action={closeIntroduction}>
-                        <input type="hidden" name="matchId" value={m.id} />
-                        <button className="btn-ghost text-xs text-muted">Close</button>
-                      </form>
+                    {isConnected && (
+                      <>
+                        <form action={askForFeedback}>
+                          <input type="hidden" name="matchId" value={m.id} />
+                          <button className="rounded-full bg-claret px-3 py-1 text-xs font-medium text-white">Ask for feedback</button>
+                        </form>
+                        <form action={setIntroFollowUp}>
+                          <input type="hidden" name="matchId" value={m.id} />
+                          <input type="hidden" name="days" value="7" />
+                          <button className="btn-ghost text-xs">Follow up in 7d</button>
+                        </form>
+                      </>
                     )}
                   </div>
                 </div>
@@ -177,16 +218,25 @@ export default async function Matchmaking() {
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Phone</th>
                 <th className="px-4 py-3 font-medium">City</th>
-                <th className="px-4 py-3 font-medium">Notes</th>
+                <th className="px-4 py-3 font-medium">Wants / notes</th>
               </tr>
             </thead>
             <tbody>
               {people.map((p) => (
                 <tr key={p.id} className="border-b border-line/70 hover:bg-cream/60">
-                  <td className="px-4 py-3 font-medium text-ink">{p.name}</td>
+                  <td className="px-4 py-3 font-medium text-ink">
+                    <span className="flex items-center gap-2">
+                      {p.name}
+                      {p.openToMatch && (
+                        <span className="inline-flex items-center rounded-full border border-sage/30 bg-sage/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sage">
+                          Ready
+                        </span>
+                      )}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-muted">{p.phone || <span className="text-claret">add a phone</span>}</td>
                   <td className="px-4 py-3 text-muted">{p.city}</td>
-                  <td className="max-w-[32ch] truncate px-4 py-3 text-muted">{p.bio || "-"}</td>
+                  <td className="max-w-[32ch] truncate px-4 py-3 text-muted">{p.lookingFor || p.bio || "-"}</td>
                 </tr>
               ))}
               {people.length === 0 && (

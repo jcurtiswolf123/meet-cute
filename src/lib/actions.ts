@@ -15,7 +15,7 @@ import {
   purgeExpiredAuth,
 } from "./auth";
 import { sendEmail, magicLinkEmail } from "./email";
-import { sendSMS, normalizePhone, introInviteSMS } from "./sms";
+import { sendSMS, normalizePhone, introInviteSMS, feedbackRequestSMS } from "./sms";
 import { connectMatch } from "./introductions";
 import { rateLimit } from "./ratelimit";
 import { startThread, recordPick } from "./concierge";
@@ -323,10 +323,12 @@ export async function completeApplication(formData: FormData) {
   const cityRaw = String(formData.get("city") || "");
   const city = cityRaw === "SF" || cityRaw.includes("Francisco") ? "SF" : "NYC";
   const lookingFor = String(formData.get("lookingFor") || "").slice(0, 2000);
+  const phone = normalizePhone(String(formData.get("phone") || ""));
   const birthdateRaw = String(formData.get("birthdate") || "");
   const agreed = formData.get("agree") === "on";
 
   if (!agreed) throw new Error("You must accept the Terms and Privacy Policy to continue.");
+  if (!phone) throw new Error("Enter a mobile number so your matchmaker can text you introductions.");
   const birthdate = birthdateRaw ? new Date(birthdateRaw) : null;
   if (!birthdate || Number.isNaN(birthdate.getTime())) throw new Error("Enter your date of birth.");
   const age = Math.floor((Date.now() - birthdate.getTime()) / (365.25 * 24 * 3600 * 1000));
@@ -335,9 +337,22 @@ export async function completeApplication(formData: FormData) {
   const name = `${first} ${last}`.trim() || me!.name;
   await prisma.person.update({
     where: { id: me!.id },
-    data: { name, city, lookingFor, birthdate, age, agreedTosAt: new Date() },
+    data: { name, city, lookingFor, phone, birthdate, age, agreedTosAt: new Date() },
   });
   redirect("/apply/thanks");
+}
+
+// Member self-serve: opt in (or pause) being matched. This is the "yes, start
+// matching me" toggle on the dashboard - the whole point of the return visit.
+export async function setMatchOptIn(formData: FormData) {
+  const me = await getSessionPersonId();
+  if (!me) throw new Error("not logged in");
+  const on = String(formData.get("on") || "") === "1";
+  await prisma.person.update({
+    where: { id: me },
+    data: { openToMatch: on, optedInAt: on ? new Date() : null },
+  });
+  revalidatePath("/app");
 }
 
 /** Permanently delete the signed-in member and all of their data. */
@@ -807,5 +822,63 @@ export async function connectIntroNow(formData: FormData) {
     data: { aDecision: "yes", bDecision: "yes", stage: "mutual_yes" },
   });
   await connectMatch(matchId);
+  revalidatePath("/studio/matchmaking");
+}
+
+// Operator: text both sides of a connection asking how it went, and schedule the
+// next check-in a week out. Their replies land back as feedback notes.
+export async function askForFeedback(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const matchId = String(formData.get("matchId") || "");
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      personA: { select: { name: true, phone: true } },
+      personB: { select: { name: true, phone: true } },
+    },
+  });
+  if (!match) throw new Error("No such introduction.");
+
+  const jobs: Promise<unknown>[] = [];
+  if (match.personA.phone) {
+    jobs.push(sendSMS({ to: match.personA.phone, body: feedbackRequestSMS({ toName: match.personA.name, otherName: match.personB.name, operatorName: op.name }) }));
+  }
+  if (match.personB.phone) {
+    jobs.push(sendSMS({ to: match.personB.phone, body: feedbackRequestSMS({ toName: match.personB.name, otherName: match.personA.name, operatorName: op.name }) }));
+  }
+  await Promise.all(jobs);
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { followUpAt: new Date(Date.now() + 7 * 24 * 3600 * 1000) },
+  });
+  revalidatePath("/studio/matchmaking");
+}
+
+// Operator: schedule (or clear) a follow-up reminder on an introduction.
+export async function setIntroFollowUp(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const matchId = String(formData.get("matchId") || "");
+  const days = parseInt(String(formData.get("days") || "0"), 10);
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { followUpAt: days > 0 ? new Date(Date.now() + days * 24 * 3600 * 1000) : null },
+  });
+  revalidatePath("/studio/matchmaking");
+}
+
+// Operator: send a free-form text to one person (notify / nudge / check in).
+export async function messagePerson(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const personId = String(formData.get("personId") || "");
+  const message = String(formData.get("message") || "").trim().slice(0, 480);
+  if (!message) throw new Error("Write a message first.");
+  const person = await prisma.person.findUnique({ where: { id: personId }, select: { phone: true } });
+  if (!person?.phone) throw new Error("That person has no phone number on file.");
+  await sendSMS({ to: person.phone, body: message });
+  // Log it so the thread is auditable from the person's record.
+  await prisma.note.create({ data: { subjectId: personId, authorId: op.id, body: `[SMS sent] ${message}`, kind: "general" } });
   revalidatePath("/studio/matchmaking");
 }

@@ -31,6 +31,11 @@ model Person {
   isCoach      Boolean @default(false)
   status       String  @default("applicant") // applicant | active | paused | exited
 
+  // Member self-serve opt-in: have they said "yes, start matching me"? They
+  // create a profile on signup, then opt in from their dashboard to go live.
+  openToMatch  Boolean @default(false)
+  optedInAt    DateTime?
+
   // profile
   headline    String?
   bio         String?
@@ -200,6 +205,9 @@ model Match {
   notifiedAAt DateTime?
   notifiedBAt DateTime?
   connectedAt DateTime?
+
+  // Operator follow-up: when to check back in (feedback after a connection).
+  followUpAt  DateTime?
 
   thread     ConciergeThread?
   references Reference[]

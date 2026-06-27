@@ -13,6 +13,7 @@ export function SiteFooter() {
             <Link href="/dinners" className="-my-1 py-1 transition-colors hover:text-ink">Dinners</Link>
             <Link href="/coaching" className="-my-1 py-1 transition-colors hover:text-ink">Coaching</Link>
             <Link href="/login" className="-my-1 py-1 transition-colors hover:text-ink">Sign in</Link>
+            <Link href="/studio/login" className="-my-1 py-1 transition-colors hover:text-ink">Studio</Link>
             <Link href="/apply" className="-my-1 py-1 transition-colors hover:text-ink">Apply</Link>
           </nav>
         </div>

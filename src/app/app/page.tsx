@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { getCurrentPerson } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { decideMatch, blockedIdsFor } from "@/lib/actions";
+import { decideMatch, blockedIdsFor, setMatchOptIn } from "@/lib/actions";
 import { mutualFriends, vouchesFor } from "@/lib/social";
 import { Avatar } from "@/components/ui";
 import { SubmitButton } from "@/components/forms";
@@ -9,6 +10,31 @@ export const dynamic = "force-dynamic";
 
 export default async function ForYou() {
   const me = (await getCurrentPerson())!;
+
+  // The whole return visit hinges on one decision: are you opted in to be
+  // matched? Until you say yes, that's the only thing we ask.
+  if (!me.openToMatch) {
+    return (
+      <div className="mx-auto max-w-xl animate-fadeup px-4 py-16 text-center">
+        <div className="font-display text-6xl font-light text-claret/20">♥</div>
+        <h1 className="mt-8 font-display text-4xl font-medium">Ready to meet someone?</h1>
+        <p className="mx-auto mt-4 max-w-md text-lg leading-relaxed text-muted">
+          Your profile is in. Opt in and your matchmaker starts looking for the right introduction
+          for you - one at a time, only when it's a genuine fit. No swiping, no feed.
+        </p>
+        <form action={setMatchOptIn} className="mt-8">
+          <input type="hidden" name="on" value="1" />
+          <SubmitButton className="btn-primary px-8 py-3 text-base" pendingText="Opting in...">
+            Opt in to get matched
+          </SubmitButton>
+        </form>
+        <p className="mt-4 text-sm text-muted">
+          Want to sharpen your profile first?{" "}
+          <Link href="/app/profile" className="text-claret underline">Edit your profile</Link>.
+        </p>
+      </div>
+    );
+  }
 
   // current suggestion = oldest open match where I haven't decided yet
   const matches = await prisma.match.findMany({
@@ -44,8 +70,16 @@ export default async function ForYou() {
         <p className="mx-auto mt-4 max-w-sm text-lg leading-relaxed text-muted">
           {waiting
             ? "Waiting on the other person to say yes. We'll let you know the moment it is mutual, and the concierge takes it from there."
-            : "Your matchmaker is working on your next introduction. A good one is worth the wait, so hang tight."}
+            : "You're on the list. Your matchmaker is working on your next introduction - a good one is worth the wait."}
         </p>
+        {!waiting && (
+          <form action={setMatchOptIn} className="mt-8">
+            <input type="hidden" name="on" value="0" />
+            <SubmitButton className="btn-ghost text-sm" pendingText="Pausing...">
+              Pause matching for now
+            </SubmitButton>
+          </form>
+        )}
       </div>
     );
   }

@@ -1,0 +1,73 @@
+{
+  "createdAt": "2026-06-27T02:09:47.675Z",
+  "baseUrl": "http://localhost:3009",
+  "voice": "en-US-JennyNeural",
+  "output": "public/demo/meet-cute-demo.mp4",
+  "segments": [
+    {
+      "id": "01-intro",
+      "narration": "Meet Cute is premium matchmaking built as one app. Meet someone great, go on a real date, and build something that lasts. No swipe feed. No endless browsing. Just thoughtful introductions, one at a time.",
+      "audioSec": 16.632
+    },
+    {
+      "id": "02-how",
+      "narration": "The journey is simple. A matchmaker gets to know you and hand-picks introductions. The concierge books the table so the first date actually happens. Coaching helps things go well, and monthly dinners create a warm community without pressure.",
+      "audioSec": 16.944
+    },
+    {
+      "id": "03-vouch",
+      "narration": "What makes Meet Cute different is trust. Friends vouch for people they know. When two members match, either can ask a mutual friend for the inside scoop. It feels safe, warm, and human.",
+      "audioSec": 13.92
+    },
+    {
+      "id": "04-apply",
+      "narration": "New members apply through a short application. We learn what you are looking for, how you date, and whether Meet Cute is the right fit. Quality over volume.",
+      "audioSec": 11.4
+    },
+    {
+      "id": "05-dinners",
+      "narration": "Monthly dinners are part of the brand. Easy tables in New York and San Francisco where members meet good people in real life, with no awkward networking energy.",
+      "audioSec": 10.776
+    },
+    {
+      "id": "06-coaching",
+      "narration": "Coaching sits on the bench when you want it. Dating and relationship coaches help members show up well, and support couples who met through the community.",
+      "audioSec": 9.552
+    },
+    {
+      "id": "07-member",
+      "narration": "Inside the member app, you never see a stack of profiles. Your matchmaker sends one curated introduction at a time. You see photos, prompts, mutual friends, and vouches from people who know them.",
+      "audioSec": 14.088
+    },
+    {
+      "id": "08-decide",
+      "narration": "You decide yes or not yet. If you both say yes, the match moves forward and the concierge takes over. No games, no pen pals, just a clear path to meeting in person.",
+      "audioSec": 12.936
+    },
+    {
+      "id": "09-concierge",
+      "narration": "On the matches screen, the concierge proposes a venue and specific time slots. Both people tap their availability, the overlap confirms the date, and a calendar invite lands in your inbox. Morning-of nudge, post-date check-in, all handled.",
+      "audioSec": 17.16
+    },
+    {
+      "id": "10-studio",
+      "narration": "Behind the scenes, operators run the matchmaker studio. A searchable roster, pipeline stages from suggested to together, notes, vouches, dinner history, and the social graph in one place.",
+      "audioSec": 13.728
+    },
+    {
+      "id": "11-pipeline",
+      "narration": "The pipeline view tracks every introduction through its stage, so nothing falls through the cracks and the team always knows who needs attention next.",
+      "audioSec": 8.88
+    },
+    {
+      "id": "12-copilot",
+      "narration": "The co-pilot is an internal assistant for the team. Find candidates, recall notes, summarize a person, spot stale singles, and draft intros. It runs on Claude when configured, or a local intent engine over the live roster so the product always works.",
+      "audioSec": 17.904
+    },
+    {
+      "id": "13-outro",
+      "narration": "Meet Cute. Premium matchmaking, one app, end to end. Apply at hello meet cute dot com.",
+      "audioSec": 8.64
+    }
+  ]
+}

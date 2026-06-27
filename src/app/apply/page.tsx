@@ -64,9 +64,9 @@ export default async function Apply() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="birthdate">Date of birth</label>
-              <input id="birthdate" className="field mt-1.5" name="birthdate" type="date" required max={maxBirthdate} />
-              <p className="mt-1 text-xs text-muted">You must be 18 or older to join.</p>
+              <label className="label" htmlFor="phone">Mobile number</label>
+              <input id="phone" className="field mt-1.5" name="phone" type="tel" required autoComplete="tel" defaultValue={me.phone ?? ""} placeholder="(555) 123-4567" />
+              <p className="mt-1 text-xs text-muted">Your matchmaker texts introductions here. Reply Y to opt in.</p>
             </div>
             <div>
               <label className="label" htmlFor="city">City</label>
@@ -75,6 +75,11 @@ export default async function Apply() {
                 <option value="SF">San Francisco</option>
               </select>
             </div>
+          </div>
+          <div>
+            <label className="label" htmlFor="birthdate">Date of birth</label>
+            <input id="birthdate" className="field mt-1.5" name="birthdate" type="date" required max={maxBirthdate} />
+            <p className="mt-1 text-xs text-muted">You must be 18 or older to join.</p>
           </div>
           <div>
             <label className="label" htmlFor="lookingFor">What are you looking for?</label>

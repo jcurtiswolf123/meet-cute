@@ -53,26 +53,58 @@ export async function POST(req: NextRequest) {
   });
   if (candidates.length === 0) return twiml();
 
-  const decision = YES.test(body) ? "yes" : NO.test(body) ? "pass" : null;
-  if (!decision) {
-    return twiml("Sorry, I didn't catch that. Reply Y if you'd like the introduction, or N to pass.");
+  // Does anyone on this number have an introduction awaiting their reply?
+  let actor: { id: string; name: string } | null = null;
+  for (const person of candidates) {
+    const pending = await prisma.match.findFirst({
+      where: {
+        stage: { in: ["invited", "mutual_yes"] },
+        OR: [
+          { personAId: person.id, aDecision: "pending" },
+          { personBId: person.id, bDecision: "pending" },
+        ],
+      },
+      select: { id: true },
+    });
+    if (pending) {
+      actor = person;
+      break;
+    }
   }
 
-  // Try each candidate until one has a pending introduction to act on.
-  for (const person of candidates) {
-    const outcome = await recordIntroDecision(person.id, decision);
+  // Open introduction: parse the Y/N answer.
+  if (actor) {
+    const decision = YES.test(body) ? "yes" : NO.test(body) ? "pass" : null;
+    if (!decision) {
+      return twiml("Sorry, I didn't catch that. Reply Y if you'd like the introduction, or N to pass.");
+    }
+    const outcome = await recordIntroDecision(actor.id, decision);
+    if (outcome.ok && decision === "pass") {
+      return twiml("No problem - I won't make that introduction. I'll keep you in mind for someone else.");
+    }
+    if (outcome.ok && outcome.connected) {
+      return twiml(); // both confirmation texts already sent via REST
+    }
     if (outcome.ok) {
-      if (decision === "pass") {
-        return twiml("No problem - I won't make that introduction. I'll keep you in mind for someone else.");
-      }
-      if (outcome.connected) {
-        // Both confirmation texts already went out via REST; stay quiet here.
-        return twiml();
-      }
       return twiml(`Love it. I'll check with ${outcome.otherName.split(" ")[0]} and connect you both as soon as they say yes.`);
     }
   }
 
-  // No pending introduction for this number.
+  // No open introduction: if they were recently connected, capture the message
+  // as feedback the operator can read in the dashboard.
+  const recent = await prisma.match.findFirst({
+    where: {
+      stage: "connected",
+      OR: [{ personAId: { in: candidates.map((c) => c.id) } }, { personBId: { in: candidates.map((c) => c.id) } }],
+    },
+    orderBy: { connectedAt: "desc" },
+    select: { id: true, personAId: true, personBId: true },
+  });
+  if (recent && body) {
+    const subjectId = candidates.find((c) => c.id === recent.personAId || c.id === recent.personBId)?.id || candidates[0].id;
+    await prisma.note.create({ data: { subjectId, matchId: recent.id, kind: "feedback", body: body.slice(0, 2000) } });
+    return twiml("Thanks for the update - that's really helpful. I'll be in touch.");
+  }
+
   return twiml("Thanks! I don't have an open introduction for you right now, but I'll be in touch when I do.");
 }

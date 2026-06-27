@@ -18,3 +18,5 @@ prisma/*.db
 .watchdog/
 
 tsconfig.tsbuildinfo
+
+graphify-out/

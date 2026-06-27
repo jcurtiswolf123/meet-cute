@@ -1,10 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { loginAs, requestMagicLink } from "@/lib/actions";
 import { Avatar, Logo } from "@/components/ui";
+import { DemoOperatorPicker } from "@/components/DemoOperatorPicker";
+import { allowMemberDemoLogin } from "@/lib/demo-login";
 
 export const dynamic = "force-dynamic";
-
-const isDev = process.env.NODE_ENV !== "production" && process.env.MEETCUTE_DEMO_LOGIN === "1";
 
 export default async function Login({
   searchParams,
@@ -60,7 +60,7 @@ export default async function Login({
         )}
       </div>
 
-      {isDev && <DemoPicker />}
+      {allowMemberDemoLogin() && <DemoPicker />}
     </main>
   );
 }
@@ -68,10 +68,6 @@ export default async function Login({
 // Local-only convenience: pick any seeded user. Server action loginAs throws in
 // production, and this block does not render there either.
 async function DemoPicker() {
-  const operators = await prisma.person.findMany({
-    where: { isOperator: true },
-    orderBy: { name: "asc" },
-  });
   const members = await prisma.person.findMany({
     where: { isOperator: false, isAmbassador: false, isCoach: false, status: "active" },
     include: { photos: true },
@@ -84,14 +80,15 @@ async function DemoPicker() {
 
       <h2 className="label mt-6">Operators (matchmaker studio)</h2>
       <div className="mt-3 flex flex-wrap gap-3">
-        {operators.map((o) => (
-          <form key={o.id} action={loginAs.bind(null, o.id)}>
-            <button className="btn-ghost">
-              {o.name} · {o.city}
-            </button>
-          </form>
-        ))}
+        <DemoOperatorPicker />
       </div>
+      <p className="mt-3 text-xs text-muted">
+        Or use the{" "}
+        <a href="/studio/login" className="underline decoration-claret/40 underline-offset-2">
+          studio sign-in page
+        </a>
+        .
+      </p>
 
       <h2 className="label mt-10">Members (the app)</h2>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

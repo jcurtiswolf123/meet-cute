@@ -18,7 +18,9 @@
     "db:reset": "rm -f prisma/dev.db && prisma db push && tsx scripts/seed.ts",
     "embed": "tsx scripts/embed.ts",
     "concierge:tick": "tsx scripts/concierge-tick.ts",
-    "demo:bot": "tsx scripts/demo-bot.ts"
+    "demo:bot": "tsx scripts/demo-bot.ts",
+    "demo:setup": "tsx scripts/demo-setup.ts",
+    "demo:video": "tsx scripts/make-demo-video.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
@@ -40,6 +42,7 @@
     "@types/react": "^19.0.2",
     "@types/react-dom": "^19.0.2",
     "autoprefixer": "^10.4.20",
+    "playwright": "^1.61.1",
     "postcss": "^8.4.49",
     "prisma": "^6.1.0",
     "tailwindcss": "^3.4.17",

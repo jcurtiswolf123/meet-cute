@@ -125,3 +125,12 @@ export function connectedSMS(args: { toName: string; otherName: string; otherPho
     `I've let them know you'll be in touch. Take it from here.`,
   ].join(" ");
 }
+
+/** Follow-up after a connection: asks for feedback the operator can act on. */
+export function feedbackRequestSMS(args: { toName: string; otherName: string; operatorName: string }): string {
+  return [
+    `Hi ${first(args.toName)}, it's ${first(args.operatorName)}.`,
+    `How did things go with ${first(args.otherName)}?`,
+    `Just reply to this text - anything helps me make better introductions for you.`,
+  ].join(" ");
+}

@@ -21,6 +21,9 @@ export function SiteHeader() {
           <Link href="/login" className="hidden -my-2 py-2 text-muted transition-colors hover:text-ink sm:inline">
             Sign in
           </Link>
+          <Link href="/studio/login" className="hidden -my-2 py-2 text-muted transition-colors hover:text-ink sm:inline">
+            Studio
+          </Link>
           <Link href="/apply" className="btn-primary">
             Apply
           </Link>

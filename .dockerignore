@@ -11,3 +11,4 @@ npm-debug.log*
 .DS_Store
 README.md
 docs
+public/demo/.work
