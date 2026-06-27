@@ -21,13 +21,13 @@ body {
     @apply mx-auto w-full max-w-6xl px-6;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition duration-200 ease-soft;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition duration-150 ease-soft;
   }
   .btn-primary {
-    @apply btn bg-claret text-cream transition duration-200 hover:bg-claret-dark active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-claret;
+    @apply btn bg-claret text-cream shadow-md hover:shadow-lg hover:bg-claret-dark active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-claret;
   }
   .btn-ghost {
-    @apply btn border border-line bg-transparent text-ink transition duration-200 hover:border-ink/60 hover:bg-paper/50 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink;
+    @apply btn border-2 border-ink bg-transparent text-ink transition duration-200 hover:border-claret hover:bg-claret/5 hover:text-claret active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink;
   }
   .card {
     @apply rounded-xl2 border border-line bg-white shadow-card;
@@ -40,6 +40,74 @@ body {
   }
   .pill {
     @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 text-xs text-muted;
+  }
+
+  /* Disabled actions read as clearly inactive, never as a washed-out ghost of
+     the live button (low-contrast claret looked broken, not disabled). */
+  .btn:disabled,
+  .btn-primary:disabled,
+  .btn-ghost:disabled {
+    @apply cursor-not-allowed border border-line bg-paper text-muted shadow-none;
+    transform: none;
+  }
+
+  /* Editorial ledger: one hairline-divided strip with large Fraunces numerals,
+     instead of a row of identical floating boxes (the dashboard "AI tell"). */
+  .ledger {
+    @apply flex flex-col divide-y divide-line overflow-hidden rounded-xl2 border border-line bg-white shadow-card sm:flex-row sm:divide-x sm:divide-y-0;
+  }
+  .ledger-cell {
+    @apply flex flex-1 flex-col gap-1 px-5 py-4;
+  }
+  .ledger-num {
+    @apply font-display text-3xl font-medium leading-none text-ink tabular-nums;
+  }
+  .ledger-label {
+    @apply text-[11px] font-medium uppercase tracking-[0.14em] text-muted;
+  }
+  /* The lead metric carries a hair of claret so the eye lands on purpose. */
+  .ledger-cell-lead {
+    @apply bg-claret/[0.04];
+  }
+  .ledger-cell-lead .ledger-num {
+    @apply text-claret;
+  }
+
+  /* A primary card can carry a thin claret top-rule to break the
+     all-identical-cards monotony and signal "this is the main action". */
+  .card-feature {
+    @apply card relative overflow-hidden;
+  }
+  .card-feature::before {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-[3px];
+    background-image: linear-gradient(
+      90deg,
+      theme("colors.claret.DEFAULT"),
+      theme("colors.claret.soft"),
+      theme("colors.champagne.DEFAULT")
+    );
+  }
+
+  /* Editorial roster table: hairline rows, roomy cells, small-caps header,
+     warm hover. Replaces the boxed-in default-table look. */
+  .roster {
+    @apply w-full text-sm;
+  }
+  .roster thead th {
+    @apply border-b border-line px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-muted;
+  }
+  .roster tbody td {
+    @apply px-4 py-3.5 align-top;
+  }
+  .roster tbody tr {
+    @apply border-b border-line/60 transition-colors duration-150;
+  }
+  .roster tbody tr:last-child {
+    @apply border-b-0;
+  }
+  .roster tbody tr:hover {
+    @apply bg-cream/70;
   }
 }
 

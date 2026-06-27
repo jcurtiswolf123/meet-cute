@@ -73,15 +73,27 @@ export default async function Roster({
 
   return (
     <div>
-      <div className="mb-5">
-        <h1 className="font-display text-2xl font-medium">Directory</h1>
+      <div className="mb-8">
+        <h1 className="font-display text-3xl font-medium tracking-tight text-ink">Directory</h1>
         <p className="mt-1 text-sm text-muted">Everyone on the roster, with new applicants to review at a glance.</p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Metric label="On roster" value={people.length} />
-        <Metric label="Accept rate" value={applicants ? `${Math.round((accepted / applicants) * 100)}%` : "-"} hint="target 20-30%" />
-        <Metric label="In pipeline" value={stageCount("suggested") + stageCount("mutual_yes") + stageCount("date_scheduled")} />
-        <Metric label="Together" value={stageCount("relationship")} tone="sage" />
+
+      {/* Asymmetrical metric grid: featured "Together" + balanced row of three */}
+      <div className="grid gap-4 md:grid-cols-12 mb-8">
+        {/* Featured metric: "Together" spans 2 columns, taller, more visual weight */}
+        <div className="md:col-span-5 bg-gradient-to-br from-sage/8 to-champagne/6 rounded-xl2 border border-sage/20 p-6 relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="label text-sage/70">The goal</div>
+            <div className="mt-2 font-display text-5xl font-medium text-sage">{stageCount("relationship")}</div>
+            <p className="mt-3 text-sm text-muted">couples in relationships</p>
+          </div>
+          <div className="absolute -bottom-8 -right-8 text-sage/10 text-9xl font-light">♥</div>
+        </div>
+
+        {/* Three balanced metrics in a row */}
+        <Metric label="On roster" value={people.length} tone="" />
+        <Metric label="In pipeline" value={stageCount("suggested") + stageCount("mutual_yes") + stageCount("date_scheduled")} tone="" />
+        <Metric label="Accept rate" value={applicants ? `${Math.round((accepted / applicants) * 100)}%` : "-"} hint="target 20-30%" tone="" />
       </div>
 
       {pendingApplicants.length > 0 && (
@@ -124,37 +136,53 @@ export default async function Roster({
         <button className="btn-ghost">Filter</button>
       </form>
 
-      <div className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-white">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead className="border-b border-line bg-paper/60 text-left text-xs uppercase tracking-wide text-muted">
-            <tr>
-              <th className="px-4 py-3 font-medium">Member</th>
-              <th className="px-4 py-3 font-medium">Wants</th>
-              <th className="px-4 py-3 font-medium">Vouches</th>
-              <th className="px-4 py-3 font-medium">Dinners</th>
-              <th className="px-4 py-3 font-medium">Source</th>
-            </tr>
-          </thead>
-          <tbody>
-            {enriched.map(({ p, vouches, dinners }) => (
-              <tr key={p.id} className="border-b border-line/70 hover:bg-cream/60">
-                <td className="px-4 py-3">
-                  <Link href={`/studio/person/${p.id}`} className="flex items-center gap-3">
-                    <Avatar url={p.photos[0]?.url} name={p.name} size={36} />
-                    <span>
-                      <span className="block font-medium text-ink">{p.name}{p.age ? `, ${p.age}` : ""}</span>
-                      <span className="block text-xs text-muted">{p.city} · {p.neighborhood}</span>
-                    </span>
-                  </Link>
-                </td>
-                <td className="max-w-[22ch] px-4 py-3 text-muted">{p.lookingFor?.slice(0, 60)}</td>
-                <td className="px-4 py-3">{vouches > 0 ? <span className="pill">{vouches}</span> : <span className="text-muted">-</span>}</td>
-                <td className="px-4 py-3 text-muted">{dinners}</td>
-                <td className="px-4 py-3 text-muted">{p.referredBy?.name ?? "direct"}</td>
+      <div className="mt-8">
+        <h2 className="font-display text-lg font-medium text-ink mb-4">Active roster</h2>
+        <div className="overflow-x-auto rounded-xl2 border border-line bg-white shadow-sm">
+          <table className="w-full min-w-[640px]">
+            <thead className="border-b border-line/80 bg-paper/40 text-left text-xs uppercase tracking-widest text-muted/70">
+              <tr>
+                <th className="px-5 py-4 font-medium">Member</th>
+                <th className="px-5 py-4 font-medium">Wants</th>
+                <th className="px-5 py-4 font-medium text-center">Vouches</th>
+                <th className="px-5 py-4 font-medium text-center">Dinners</th>
+                <th className="px-5 py-4 font-medium">Source</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {enriched.map(({ p, vouches, dinners }, idx) => (
+                <tr
+                  key={p.id}
+                  className={`border-b border-line/50 transition-colors ${
+                    idx % 2 === 0 ? "bg-white/50 hover:bg-paper/30" : "bg-cream/20 hover:bg-paper/50"
+                  }`}
+                >
+                  <td className="px-5 py-4">
+                    <Link href={`/studio/person/${p.id}`} className="flex items-center gap-3 group">
+                      <Avatar url={p.photos[0]?.url} name={p.name} size={40} />
+                      <span>
+                        <span className="block font-medium text-ink group-hover:text-claret transition-colors">{p.name}{p.age ? `, ${p.age}` : ""}</span>
+                        <span className="block text-xs text-muted">{p.city} · {p.neighborhood}</span>
+                      </span>
+                    </Link>
+                  </td>
+                  <td className="max-w-[20ch] px-5 py-4 text-sm text-muted">{p.lookingFor?.slice(0, 55)}</td>
+                  <td className="px-5 py-4 text-center">
+                    {vouches > 0 ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-champagne/15 border border-champagne/30 px-2 py-0.5 text-xs font-medium text-champagne">
+                        {vouches}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted/50">-</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4 text-center text-sm text-muted">{dinners}</td>
+                  <td className="px-5 py-4 text-sm text-muted/70">{p.referredBy?.name ?? "direct"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -162,10 +190,10 @@ export default async function Roster({
 
 function Metric({ label, value, hint, tone }: { label: string; value: number | string; hint?: string; tone?: string }) {
   return (
-    <div className="card p-4">
-      <div className="label">{label}</div>
-      <div className={`mt-1 font-display text-3xl ${tone === "sage" ? "text-sage" : "text-ink"}`}>{value}</div>
-      {hint && <div className="text-xs text-muted">{hint}</div>}
+    <div className="md:col-span-2 bg-white rounded-xl2 border border-line p-4 shadow-sm hover:shadow-card transition-shadow">
+      <div className="label text-claret/60">{label}</div>
+      <div className={`mt-2 font-display text-2xl font-medium ${tone === "sage" ? "text-sage" : "text-ink"}`}>{value}</div>
+      {hint && <div className="mt-1 text-xs text-muted">{hint}</div>}
     </div>
   );
 }
