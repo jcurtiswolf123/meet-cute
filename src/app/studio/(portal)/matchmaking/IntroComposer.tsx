@@ -9,12 +9,23 @@ function first(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
 }
 
-// Mirrors introInviteSMS in src/lib/sms.ts so the operator sees exactly what the
-// recipient will get. Kept inline because sms.ts is server-only (imports crypto).
-function previewText(toName: string, otherName: string, blurb: string, operatorName: string): string {
+// Mirrors aboutBullets/introInviteSMS in src/lib/sms.ts so the operator sees
+// exactly what each recipient will get. Kept inline because sms.ts is
+// server-only (imports crypto).
+function aboutBullets(about: string): string {
+  const lines = about
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*[-•*]\s*/, "").trim())
+    .filter(Boolean);
+  return lines.map((l) => `- ${l}`).join(" ");
+}
+
+function previewText(toName: string, otherName: string, about: string, blurb: string, operatorName: string): string {
+  const bullets = aboutBullets(about);
   return [
     `Hi ${first(toName)}, it's ${first(operatorName)} (your matchmaker).`,
-    `I think you'd really hit it off with ${first(otherName)}.`,
+    `I think you'd hit it off with ${first(otherName)}.`,
+    bullets ? `A bit about them: ${bullets}.` : null,
     blurb.trim() ? blurb.trim() : null,
     `Want me to introduce you two? Reply Y for yes or N for no.`,
   ]
@@ -25,6 +36,8 @@ function previewText(toName: string, otherName: string, blurb: string, operatorN
 export function IntroComposer({ people, operatorName }: { people: Person[]; operatorName: string }) {
   const [aId, setAId] = useState("");
   const [bId, setBId] = useState("");
+  const [aboutA, setAboutA] = useState("");
+  const [aboutB, setAboutB] = useState("");
   const [blurb, setBlurb] = useState("");
 
   const a = useMemo(() => people.find((p) => p.id === aId), [people, aId]);
@@ -39,8 +52,8 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
     <div className="card p-5">
       <h2 className="font-display text-lg font-medium">New introduction</h2>
       <p className="mt-1 text-sm text-muted">
-        Pick two people, add a one-line reason, and text them both. They reply Y to opt in; when both
-        say yes, they each get the other&apos;s number automatically.
+        Pick two people, add a few bullets about each, and text them both. They reply Y to opt in;
+        when both say yes, you all land in one group thread together.
       </p>
 
       <form action={createIntroduction} className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -84,8 +97,42 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
           </select>
         </label>
 
+        <label className="block">
+          <span className="label">
+            About {a ? first(a.name) : "the first person"}
+            {a && b ? ` (shown to ${first(b.name)})` : ""}
+          </span>
+          <textarea
+            name="aboutA"
+            value={aboutA}
+            onChange={(e) => setAboutA(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            placeholder={"Works in finance\nLives in Brooklyn\nLoves climbing"}
+            className="field mt-1.5"
+          />
+          <span className="mt-1 block text-xs text-muted">One bullet per line.</span>
+        </label>
+
+        <label className="block">
+          <span className="label">
+            About {b ? first(b.name) : "the second person"}
+            {a && b ? ` (shown to ${first(a.name)})` : ""}
+          </span>
+          <textarea
+            name="aboutB"
+            value={aboutB}
+            onChange={(e) => setAboutB(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            placeholder={"Runs a design studio\nGrew up in Chicago\nMarathoner"}
+            className="field mt-1.5"
+          />
+          <span className="mt-1 block text-xs text-muted">One bullet per line.</span>
+        </label>
+
         <label className="block sm:col-span-2">
-          <span className="label">Why they&apos;d hit it off (sent in the text)</span>
+          <span className="label">Optional one-liner (added after the bullets)</span>
           <textarea
             name="blurb"
             value={blurb}
@@ -104,13 +151,13 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
               {a && b && (
                 <p className="text-sm leading-relaxed">
                   <span className="font-medium">To {first(a.name)}:</span>{" "}
-                  {previewText(a.name, b.name, blurb, operatorName)}
+                  {previewText(a.name, b.name, aboutB, blurb, operatorName)}
                 </p>
               )}
               {a && b && (
                 <p className="text-sm leading-relaxed">
                   <span className="font-medium">To {first(b.name)}:</span>{" "}
-                  {previewText(b.name, a.name, blurb, operatorName)}
+                  {previewText(b.name, a.name, aboutA, blurb, operatorName)}
                 </p>
               )}
             </div>

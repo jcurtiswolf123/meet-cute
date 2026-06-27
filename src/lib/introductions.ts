@@ -6,7 +6,7 @@
 //
 // A Match in this flow moves: invited -> mutual_yes -> connected, or -> exit.
 import { prisma } from "./prisma";
-import { sendSMS, connectedSMS } from "./sms";
+import { sendSMS, connectedSMS, createGroupConversation, groupIntroSMS } from "./sms";
 
 export type IntroDecision = "yes" | "pass";
 
@@ -73,8 +73,16 @@ export async function recordIntroDecision(personId: string, decision: IntroDecis
   return { ok: true, side, matchId: match.id, nowMutual: true, connected, otherName: otherPerson.name };
 }
 
-/** Both said yes: text each person the other's number and mark connected.
- *  Idempotent — re-running won't double-send once connectedAt is set. */
+/** Both said yes: connect them and mark connected. Idempotent — re-running
+ *  won't double-send once connectedAt is set.
+ *
+ *  Preferred path: open a real 3-way group MMS thread (operator + both
+ *  applicants) masked behind our single Twilio number, so they can talk in one
+ *  place with the matchmaker present. If the operator has no cell on file, or
+ *  the group-MMS call fails for any reason (e.g. Group MMS not enabled on the
+ *  account, a non-+1 number, a carrier rejection), we fall back to brokering
+ *  each side the other's number. Either way the match is marked connected and
+ *  this function never throws. */
 export async function connectMatch(matchId: string): Promise<boolean> {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -89,11 +97,45 @@ export async function connectMatch(matchId: string): Promise<boolean> {
   const a = match.personA;
   const b = match.personB;
 
-  if (a.phone) {
-    await sendSMS({ to: a.phone, body: connectedSMS({ toName: a.name, otherName: b.name, otherPhone: b.phone || "(no number on file)" }) });
+  // The operator who created the intro joins the group from their own cell.
+  let operatorPhone: string | null = null;
+  let operatorName = "your matchmaker";
+  if (match.createdById) {
+    const op = await prisma.person.findUnique({
+      where: { id: match.createdById },
+      select: { name: true, phone: true },
+    });
+    operatorPhone = op?.phone ?? null;
+    if (op?.name) operatorName = op.name;
   }
-  if (b.phone) {
-    await sendSMS({ to: b.phone, body: connectedSMS({ toName: b.name, otherName: a.name, otherPhone: a.phone || "(no number on file)" }) });
+
+  let grouped = false;
+  if (operatorPhone && a.phone && b.phone) {
+    try {
+      const res = await createGroupConversation({
+        participants: [operatorPhone, a.phone, b.phone],
+        operatorAddress: process.env.TWILIO_FROM ?? null,
+        body: groupIntroSMS({ operatorName, aName: a.name, bName: b.name }),
+        friendlyName: `mc-intro-${matchId}`,
+      });
+      grouped = res.ok;
+      if (!res.ok) {
+        console.error(`[intro] group MMS failed for match ${matchId} (${res.reason}); falling back to broker`);
+      }
+    } catch (e) {
+      console.error(`[intro] group MMS threw for match ${matchId}: ${(e as Error).message}; falling back to broker`);
+    }
+  }
+
+  // Fallback (operator has no cell, or the group thread couldn't be created):
+  // text each person the other's number, the original broker behavior.
+  if (!grouped) {
+    if (a.phone) {
+      await sendSMS({ to: a.phone, body: connectedSMS({ toName: a.name, otherName: b.name, otherPhone: b.phone || "(no number on file)" }) });
+    }
+    if (b.phone) {
+      await sendSMS({ to: b.phone, body: connectedSMS({ toName: b.name, otherName: a.name, otherPhone: a.phone || "(no number on file)" }) });
+    }
   }
 
   await prisma.match.update({

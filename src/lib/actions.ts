@@ -525,6 +525,19 @@ export async function removeOperator(formData: FormData) {
   revalidatePath("/studio/team");
 }
 
+// Operator: set their own mobile number. Used to add the matchmaker to the 3-way
+// group intro thread when both applicants opt in. Without a number on file, the
+// connection falls back to brokering each side the other's number.
+export async function setOperatorPhone(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const phone = normalizePhone(String(formData.get("phone") || ""));
+  if (!phone) throw new Error("Enter a valid mobile number.");
+  await prisma.person.update({ where: { id: op.id }, data: { phone } });
+  revalidatePath("/studio/team");
+  revalidatePath("/studio/matchmaking");
+}
+
 // --- events (curated dinners) -----------------------------------------------
 
 // Operator: create an event. Redirects to the event detail page to add invitees.
@@ -731,6 +744,10 @@ export async function createIntroduction(formData: FormData) {
   const aId = String(formData.get("personAId") || "");
   const bId = String(formData.get("personBId") || "");
   const blurb = String(formData.get("blurb") || "").trim().slice(0, 1000) || null;
+  // Bullet text describing each person: aboutA describes A (shown to B), aboutB
+  // describes B (shown to A). Newline-separated; each line becomes an SMS bullet.
+  const aboutA = String(formData.get("aboutA") || "").trim().slice(0, 1000) || null;
+  const aboutB = String(formData.get("aboutB") || "").trim().slice(0, 1000) || null;
   if (!aId || !bId) throw new Error("Pick two people.");
   if (aId === bId) throw new Error("Pick two different people.");
 
@@ -760,14 +777,17 @@ export async function createIntroduction(formData: FormData) {
       createdById: op.id,
       stage: "invited",
       rationale: blurb,
+      aboutPersonA: aboutA,
+      aboutPersonB: aboutB,
       notifiedAAt: now,
       notifiedBAt: now,
     },
   });
 
+  // Each person sees the OTHER person's bullets: A's invite describes B (aboutB).
   await Promise.all([
-    sendSMS({ to: a.phone, body: introInviteSMS({ toName: a.name, otherName: b.name, blurb, operatorName: op.name }) }),
-    sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, blurb, operatorName: op.name }) }),
+    sendSMS({ to: a.phone, body: introInviteSMS({ toName: a.name, otherName: b.name, about: aboutB, blurb, operatorName: op.name }) }),
+    sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, about: aboutA, blurb, operatorName: op.name }) }),
   ]);
 
   revalidatePath("/studio/matchmaking");
@@ -789,11 +809,12 @@ export async function resendIntro(formData: FormData) {
 
   const now = new Date();
   const jobs: Promise<unknown>[] = [];
+  // Reuse the about bullets stored when the intro was created: A sees B (aboutB).
   if (match.aDecision === "pending" && match.personA.phone) {
-    jobs.push(sendSMS({ to: match.personA.phone, body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, blurb: match.rationale, operatorName: op.name }) }));
+    jobs.push(sendSMS({ to: match.personA.phone, body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, blurb: match.rationale, operatorName: op.name }) }));
   }
   if (match.bDecision === "pending" && match.personB.phone) {
-    jobs.push(sendSMS({ to: match.personB.phone, body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, blurb: match.rationale, operatorName: op.name }) }));
+    jobs.push(sendSMS({ to: match.personB.phone, body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, blurb: match.rationale, operatorName: op.name }) }));
   }
   await Promise.all(jobs);
   await prisma.match.update({ where: { id: matchId }, data: { notifiedAAt: now, notifiedBAt: now } });

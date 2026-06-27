@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireOperator } from "@/lib/auth";
-import { addOperator, removeOperator } from "@/lib/actions";
+import { addOperator, removeOperator, setOperatorPhone } from "@/lib/actions";
 import { Avatar } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +29,30 @@ export default async function Team() {
           one-time sign-in link.
         </p>
       </div>
+
+      <section className="card p-6">
+        <h2 className="label">Your mobile (for group intros)</h2>
+        <p className="mt-1 text-sm text-muted">
+          When both people in an introduction say yes, we open a group text with the two of them and
+          you. Add your cell so you&apos;re in that thread. Without it, we just send each of them the
+          other&apos;s number.
+        </p>
+        <form action={setOperatorPhone} className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <input
+            name="phone"
+            type="tel"
+            required
+            defaultValue={me.phone ?? ""}
+            placeholder="(555) 123-4567"
+            autoComplete="off"
+            className="field"
+            aria-label="Your mobile number"
+          />
+          <button type="submit" className="btn-primary whitespace-nowrap">
+            Save number
+          </button>
+        </form>
+      </section>
 
       <section className="card p-6">
         <h2 className="label">Add an operator</h2>

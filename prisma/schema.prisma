@@ -195,7 +195,12 @@ model Match {
   aDecision String @default("pending") // pending | yes | pass
   bDecision String @default("pending")
 
-  rationale     String? // the blurb the matchmaker sends: why they'd hit it off
+  rationale     String? // optional one-liner extra: why they'd hit it off
+  // SMS intro bullets describing each person, newline-separated (one bullet per
+  // line). aboutPersonA describes A and is shown to B in B's invite text;
+  // aboutPersonB describes B and is shown to A. Rendered as "- " bullets in SMS.
+  aboutPersonA  String?
+  aboutPersonB  String?
   lastActorId   String?
   stalledReason String?
   exitReason    String?
