@@ -15,6 +15,8 @@ import {
   purgeExpiredAuth,
 } from "./auth";
 import { sendEmail, magicLinkEmail } from "./email";
+import { sendSMS, normalizePhone, introInviteSMS } from "./sms";
+import { connectMatch } from "./introductions";
 import { rateLimit } from "./ratelimit";
 import { startThread, recordPick } from "./concierge";
 import { mutualFriends } from "./social";
@@ -658,4 +660,152 @@ export async function createSuggestion(aId: string, bId: string, rationale: stri
     data: { personAId: aId, personBId: bId, rationale, createdById: me ?? undefined, stage: "suggested" },
   });
   revalidatePath("/studio/pipeline");
+}
+
+// --- SMS introductions (operator-first matchmaking) -------------------------
+//
+// The lightweight flow: anyone the operator wants to match just needs a name and
+// a phone (no profile, no login). The operator picks two people, sends each a
+// "want an intro?" text, both reply Y, and the system connects them.
+
+// Operator: quick-add a person to match. Name + phone is enough; everything else
+// is optional. Created active so they show up immediately in the console.
+export async function quickAddPerson(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+
+  const name = String(formData.get("name") || "").trim().slice(0, 80);
+  const phone = normalizePhone(String(formData.get("phone") || ""));
+  const cityRaw = String(formData.get("city") || "NYC");
+  const city = cityRaw.toUpperCase().includes("SF") || cityRaw.includes("Francisco") ? "SF" : "NYC";
+  const emailRaw = normalizeEmail(String(formData.get("email") || ""));
+  const blurb = String(formData.get("blurb") || "").trim().slice(0, 1000);
+
+  if (!name) throw new Error("Add a name.");
+  if (!phone) throw new Error("Add a valid phone number.");
+
+  // De-dupe on phone so re-adding the same person doesn't create twins.
+  const last10 = phone.replace(/\D/g, "").slice(-10);
+  const existing = await prisma.person.findFirst({ where: { phone: { contains: last10 } } });
+  if (existing) {
+    await prisma.person.update({
+      where: { id: existing.id },
+      data: { name, phone, city, bio: blurb || existing.bio, ...(emailRaw.includes("@") ? { email: emailRaw } : {}) },
+    });
+  } else {
+    await prisma.person.create({
+      data: {
+        name,
+        phone,
+        city,
+        email: emailRaw.includes("@") ? emailRaw : null,
+        bio: blurb || null,
+        status: "active",
+      },
+    });
+  }
+  revalidatePath("/studio/matchmaking");
+}
+
+// Operator: start an introduction between two people. Creates the Match, marks
+// both sides notified, and texts each the "want an intro?" message.
+export async function createIntroduction(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+
+  const aId = String(formData.get("personAId") || "");
+  const bId = String(formData.get("personBId") || "");
+  const blurb = String(formData.get("blurb") || "").trim().slice(0, 1000) || null;
+  if (!aId || !bId) throw new Error("Pick two people.");
+  if (aId === bId) throw new Error("Pick two different people.");
+
+  const [a, b] = await Promise.all([
+    prisma.person.findUnique({ where: { id: aId }, select: { id: true, name: true, phone: true } }),
+    prisma.person.findUnique({ where: { id: bId }, select: { id: true, name: true, phone: true } }),
+  ]);
+  if (!a || !b) throw new Error("One of those people no longer exists.");
+  if (!a.phone || !b.phone) throw new Error("Both people need a phone number before you can text an intro.");
+
+  const existing = await prisma.match.findFirst({
+    where: { OR: [{ personAId: aId, personBId: bId }, { personAId: bId, personBId: aId }] },
+  });
+  if (existing && !["exit", "connected"].includes(existing.stage)) {
+    throw new Error("These two already have an open introduction.");
+  }
+  const blocked = await prisma.block.findFirst({
+    where: { OR: [{ blockerId: aId, blockedId: bId }, { blockerId: bId, blockedId: aId }] },
+  });
+  if (blocked) throw new Error("Cannot connect: a block exists between these two.");
+
+  const now = new Date();
+  await prisma.match.create({
+    data: {
+      personAId: aId,
+      personBId: bId,
+      createdById: op.id,
+      stage: "invited",
+      rationale: blurb,
+      notifiedAAt: now,
+      notifiedBAt: now,
+    },
+  });
+
+  await Promise.all([
+    sendSMS({ to: a.phone, body: introInviteSMS({ toName: a.name, otherName: b.name, blurb, operatorName: op.name }) }),
+    sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, blurb, operatorName: op.name }) }),
+  ]);
+
+  revalidatePath("/studio/matchmaking");
+}
+
+// Operator: re-send the "want an intro?" text to whoever hasn't replied yet.
+export async function resendIntro(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const matchId = String(formData.get("matchId") || "");
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      personA: { select: { name: true, phone: true } },
+      personB: { select: { name: true, phone: true } },
+    },
+  });
+  if (!match) throw new Error("No such introduction.");
+
+  const now = new Date();
+  const jobs: Promise<unknown>[] = [];
+  if (match.aDecision === "pending" && match.personA.phone) {
+    jobs.push(sendSMS({ to: match.personA.phone, body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, blurb: match.rationale, operatorName: op.name }) }));
+  }
+  if (match.bDecision === "pending" && match.personB.phone) {
+    jobs.push(sendSMS({ to: match.personB.phone, body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, blurb: match.rationale, operatorName: op.name }) }));
+  }
+  await Promise.all(jobs);
+  await prisma.match.update({ where: { id: matchId }, data: { notifiedAAt: now, notifiedBAt: now } });
+  revalidatePath("/studio/matchmaking");
+}
+
+// Operator: close an introduction (either side passed, or it fizzled).
+export async function closeIntroduction(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const matchId = String(formData.get("matchId") || "");
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { stage: "exit", exitReason: "operator_closed" },
+  });
+  revalidatePath("/studio/matchmaking");
+}
+
+// Operator: force the connection now (e.g. both said yes by phone/in person).
+export async function connectIntroNow(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const matchId = String(formData.get("matchId") || "");
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { aDecision: "yes", bDecision: "yes", stage: "mutual_yes" },
+  });
+  await connectMatch(matchId);
+  revalidatePath("/studio/matchmaking");
 }

@@ -78,6 +78,7 @@ export async function inviteToEvent(
   await Promise.all(
     toAdd.map(async (p) => {
       try {
+        if (!p.email) return; // phone-only matchee: nothing to email
         const { subject, html, text } = eventInviteEmail({
           name: p.name, theme: dinner.theme || "Meet Cute Dinner", city: dinner.city,
           venue: dinner.venue, when, link,

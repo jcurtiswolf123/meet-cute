@@ -18,8 +18,11 @@ model Person {
   updatedAt DateTime @updatedAt
 
   name      String
-  email     String   @unique
-  phone     String?
+  // Email is optional: operator-added matchees may only have a phone. Still
+  // unique (Postgres allows multiple NULLs), and required in practice for anyone
+  // who signs in via magic link.
+  email     String?  @unique
+  phone     String? // E.164 (+1...). Primary contact for the SMS intro flow.
   city      String // "NYC" | "SF"
 
   // role
@@ -84,6 +87,8 @@ model Person {
 
   coachingAsClient CoachingEngagement[] @relation("Client")
   coachingAsCoach  CoachingEngagement[] @relation("Coach")
+
+  @@index([phone])
 }
 
 // Opaque, revocable session. The cookie holds a random token; we store only its
@@ -178,16 +183,23 @@ model Match {
   // matchmaker who created the suggestion
   createdById String?
 
-  // pipeline: suggested -> mutual_yes -> date_scheduled -> first_date -> second_date -> relationship | exit
+  // pipeline: suggested -> invited -> mutual_yes -> connected (SMS intro flow)
+  // or the legacy dating path: suggested -> mutual_yes -> date_scheduled -> ... | exit
   stage String @default("suggested")
 
   aDecision String @default("pending") // pending | yes | pass
   bDecision String @default("pending")
 
-  rationale     String? // why the matchmaker thinks they work
+  rationale     String? // the blurb the matchmaker sends: why they'd hit it off
   lastActorId   String?
   stalledReason String?
   exitReason    String?
+
+  // SMS intro flow: when each side was texted the "want an intro?" question, and
+  // when the mutual connection text went out.
+  notifiedAAt DateTime?
+  notifiedBAt DateTime?
+  connectedAt DateTime?
 
   thread     ConciergeThread?
   references Reference[]
