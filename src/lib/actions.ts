@@ -725,14 +725,20 @@ export async function quickAddPerson(formData: FormData) {
   if (!name) throw new Error("Add a name.");
   if (!phone) throw new Error("Add a valid phone number.");
 
-  // De-dupe on phone so re-adding the same person doesn't create twins.
-  const last10 = phone.replace(/\D/g, "").slice(-10);
-  const existing = await prisma.person.findFirst({ where: { phone: { contains: last10 } } });
+  // De-dupe on the EXACT normalized number, and never match a privileged account
+  // (operator/ambassador/coach) — a matchee sharing a number with the operator
+  // must not overwrite that operator's record. Substring matching is avoided so a
+  // new add can't hijack an unrelated person whose number merely shares 10 digits.
+  const existing = await prisma.person.findFirst({
+    where: { phone, isOperator: false, isAmbassador: false, isCoach: false },
+  });
   if (existing) {
+    // Genuine same-person re-add: fill in details without clobbering existing
+    // values when the operator left a field blank.
     await prisma.person.update({
       where: { id: existing.id },
       data: {
-        name,
+        name: name || existing.name,
         phone,
         city,
         bio: blurb || existing.bio,
@@ -793,19 +799,45 @@ export async function createIntroduction(formData: FormData) {
   if (blocked) throw new Error("Cannot connect: a block exists between these two.");
 
   const now = new Date();
-  await prisma.match.create({
-    data: {
-      personAId: aId,
-      personBId: bId,
-      createdById: op.id,
-      stage: "invited",
-      rationale: blurb,
-      aboutPersonA: aboutA,
-      aboutPersonB: aboutB,
-      notifiedAAt: now,
-      notifiedBAt: now,
-    },
-  });
+  // Reuse the existing row when re-introducing a pair that previously closed or
+  // connected: the (personAId, personBId) unique constraint means a blind create
+  // would crash (P2002) or, in reverse order, create a duplicate the webhook
+  // would then attach replies to nondeterministically. Reset it to a fresh invite.
+  if (existing) {
+    const aIsExistingA = existing.personAId === aId;
+    await prisma.match.update({
+      where: { id: existing.id },
+      data: {
+        createdById: op.id,
+        stage: "invited",
+        aDecision: "pending",
+        bDecision: "pending",
+        connectedAt: null,
+        exitReason: null,
+        lastActorId: null,
+        rationale: blurb,
+        // Keep about-bullets aligned with the existing row's A/B orientation.
+        aboutPersonA: aIsExistingA ? aboutA : aboutB,
+        aboutPersonB: aIsExistingA ? aboutB : aboutA,
+        notifiedAAt: now,
+        notifiedBAt: now,
+      },
+    });
+  } else {
+    await prisma.match.create({
+      data: {
+        personAId: aId,
+        personBId: bId,
+        createdById: op.id,
+        stage: "invited",
+        rationale: blurb,
+        aboutPersonA: aboutA,
+        aboutPersonB: aboutB,
+        notifiedAAt: now,
+        notifiedBAt: now,
+      },
+    });
+  }
 
   // Each person sees the OTHER person's bullets + Instagram: A's invite describes
   // B (aboutB, b.instagram).

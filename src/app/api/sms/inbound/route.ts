@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { phoneKey, verifyTwilioSignature } from "@/lib/sms";
+import { phoneKey, normalizePhone, verifyTwilioSignature } from "@/lib/sms";
 import { recordIntroDecision } from "@/lib/introductions";
 
 export const dynamic = "force-dynamic";
@@ -44,13 +44,21 @@ export async function POST(req: NextRequest) {
   const key = phoneKey(from);
   if (!key) return twiml();
 
-  // Match the inbound number to a person by the last 10 digits (forgiving of how
-  // the number was stored). If two people share a number, prefer one with a
-  // pending introduction.
-  const candidates = await prisma.person.findMany({
-    where: { phone: { contains: key.slice(-10) } },
-    select: { id: true, name: true },
-  });
+  // Match the inbound number to a person. Prefer the exact normalized E.164, and
+  // only fall back to the last-10-digits substring when no exact row exists (so a
+  // number stored in an odd format still resolves) — exact-first avoids attaching
+  // a reply to the wrong person who merely shares 10 digits. If two people share a
+  // number, the pending-intro check below picks the right one.
+  const fromE164 = normalizePhone(from);
+  let candidates = fromE164
+    ? await prisma.person.findMany({ where: { phone: fromE164 }, select: { id: true, name: true } })
+    : [];
+  if (candidates.length === 0) {
+    candidates = await prisma.person.findMany({
+      where: { phone: { contains: key.slice(-10) } },
+      select: { id: true, name: true },
+    });
+  }
   if (candidates.length === 0) return twiml();
 
   // Does anyone on this number have an introduction awaiting their reply?
