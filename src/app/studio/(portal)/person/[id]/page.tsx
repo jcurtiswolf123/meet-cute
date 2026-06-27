@@ -47,13 +47,27 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
   return (
     <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
       <div>
-        <Link href="/studio" className="text-xs text-muted hover:text-ink">&larr; Roster</Link>
+        <Link href="/studio" className="text-xs text-muted hover:text-ink">&larr; Directory</Link>
         <div className="mt-3 flex items-start gap-4">
           <Avatar url={p.photos[0]?.url} name={p.name} size={72} />
           <div>
             <h1 className="font-display text-3xl font-medium">{p.name}{p.age ? `, ${p.age}` : ""}</h1>
             <p className="text-sm text-muted">{p.city} · {p.neighborhood} · {p.gender ? `${p.gender}, seeking ${p.seeking}` : "operator"}</p>
             <p className="mt-1 text-sm text-claret">{p.headline}</p>
+            {(p.instagram || p.linkedin) && (
+              <p className="mt-1.5 flex flex-wrap gap-3 text-sm">
+                {p.instagram && (
+                  <a href={p.instagram} target="_blank" rel="noopener noreferrer" className="text-claret underline underline-offset-2 hover:opacity-80">
+                    Instagram
+                  </a>
+                )}
+                {p.linkedin && (
+                  <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="text-claret underline underline-offset-2 hover:opacity-80">
+                    LinkedIn
+                  </a>
+                )}
+              </p>
+            )}
           </div>
         </div>
 

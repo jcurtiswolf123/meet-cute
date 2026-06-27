@@ -24,7 +24,7 @@ export default async function Team() {
       <div>
         <h1 className="font-display text-3xl font-medium">Team</h1>
         <p className="mt-1 text-sm text-muted">
-          Operators have full studio access: roster, pipeline, moderation, and the co-pilot. Everyone
+          Operators have full studio access: directory, status, and the co-pilot. Everyone
           signs in with their own email, with no shared password. Adding someone emails them a
           one-time sign-in link.
         </p>

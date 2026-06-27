@@ -39,7 +39,7 @@ export default async function Matchmaking() {
   const [people, intros] = await Promise.all([
     prisma.person.findMany({
       where: { isOperator: false, isAmbassador: false, isCoach: false, status: { in: ["active", "applicant"] } },
-      select: { id: true, name: true, phone: true, city: true, bio: true, openToMatch: true, lookingFor: true },
+      select: { id: true, name: true, phone: true, city: true, bio: true, openToMatch: true, lookingFor: true, linkedin: true, instagram: true },
       orderBy: [{ openToMatch: "desc" }, { name: "asc" }],
     }),
     prisma.match.findMany({
@@ -59,7 +59,7 @@ export default async function Matchmaking() {
   const noPhone = people.filter((p) => !p.phone).length;
 
   // Composer leads with people who've opted in (those are the ones to match).
-  const composerPeople = people.map((p) => ({ id: p.id, name: p.name, phone: p.phone, city: p.city }));
+  const composerPeople = people.map((p) => ({ id: p.id, name: p.name, phone: p.phone, city: p.city, instagram: p.instagram }));
 
   return (
     <div className="space-y-6">
@@ -126,6 +126,14 @@ export default async function Matchmaking() {
           <label className="block">
             <span className="label">Email (optional)</span>
             <input name="email" type="email" placeholder="optional" className="field mt-1.5" />
+          </label>
+          <label className="block">
+            <span className="label">Instagram (optional)</span>
+            <input name="instagram" placeholder="@handle or link" className="field mt-1.5" />
+          </label>
+          <label className="block">
+            <span className="label">LinkedIn (optional)</span>
+            <input name="linkedin" placeholder="handle or link" className="field mt-1.5" />
           </label>
           <label className="block sm:col-span-2">
             <span className="label">Notes about them (optional)</span>
@@ -232,6 +240,7 @@ export default async function Matchmaking() {
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Phone</th>
                 <th className="px-4 py-3 font-medium">City</th>
+                <th className="px-4 py-3 font-medium">Social</th>
                 <th className="px-4 py-3 font-medium">Wants / notes</th>
               </tr>
             </thead>
@@ -250,12 +259,15 @@ export default async function Matchmaking() {
                   </td>
                   <td className="px-4 py-3 text-muted">{p.phone || <span className="text-claret">add a phone</span>}</td>
                   <td className="px-4 py-3 text-muted">{p.city}</td>
+                  <td className="px-4 py-3">
+                    <SocialLinks instagram={p.instagram} linkedin={p.linkedin} />
+                  </td>
                   <td className="max-w-[32ch] truncate px-4 py-3 text-muted">{p.lookingFor || p.bio || "-"}</td>
                 </tr>
               ))}
               {people.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-muted">
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted">
                     No one yet. Add your first person above.
                   </td>
                 </tr>
@@ -265,5 +277,25 @@ export default async function Matchmaking() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Clickable Instagram / LinkedIn links for a person, or a muted dash when neither
+// is on file. Values are stored canonical, so they render straight as hrefs.
+function SocialLinks({ instagram, linkedin }: { instagram: string | null; linkedin: string | null }) {
+  if (!instagram && !linkedin) return <span className="text-muted">-</span>;
+  return (
+    <span className="flex flex-wrap gap-2 text-xs">
+      {instagram && (
+        <a href={instagram} target="_blank" rel="noopener noreferrer" className="text-claret underline underline-offset-2 hover:opacity-80">
+          Instagram
+        </a>
+      )}
+      {linkedin && (
+        <a href={linkedin} target="_blank" rel="noopener noreferrer" className="text-claret underline underline-offset-2 hover:opacity-80">
+          LinkedIn
+        </a>
+      )}
+    </span>
   );
 }

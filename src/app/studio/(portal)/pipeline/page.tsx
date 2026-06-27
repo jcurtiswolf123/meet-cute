@@ -33,7 +33,7 @@ export default async function Pipeline() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl font-medium">Match pipeline</h1>
+      <h1 className="font-display text-2xl font-medium">Status</h1>
       <p className="mt-1 text-sm text-muted">Every match, from suggestion to relationship. Where it stalls is where you act.</p>
 
       {/* Operator override: manually match any two members */}

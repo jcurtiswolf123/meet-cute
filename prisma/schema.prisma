@@ -41,6 +41,11 @@ model Person {
   bio         String?
   lookingFor  String?
   dealBreakers String?
+
+  // socials: collected at application and viewable by the operator. Stored as
+  // canonical profile URLs (see normalizeInstagram/normalizeLinkedin in sms.ts).
+  linkedin    String?
+  instagram   String?
   gender       String? // "woman" | "man" | "nonbinary"
   seeking      String? // comma list of genders sought
   age          Int?

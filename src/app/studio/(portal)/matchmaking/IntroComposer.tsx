@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { createIntroduction } from "@/lib/actions";
 
-type Person = { id: string; name: string; phone: string | null; city: string };
+type Person = { id: string; name: string; phone: string | null; city: string; instagram: string | null };
 
 function first(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
@@ -20,12 +20,22 @@ function aboutBullets(about: string): string {
   return lines.map((l) => `- ${l}`).join(" ");
 }
 
-function previewText(toName: string, otherName: string, about: string, blurb: string, operatorName: string): string {
+function previewText(
+  toName: string,
+  otherName: string,
+  about: string,
+  otherInstagram: string | null,
+  blurb: string,
+  operatorName: string,
+): string {
   const bullets = aboutBullets(about);
+  // Person.instagram is stored canonical (normalizeInstagram), so render as-is.
+  const ig = otherInstagram?.trim() || null;
   return [
     `Hi ${first(toName)}, it's ${first(operatorName)} (your matchmaker).`,
     `I think you'd hit it off with ${first(otherName)}.`,
     bullets ? `A bit about them: ${bullets}.` : null,
+    ig ? `Take a look: ${ig}.` : null,
     blurb.trim() ? blurb.trim() : null,
     `Want me to introduce you two? Reply Y for yes or N for no.`,
   ]
@@ -151,13 +161,13 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
               {a && b && (
                 <p className="text-sm leading-relaxed">
                   <span className="font-medium">To {first(a.name)}:</span>{" "}
-                  {previewText(a.name, b.name, aboutB, blurb, operatorName)}
+                  {previewText(a.name, b.name, aboutB, b.instagram, blurb, operatorName)}
                 </p>
               )}
               {a && b && (
                 <p className="text-sm leading-relaxed">
                   <span className="font-medium">To {first(b.name)}:</span>{" "}
-                  {previewText(b.name, a.name, aboutA, blurb, operatorName)}
+                  {previewText(b.name, a.name, aboutA, a.instagram, blurb, operatorName)}
                 </p>
               )}
             </div>

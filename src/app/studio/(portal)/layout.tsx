@@ -7,10 +7,9 @@ export const dynamic = "force-dynamic";
 
 const STUDIO_NAV = [
   { href: "/studio/matchmaking", label: "Matchmaking" },
-  { href: "/studio", label: "Roster" },
-  { href: "/studio/pipeline", label: "Pipeline" },
+  { href: "/studio", label: "Directory" },
+  { href: "/studio/pipeline", label: "Status" },
   { href: "/studio/events", label: "Events" },
-  { href: "/studio/moderation", label: "Moderation" },
   { href: "/studio/copilot", label: "Co-pilot" },
   { href: "/studio/team", label: "Team" },
 ];

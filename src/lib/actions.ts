@@ -15,7 +15,14 @@ import {
   purgeExpiredAuth,
 } from "./auth";
 import { sendEmail, magicLinkEmail } from "./email";
-import { sendSMS, normalizePhone, introInviteSMS, feedbackRequestSMS } from "./sms";
+import {
+  sendSMS,
+  normalizePhone,
+  normalizeInstagram,
+  normalizeLinkedin,
+  introInviteSMS,
+  feedbackRequestSMS,
+} from "./sms";
 import { connectMatch } from "./introductions";
 import { rateLimit } from "./ratelimit";
 import { startThread, recordPick } from "./concierge";
@@ -322,8 +329,12 @@ export async function completeApplication(formData: FormData) {
   const last = String(formData.get("last") || "").trim();
   const cityRaw = String(formData.get("city") || "");
   const city = cityRaw === "SF" || cityRaw.includes("Francisco") ? "SF" : "NYC";
-  const lookingFor = String(formData.get("lookingFor") || "").slice(0, 2000);
+  // One short line on what they want; the fast signup intentionally drops the
+  // long free-form profile fields (headline/bio/deal-breakers).
+  const lookingFor = String(formData.get("lookingFor") || "").trim().slice(0, 280);
   const phone = normalizePhone(String(formData.get("phone") || ""));
+  const linkedin = normalizeLinkedin(String(formData.get("linkedin") || ""));
+  const instagram = normalizeInstagram(String(formData.get("instagram") || ""));
   const birthdateRaw = String(formData.get("birthdate") || "");
   const agreed = formData.get("agree") === "on";
 
@@ -337,7 +348,7 @@ export async function completeApplication(formData: FormData) {
   const name = `${first} ${last}`.trim() || me!.name;
   await prisma.person.update({
     where: { id: me!.id },
-    data: { name, city, lookingFor, phone, birthdate, age, agreedTosAt: new Date() },
+    data: { name, city, lookingFor, phone, linkedin, instagram, birthdate, age, agreedTosAt: new Date() },
   });
   redirect("/apply/thanks");
 }
@@ -708,6 +719,8 @@ export async function quickAddPerson(formData: FormData) {
   const city = cityRaw.toUpperCase().includes("SF") || cityRaw.includes("Francisco") ? "SF" : "NYC";
   const emailRaw = normalizeEmail(String(formData.get("email") || ""));
   const blurb = String(formData.get("blurb") || "").trim().slice(0, 1000);
+  const linkedin = normalizeLinkedin(String(formData.get("linkedin") || ""));
+  const instagram = normalizeInstagram(String(formData.get("instagram") || ""));
 
   if (!name) throw new Error("Add a name.");
   if (!phone) throw new Error("Add a valid phone number.");
@@ -718,7 +731,15 @@ export async function quickAddPerson(formData: FormData) {
   if (existing) {
     await prisma.person.update({
       where: { id: existing.id },
-      data: { name, phone, city, bio: blurb || existing.bio, ...(emailRaw.includes("@") ? { email: emailRaw } : {}) },
+      data: {
+        name,
+        phone,
+        city,
+        bio: blurb || existing.bio,
+        linkedin: linkedin ?? existing.linkedin,
+        instagram: instagram ?? existing.instagram,
+        ...(emailRaw.includes("@") ? { email: emailRaw } : {}),
+      },
     });
   } else {
     await prisma.person.create({
@@ -728,6 +749,8 @@ export async function quickAddPerson(formData: FormData) {
         city,
         email: emailRaw.includes("@") ? emailRaw : null,
         bio: blurb || null,
+        linkedin,
+        instagram,
         status: "active",
       },
     });
@@ -752,8 +775,8 @@ export async function createIntroduction(formData: FormData) {
   if (aId === bId) throw new Error("Pick two different people.");
 
   const [a, b] = await Promise.all([
-    prisma.person.findUnique({ where: { id: aId }, select: { id: true, name: true, phone: true } }),
-    prisma.person.findUnique({ where: { id: bId }, select: { id: true, name: true, phone: true } }),
+    prisma.person.findUnique({ where: { id: aId }, select: { id: true, name: true, phone: true, instagram: true } }),
+    prisma.person.findUnique({ where: { id: bId }, select: { id: true, name: true, phone: true, instagram: true } }),
   ]);
   if (!a || !b) throw new Error("One of those people no longer exists.");
   if (!a.phone || !b.phone) throw new Error("Both people need a phone number before you can text an intro.");
@@ -784,10 +807,11 @@ export async function createIntroduction(formData: FormData) {
     },
   });
 
-  // Each person sees the OTHER person's bullets: A's invite describes B (aboutB).
+  // Each person sees the OTHER person's bullets + Instagram: A's invite describes
+  // B (aboutB, b.instagram).
   await Promise.all([
-    sendSMS({ to: a.phone, body: introInviteSMS({ toName: a.name, otherName: b.name, about: aboutB, blurb, operatorName: op.name }) }),
-    sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, about: aboutA, blurb, operatorName: op.name }) }),
+    sendSMS({ to: a.phone, body: introInviteSMS({ toName: a.name, otherName: b.name, about: aboutB, otherInstagram: b.instagram, blurb, operatorName: op.name }) }),
+    sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, about: aboutA, otherInstagram: a.instagram, blurb, operatorName: op.name }) }),
   ]);
 
   revalidatePath("/studio/matchmaking");
@@ -801,20 +825,21 @@ export async function resendIntro(formData: FormData) {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
-      personA: { select: { name: true, phone: true } },
-      personB: { select: { name: true, phone: true } },
+      personA: { select: { name: true, phone: true, instagram: true } },
+      personB: { select: { name: true, phone: true, instagram: true } },
     },
   });
   if (!match) throw new Error("No such introduction.");
 
   const now = new Date();
   const jobs: Promise<unknown>[] = [];
-  // Reuse the about bullets stored when the intro was created: A sees B (aboutB).
+  // Reuse the about bullets stored when the intro was created: A sees B (aboutB,
+  // personB.instagram).
   if (match.aDecision === "pending" && match.personA.phone) {
-    jobs.push(sendSMS({ to: match.personA.phone, body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, blurb: match.rationale, operatorName: op.name }) }));
+    jobs.push(sendSMS({ to: match.personA.phone, body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, otherInstagram: match.personB.instagram, blurb: match.rationale, operatorName: op.name }) }));
   }
   if (match.bDecision === "pending" && match.personB.phone) {
-    jobs.push(sendSMS({ to: match.personB.phone, body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, blurb: match.rationale, operatorName: op.name }) }));
+    jobs.push(sendSMS({ to: match.personB.phone, body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, otherInstagram: match.personA.instagram, blurb: match.rationale, operatorName: op.name }) }));
   }
   await Promise.all(jobs);
   await prisma.match.update({ where: { id: matchId }, data: { notifiedAAt: now, notifiedBAt: now } });

@@ -52,9 +52,10 @@ export default async function Apply() {
       <Logo />
       <div className="mx-auto mt-10 max-w-xl">
         <p className="label mb-3">Application</p>
-        <h1 className="font-display text-4xl font-medium tracking-tight">Tell us about you.</h1>
+        <h1 className="font-display text-4xl font-medium tracking-tight">The basics.</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          Signed in as {me.email}. The more specific you are, the better the introductions.
+          Signed in as {me.email}. This takes a minute - just a few essentials and your socials so we
+          can get to know you.
         </p>
 
         <form className="mt-8 space-y-5" action={completeApplication}>
@@ -81,14 +82,25 @@ export default async function Apply() {
             <input id="birthdate" className="field mt-1.5" name="birthdate" type="date" required max={maxBirthdate} />
             <p className="mt-1 text-xs text-muted">You must be 18 or older to join.</p>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="instagram">Instagram</label>
+              <input id="instagram" className="field mt-1.5" name="instagram" defaultValue={me.instagram ?? ""} placeholder="@yourhandle" autoComplete="off" />
+              <p className="mt-1 text-xs text-muted">Recommended - it helps your matches put a face to the name.</p>
+            </div>
+            <div>
+              <label className="label" htmlFor="linkedin">LinkedIn <span className="text-muted">(optional)</span></label>
+              <input id="linkedin" className="field mt-1.5" name="linkedin" defaultValue={me.linkedin ?? ""} placeholder="handle or profile link" autoComplete="off" />
+            </div>
+          </div>
           <div>
-            <label className="label" htmlFor="lookingFor">What are you looking for?</label>
-            <textarea
+            <label className="label" htmlFor="lookingFor">What you&apos;re looking for <span className="text-muted">(optional)</span></label>
+            <input
               id="lookingFor"
-              className="field mt-1.5 min-h-28"
+              className="field mt-1.5"
               name="lookingFor"
               defaultValue={me.lookingFor ?? ""}
-              placeholder="Be honest. The more specific, the better the introductions."
+              placeholder="One line - something serious, a great first date, etc."
             />
           </div>
 

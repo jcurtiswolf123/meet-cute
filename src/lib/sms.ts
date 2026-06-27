@@ -29,6 +29,36 @@ export function phoneKey(raw: string | null | undefined): string | null {
   return digits.length >= 10 ? digits.slice(-10) : null;
 }
 
+/** Canonicalize an Instagram handle OR url into a profile URL. Lenient:
+ *  "@sam"/"sam" -> "https://instagram.com/sam"; a full instagram.com URL is kept
+ *  (adding https:// if missing); blank -> null. */
+export function normalizeInstagram(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (/instagram\.com/i.test(trimmed)) {
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed.replace(/^\/+/, "")}`;
+  }
+  const handle = trimmed.replace(/^@+/, "").replace(/\s+/g, "");
+  if (!handle) return null;
+  return `https://instagram.com/${handle}`;
+}
+
+/** Canonicalize a LinkedIn handle OR url into a profile URL. Lenient: a bare
+ *  handle ("@sam"/"sam") -> "https://www.linkedin.com/in/sam"; a full
+ *  linkedin.com URL is kept (adding https:// if missing); blank -> null. */
+export function normalizeLinkedin(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (/linkedin\.com/i.test(trimmed)) {
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed.replace(/^\/+/, "")}`;
+  }
+  const handle = trimmed.replace(/^@+/, "").replace(/\s+/g, "");
+  if (!handle) return null;
+  return `https://www.linkedin.com/in/${handle}`;
+}
+
 export async function sendSMS({ to, body }: SendArgs): Promise<{ ok: boolean }> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
@@ -118,17 +148,21 @@ export function introInviteSMS(args: {
   toName: string;
   otherName: string;
   about?: string | null;
+  otherInstagram?: string | null;
   blurb?: string | null;
   operatorName: string;
 }): string {
   const me = first(args.operatorName);
   const them = first(args.otherName);
   const bullets = aboutBullets(args.about);
+  // The recipient can size the other person up on Instagram before deciding.
+  const ig = normalizeInstagram(args.otherInstagram);
   const blurb = args.blurb?.trim();
   return [
     `Hi ${first(args.toName)}, it's ${me} (your matchmaker).`,
     `I think you'd hit it off with ${them}.`,
     bullets ? `A bit about them: ${bullets}.` : null,
+    ig ? `Take a look: ${ig}.` : null,
     blurb ? blurb : null,
     `Want me to introduce you two? Reply Y for yes or N for no.`,
   ]
