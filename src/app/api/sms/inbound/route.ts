@@ -72,9 +72,14 @@ export async function POST(req: NextRequest) {
   // a reply to the wrong person who merely shares 10 digits. If two people share a
   // number, the pending-intro check below picks the right one.
   const fromE164 = normalizePhone(from);
-  let candidates = fromE164
+  // Only an EXACT E.164 match may record a Y/N decision. The broader last-10-digit
+  // fallback below is used solely for non-consequential resolution (e.g. capturing
+  // post-connection feedback), never to act on a reply, since a shared or spoofed
+  // sender number could otherwise attach a decision to the wrong person.
+  const exact = fromE164
     ? await prisma.person.findMany({ where: { phone: fromE164 }, select: { id: true, name: true } })
     : [];
+  let candidates = exact;
   if (candidates.length === 0) {
     candidates = await prisma.person.findMany({
       where: { phone: { contains: key.slice(-10) } },
@@ -83,9 +88,9 @@ export async function POST(req: NextRequest) {
   }
   if (candidates.length === 0) return twiml();
 
-  // Does anyone on this number have an introduction awaiting their reply?
+  // Does anyone on this exact number have an introduction awaiting their reply?
   let actor: { id: string; name: string } | null = null;
-  for (const person of candidates) {
+  for (const person of exact) {
     const pending = await prisma.match.findFirst({
       where: {
         stage: { in: ["invited", "mutual_yes"] },
