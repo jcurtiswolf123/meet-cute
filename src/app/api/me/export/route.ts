@@ -29,9 +29,15 @@ export async function GET() {
   const blocks = await prisma.block.findMany({ where: { blockerId: me } });
   const reports = await prisma.report.findMany({ where: { reporterId: me } });
 
+  // Strip storageUrl: it is an internal blob capability URL, not member data the
+  // export should hand out (the image itself is reachable via /app, gated).
+  const { photos, ...personRest } = person;
   const payload = {
     exportedAt: new Date().toISOString(),
-    person,
+    person: {
+      ...personRest,
+      photos: photos.map(({ storageUrl: _omit, ...photo }) => photo),
+    },
     blocks,
     reportsFiled: reports,
   };
