@@ -59,7 +59,16 @@ export default async function Matchmaking() {
   const noPhone = people.filter((p) => !p.phone).length;
 
   // Composer leads with people who've opted in (those are the ones to match).
-  const composerPeople = people.map((p) => ({ id: p.id, name: p.name, phone: p.phone, city: p.city, instagram: p.instagram }));
+  // Carry a starter blurb (their bio, or what they're looking for) so the composer
+  // can prefill the "about" bullets and save the operator retyping what we know.
+  const composerPeople = people.map((p) => ({
+    id: p.id,
+    name: p.name,
+    phone: p.phone,
+    city: p.city,
+    instagram: p.instagram,
+    blurb: (p.bio || p.lookingFor || "").trim(),
+  }));
 
   return (
     <div className="space-y-6">
@@ -83,26 +92,27 @@ export default async function Matchmaking() {
         </div>
       )}
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      {/* KPI ledger: one editorial strip, lead metric tinted claret */}
+      <div className="ledger">
         {[
-          { label: "Ready to match", value: ready },
+          { label: "Ready to match", value: ready, lead: true },
           { label: "Awaiting replies", value: awaiting },
           { label: "Connected", value: connected },
           { label: "People", value: people.length },
           { label: "Missing a phone", value: noPhone },
         ].map((k) => (
-          <div key={k.label} className="card p-4">
-            <div className="font-display text-2xl text-ink">{k.value}</div>
-            <div className="mt-0.5 text-xs uppercase tracking-wide text-muted">{k.label}</div>
+          <div key={k.label} className={`ledger-cell${k.lead ? " ledger-cell-lead" : ""}`}>
+            <div className="ledger-num">{k.value}</div>
+            <div className="ledger-label">{k.label}</div>
           </div>
         ))}
       </div>
 
       <IntroComposer people={composerPeople} operatorName={operatorName} />
 
-      {/* Quick-add a person */}
-      <details className="card p-5">
+      {/* Quick-add a person. Stays open (a server-action submit re-renders and
+          would otherwise re-collapse it, re-charging the expand click each add). */}
+      <details open className="card p-5">
         <summary className="cursor-pointer font-display text-lg font-medium">Add someone to match</summary>
         <p className="mt-1 text-sm text-muted">
           A name and mobile number is all you need. They don&apos;t have to sign up or build a profile.
@@ -233,21 +243,21 @@ export default async function Matchmaking() {
       {/* People list */}
       <div>
         <h2 className="font-display text-lg font-medium">People ({people.length})</h2>
-        <div className="mt-3 overflow-x-auto rounded-xl2 border border-line bg-white">
-          <table className="w-full min-w-[560px] text-sm">
-            <thead className="border-b border-line bg-paper/60 text-left text-xs uppercase tracking-wide text-muted">
+        <div className="mt-3 overflow-x-auto rounded-xl2 border border-line bg-white shadow-card">
+          <table className="roster min-w-[560px]">
+            <thead>
               <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Phone</th>
-                <th className="px-4 py-3 font-medium">City</th>
-                <th className="px-4 py-3 font-medium">Social</th>
-                <th className="px-4 py-3 font-medium">Wants / notes</th>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>City</th>
+                <th>Social</th>
+                <th>Wants / notes</th>
               </tr>
             </thead>
             <tbody>
               {people.map((p) => (
-                <tr key={p.id} className="border-b border-line/70 hover:bg-cream/60">
-                  <td className="px-4 py-3 font-medium text-ink">
+                <tr key={p.id}>
+                  <td className="font-medium text-ink">
                     <span className="flex items-center gap-2">
                       {p.name}
                       {p.openToMatch && (
@@ -257,12 +267,12 @@ export default async function Matchmaking() {
                       )}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-muted">{p.phone || <span className="text-claret">add a phone</span>}</td>
-                  <td className="px-4 py-3 text-muted">{p.city}</td>
-                  <td className="px-4 py-3">
+                  <td className="text-muted">{p.phone || <span className="text-claret">add a phone</span>}</td>
+                  <td className="text-muted">{p.city}</td>
+                  <td>
                     <SocialLinks instagram={p.instagram} linkedin={p.linkedin} />
                   </td>
-                  <td className="max-w-[32ch] truncate px-4 py-3 text-muted">{p.lookingFor || p.bio || "-"}</td>
+                  <td className="max-w-[32ch] truncate text-muted">{p.lookingFor || p.bio || "-"}</td>
                 </tr>
               ))}
               {people.length === 0 && (

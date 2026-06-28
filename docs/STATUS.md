@@ -15,7 +15,7 @@ Last updated: 2026-06-28
 - Dev server: http://localhost:3009 · demo login at `/studio/login` and `/login`.
 - Live demo scenario: **Maya Rosen ↔ Alex Chen** match (suggested, both undecided). One command: `npm run demo:setup`.
 
-## Done
+## Done (Erik's call notes)
 - Prisma schema: added voucherName, voucherContact, recommendation to Person; conversationSid to Match; created IntroMessage model.
 - Bot composer (/lib/intro-bot.ts): LLM-based group intro with deterministic fallback, emoji-free graceful degradation.
 - Conversations webhook (/api/sms/conversations): logs all group thread messages to IntroMessage transcript.
@@ -26,15 +26,22 @@ Last updated: 2026-06-28
 - Bot opener stores conversationSid on the match; invites + Y/N replies + group messages all log to IntroMessage so the console shows the full thread.
 - Member surface scoped: nav is Home / Connections / Profile / Settings; old swipe feed + events + invite redirect to /app.
 - Watchdog now pulls unresolved Sentry issues into its status/alerts. Sentry + Seer (AI autofix PRs) setup documented in docs/OBSERVABILITY.md.
+- Recommendation fields merged into the redesigned (atelier-v2) ApplyForm with inline validation.
+
+## Done (earlier)
+- Demo setup script: `npm run demo:setup` (resets Maya/Alex fixture + prints sign-in links).
+- Operator login page at `/studio/login`; demo video pipeline (`scripts/make-demo-video.ts`).
+- QA pass on signup + operator dashboard: isTextablePhone validation, inline apply-form errors via useActionState, appliedAt stamping, accept-rate metric fix, composer bio prefill, dev sign-in link logging on send failure.
 
 ## In progress
 - (none)
 
 ## Next (prioritized)
-1. Set prod env (Fly secrets): SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN / SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN, and enable Seer in the Sentry UI (docs/OBSERVABILITY.md).
-2. In Twilio, point the Conversations service onMessageAdded webhook at /api/sms/conversations so group transcripts populate the console.
-3. Community admissions voting (V2 defer, see DECISIONS).
-4. Extend Sentry context with match/person/operator metadata for better error triage.
+1. BLOCKER: A2P 10DLC. Twilio account has zero brand registrations, so every SMS returns error 30034 (carrier-blocked). Register Brand + Campaign in Twilio, attach the sending number to the Meet Cute Messaging Service. Texting will not deliver until this is approved.
+2. Set prod env (Fly secrets): SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN / SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN, and enable Seer in the Sentry UI (docs/OBSERVABILITY.md).
+3. Point the Twilio Conversations service onMessageAdded webhook at /api/sms/conversations so group transcripts populate the console.
+4. Verify the production Resend sender domain (`RESEND_FROM`); default `meet-cute.app` returns 403 so magic-link email fails outside dev.
+5. Community admissions voting (V2 defer, see DECISIONS).
 
 ## Blockers
 - (none)

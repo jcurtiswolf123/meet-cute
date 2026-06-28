@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { timingSafeEqual } from "crypto";
 import { prisma } from "./prisma";
 import {
   setSession,
@@ -31,6 +32,17 @@ import { mutualFriends } from "./social";
 import { deleteUpload } from "./uploads";
 import { createEventRecord, inviteToEvent } from "./events";
 import { allowMemberDemoLogin, allowOperatorDemoLogin } from "./demo-login";
+
+// A normalized phone is only usable for the SMS intro flow if it carries a full
+// subscriber number. normalizePhone is deliberately lenient (it will return
+// "+123" for "123"), so callers that gate on a real, textable number must check
+// the digit count here. E.164 allows up to 15 digits; a real mobile has at least
+// 10 (US bare number).
+function isTextablePhone(normalized: string | null | undefined): boolean {
+  if (!normalized) return false;
+  const digits = normalized.replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 15;
+}
 
 // Request a magic-link sign-in. Always returns the same "check your email"
 // result regardless of whether the address exists, is rate-limited, or is
@@ -129,8 +141,19 @@ export async function loginAs(personId: string, formData?: FormData) {
       throw new Error("Demo login is disabled. Use the email sign-in link.");
     }
     const gate = process.env.STUDIO_DEMO_PASSWORD;
-    const password = formData?.get("password");
-    if (gate && password !== gate) throw new Error("Studio access requires the demo passphrase");
+    if (gate) {
+      // Rate-limit attempts per IP so the shared passphrase is not brute-forceable,
+      // and compare in constant time so it cannot be guessed via a timing oracle.
+      const h = await headers();
+      const ip = (h.get("fly-client-ip") || h.get("x-real-ip") || "anon").trim();
+      if (!(await rateLimit(`demologin:ip:${ip}`, 10, 60 * 60 * 1000)).ok) {
+        throw new Error("Too many attempts. Try again later.");
+      }
+      const provided = Buffer.from(String(formData?.get("password") ?? ""));
+      const expected = Buffer.from(gate);
+      const okPass = provided.length === expected.length && timingSafeEqual(provided, expected);
+      if (!okPass) throw new Error("Studio access requires the demo passphrase");
+    }
   } else {
     if (!allowMemberDemoLogin()) {
       throw new Error("Demo login is disabled. Use the email sign-in link.");
@@ -336,7 +359,19 @@ export async function blockedIdsFor(personId: string): Promise<string[]> {
 
 // --- account rights: complete application (18+ + consent), delete account -----
 
-export async function completeApplication(formData: FormData) {
+// State returned to the apply form so validation problems render inline (next to
+// the offending field) and the applicant keeps everything they already typed,
+// instead of being thrown into the full-page error boundary. On success this
+// action redirects and never returns.
+export type ApplyState = {
+  fieldErrors?: Record<string, string>;
+  values?: Record<string, string>;
+};
+
+export async function completeApplication(
+  _prev: ApplyState,
+  formData: FormData,
+): Promise<ApplyState> {
   const me = await getCurrentPerson();
   if (!me) redirect("/login");
 
@@ -347,9 +382,12 @@ export async function completeApplication(formData: FormData) {
   // One short line on what they want; the fast signup intentionally drops the
   // long free-form profile fields (headline/bio/deal-breakers).
   const lookingFor = String(formData.get("lookingFor") || "").trim().slice(0, 280);
-  const phone = normalizePhone(String(formData.get("phone") || ""));
-  const linkedin = normalizeLinkedin(String(formData.get("linkedin") || ""));
-  const instagram = normalizeInstagram(String(formData.get("instagram") || ""));
+  const phoneRaw = String(formData.get("phone") || "");
+  const phone = normalizePhone(phoneRaw);
+  const linkedinRaw = String(formData.get("linkedin") || "");
+  const instagramRaw = String(formData.get("instagram") || "");
+  const linkedin = normalizeLinkedin(linkedinRaw);
+  const instagram = normalizeInstagram(instagramRaw);
   const birthdateRaw = String(formData.get("birthdate") || "");
   const agreed = formData.get("agree") === "on";
   // Community recommendation: every applicant names someone who vouches for them.
@@ -357,20 +395,67 @@ export async function completeApplication(formData: FormData) {
   const voucherContact = String(formData.get("voucherContact") || "").trim().slice(0, 200);
   const recommendation = String(formData.get("recommendation") || "").trim().slice(0, 600);
 
-  if (!agreed) throw new Error("You must accept the Terms and Privacy Policy to continue.");
-  if (!phone) throw new Error("Enter a mobile number so your matchmaker can text you introductions.");
-  if (!voucherName || !voucherContact) {
-    throw new Error("Meet Cute is vouched-for: name someone in the community who can recommend you.");
+  // Echo the entered values back so a re-render preserves them.
+  const values = {
+    first,
+    last,
+    city,
+    lookingFor,
+    phone: phoneRaw,
+    linkedin: linkedinRaw,
+    instagram: instagramRaw,
+    birthdate: birthdateRaw,
+    voucherName,
+    voucherContact,
+    recommendation,
+  };
+
+  const fieldErrors: Record<string, string> = {};
+  if (!first) fieldErrors.first = "Enter your first name.";
+  // Last name is optional: matching only needs a first name + phone.
+  if (!phoneRaw.trim()) {
+    fieldErrors.phone = "Enter a mobile number so your matchmaker can text you introductions.";
+  } else if (!isTextablePhone(phone)) {
+    fieldErrors.phone = "That does not look like a valid mobile number. Use a 10-digit number.";
   }
   const birthdate = birthdateRaw ? new Date(birthdateRaw) : null;
-  if (!birthdate || Number.isNaN(birthdate.getTime())) throw new Error("Enter your date of birth.");
-  const age = Math.floor((Date.now() - birthdate.getTime()) / (365.25 * 24 * 3600 * 1000));
-  if (age < 18) throw new Error("You must be 18 or older to join Meet Cute.");
+  if (!birthdate || Number.isNaN(birthdate.getTime())) {
+    fieldErrors.birthdate = "Enter your date of birth.";
+  } else {
+    const age = Math.floor((Date.now() - birthdate.getTime()) / (365.25 * 24 * 3600 * 1000));
+    if (age < 18) fieldErrors.birthdate = "You must be 18 or older to join Meet Cute.";
+  }
+  if (!agreed) fieldErrors.agree = "Please accept the Terms and Privacy Policy to continue.";
+  // Meet Cute is vouched-for: every applicant names someone in the community.
+  if (!voucherName) fieldErrors.voucherName = "Name someone in the community who can vouch for you.";
+  if (!voucherContact) fieldErrors.voucherContact = "Add their email or phone so we can reach them.";
 
+  if (Object.keys(fieldErrors).length > 0) {
+    return { fieldErrors, values };
+  }
+
+  const age = Math.floor((Date.now() - birthdate!.getTime()) / (365.25 * 24 * 3600 * 1000));
   const name = `${first} ${last}`.trim() || me!.name;
   await prisma.person.update({
     where: { id: me!.id },
-    data: { name, city, lookingFor, phone, linkedin, instagram, birthdate, age, agreedTosAt: new Date(), voucherName, voucherContact, recommendation: recommendation || null },
+    // appliedAt stamps a genuine, completed application: it powers the operator's
+    // accept-rate metric and separates real applicants from people who only
+    // clicked a magic link and never finished.
+    data: {
+      name,
+      city,
+      lookingFor,
+      phone,
+      linkedin,
+      instagram,
+      birthdate,
+      age,
+      agreedTosAt: new Date(),
+      appliedAt: me!.appliedAt ?? new Date(),
+      voucherName,
+      voucherContact,
+      recommendation: recommendation || null,
+    },
   });
   redirect("/apply/thanks");
 }
@@ -489,6 +574,9 @@ export async function setMemberStatus(formData: FormData) {
     await prisma.person.update({ where: { id }, data: { status: "active", acceptedAt: new Date() } });
   } else if (action === "decline") {
     await prisma.person.update({ where: { id }, data: { status: "exited" } });
+    // Revoke any live sessions so a removed member loses access immediately,
+    // not at the end of the 30-day session TTL.
+    await prisma.session.deleteMany({ where: { personId: id } });
   }
   revalidatePath("/studio");
 }
@@ -745,7 +833,7 @@ export async function quickAddPerson(formData: FormData) {
   const instagram = normalizeInstagram(String(formData.get("instagram") || ""));
 
   if (!name) throw new Error("Add a name.");
-  if (!phone) throw new Error("Add a valid phone number.");
+  if (!isTextablePhone(phone)) throw new Error("Add a valid mobile number (at least 10 digits).");
 
   // De-dupe on the EXACT normalized number, and never match a privileged account
   // (operator/ambassador/coach) — a matchee sharing a number with the operator

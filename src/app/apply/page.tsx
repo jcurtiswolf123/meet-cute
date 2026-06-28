@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
 import { getCurrentPerson } from "@/lib/auth";
-import { completeApplication, requestMagicLink } from "@/lib/actions";
+import { requestMagicLink } from "@/lib/actions";
+import { ApplyForm } from "./ApplyForm";
 
 export const dynamic = "force-dynamic";
 
@@ -21,10 +22,13 @@ export default async function Apply() {
             hand and accept a fraction of them.
           </p>
           <form action={requestMagicLink} className="mt-8 space-y-3">
+            {/* Keep the applicant in the application flow (not the generic /login
+                "check your email" screen) before and after the magic link. */}
+            <input type="hidden" name="after" value="/apply" />
             <label className="label" htmlFor="email">
               Email
             </label>
-            <input id="email" name="email" type="email" required autoComplete="email" className="field mt-1.5" placeholder="you@email.com" />
+            <input id="email" name="email" type="email" required autoFocus autoComplete="email" className="field mt-1.5" placeholder="you@email.com" />
             <button className="btn-primary w-full py-3" type="submit">
               Send me a link
             </button>
@@ -41,7 +45,10 @@ export default async function Apply() {
   }
 
   // Signed in: complete the application (name, age, city, what you want, consent).
-  const [first = "", last = ""] = (me.name || "").split(" ");
+  // Only prefill the name for a returning applicant who has actually applied; a
+  // brand-new applicant's name is auto-derived from their email local part, so we
+  // leave it blank rather than show them a guessed name to clear.
+  const [first = "", last = ""] = me.appliedAt ? (me.name || "").split(" ") : ["", ""];
   // 18+ gate computed at render time so the max date never goes stale.
   const today = new Date();
   const maxBirthdate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())
@@ -58,133 +65,22 @@ export default async function Apply() {
           can get to know you.
         </p>
 
-        <form className="mt-8 space-y-5" action={completeApplication}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="First name" name="first" defaultValue={first} required />
-            <Field label="Last name" name="last" defaultValue={last} required />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label" htmlFor="phone">Mobile number</label>
-              <input id="phone" className="field mt-1.5" name="phone" type="tel" required autoComplete="tel" defaultValue={me.phone ?? ""} placeholder="(555) 123-4567" />
-              <p className="mt-1 text-xs text-muted">Your matchmaker texts introductions here. Reply Y to opt in.</p>
-            </div>
-            <div>
-              <label className="label" htmlFor="city">City</label>
-              <select id="city" className="field mt-1.5" name="city" defaultValue={me.city === "SF" ? "SF" : "NYC"}>
-                <option value="NYC">New York</option>
-                <option value="SF">San Francisco</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="label" htmlFor="birthdate">Date of birth</label>
-            <input id="birthdate" className="field mt-1.5" name="birthdate" type="date" required max={maxBirthdate} />
-            <p className="mt-1 text-xs text-muted">You must be 18 or older to join.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label" htmlFor="instagram">Instagram</label>
-              <input id="instagram" className="field mt-1.5" name="instagram" defaultValue={me.instagram ?? ""} placeholder="@yourhandle" autoComplete="off" />
-              <p className="mt-1 text-xs text-muted">Recommended - it helps your matches put a face to the name.</p>
-            </div>
-            <div>
-              <label className="label" htmlFor="linkedin">LinkedIn <span className="text-muted">(optional)</span></label>
-              <input id="linkedin" className="field mt-1.5" name="linkedin" defaultValue={me.linkedin ?? ""} placeholder="handle or profile link" autoComplete="off" />
-            </div>
-          </div>
-          <div>
-            <label className="label" htmlFor="lookingFor">What you&apos;re looking for <span className="text-muted">(optional)</span></label>
-            <input
-              id="lookingFor"
-              className="field mt-1.5"
-              name="lookingFor"
-              defaultValue={me.lookingFor ?? ""}
-              placeholder="One line - something serious, a great first date, etc."
-            />
-          </div>
-
-          {/* Community recommendation. Meet Cute is vouched-for: every applicant
-              names someone already in the community who will speak for them. */}
-          <fieldset className="space-y-4 rounded-xl border border-line bg-paper/40 p-4">
-            <legend className="label px-1">Your recommendation</legend>
-            <p className="-mt-1 text-xs text-muted">
-              Meet Cute runs on trust. Name someone already in the community who can vouch for you, and
-              share a line in their words. It shows on your profile and tells us more than a bio could.
-            </p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="label" htmlFor="voucherName">Who vouches for you?</label>
-                <input id="voucherName" className="field mt-1.5" name="voucherName" required defaultValue={me.voucherName ?? ""} placeholder="Their full name" />
-              </div>
-              <div>
-                <label className="label" htmlFor="voucherContact">How do we reach them?</label>
-                <input id="voucherContact" className="field mt-1.5" name="voucherContact" required defaultValue={me.voucherContact ?? ""} placeholder="Their email or phone" />
-              </div>
-            </div>
-            <div>
-              <label className="label" htmlFor="recommendation">What would they say about you?</label>
-              <textarea
-                id="recommendation"
-                className="field mt-1.5 min-h-24"
-                name="recommendation"
-                defaultValue={me.recommendation ?? ""}
-                placeholder="In their words: e.g. &ldquo;Josh is fun-loving, adventurous, and one of the best friends you will ever have.&rdquo;"
-              />
-            </div>
-          </fieldset>
-
-          <label className="flex items-start gap-3 text-sm">
-            <input type="checkbox" name="agree" required className="mt-1" />
-            <span className="text-muted">
-              I am 18 or older and I agree to the{" "}
-              <Link href="/terms" className="text-claret underline" target="_blank">
-                Terms of Service
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="text-claret underline" target="_blank">
-                Privacy Policy
-              </Link>
-              .
-            </span>
-          </label>
-
-          <button className="btn-primary w-full py-3" type="submit">
-            Submit application
-          </button>
-        </form>
+        <ApplyForm
+          defaults={{
+            first,
+            last,
+            phone: me.phone ?? "",
+            city: me.city === "SF" ? "SF" : "NYC",
+            instagram: me.instagram ?? "",
+            linkedin: me.linkedin ?? "",
+            lookingFor: me.lookingFor ?? "",
+            maxBirthdate,
+            voucherName: me.voucherName ?? "",
+            voucherContact: me.voucherContact ?? "",
+            recommendation: me.recommendation ?? "",
+          }}
+        />
       </div>
     </main>
-  );
-}
-
-function Field({
-  label,
-  name,
-  type = "text",
-  placeholder,
-  defaultValue,
-  required,
-}: {
-  label: string;
-  name: string;
-  type?: string;
-  placeholder?: string;
-  defaultValue?: string;
-  required?: boolean;
-}) {
-  return (
-    <div>
-      <label className="label" htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        className="field mt-1.5"
-        name={name}
-        type={type}
-        placeholder={placeholder}
-        defaultValue={defaultValue}
-        required={required}
-      />
-    </div>
   );
 }

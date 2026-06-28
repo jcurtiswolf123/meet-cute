@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { createIntroduction } from "@/lib/actions";
 
-type Person = { id: string; name: string; phone: string | null; city: string; instagram: string | null };
+type Person = { id: string; name: string; phone: string | null; city: string; instagram: string | null; blurb?: string };
 
 function first(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
@@ -53,59 +53,61 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
   const a = useMemo(() => people.find((p) => p.id === aId), [people, aId]);
   const b = useMemo(() => people.find((p) => p.id === bId), [people, bId]);
 
+  // Selecting a person seeds their "about" box from what we already know (bio /
+  // what they're looking for), but only when the box is still empty, so the
+  // operator never loses anything they typed.
+  function selectPerson(side: "a" | "b", id: string) {
+    const person = people.find((p) => p.id === id);
+    const seed = (person?.blurb ?? "").trim();
+    if (side === "a") {
+      setAId(id);
+      if (seed && !aboutA.trim()) setAboutA(seed);
+    } else {
+      setBId(id);
+      if (seed && !aboutB.trim()) setAboutB(seed);
+    }
+  }
+
   const missingPhone =
     (a && !a.phone ? a.name : null) || (b && !b.phone ? b.name : null);
   const sameTwice = aId && bId && aId === bId;
   const ready = a && b && !missingPhone && !sameTwice;
 
   return (
-    <div className="card p-5">
+    <div className="card-feature p-5">
       <h2 className="font-display text-lg font-medium">New introduction</h2>
       <p className="mt-1 text-sm text-muted">
         Pick two people, add a few bullets about each, and text them both. They reply Y to opt in;
         when both say yes, you all land in one group thread together.
       </p>
 
-      <form action={createIntroduction} className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="block">
-          <span className="label">First person</span>
-          <select
-            name="personAId"
-            required
-            value={aId}
-            onChange={(e) => setAId(e.target.value)}
-            className="field mt-1.5"
-          >
-            <option value="" disabled>
-              Choose a person
-            </option>
-            {people.map((p) => (
-              <option key={p.id} value={p.id} disabled={p.id === bId}>
-                {p.name} ({p.city}){p.phone ? "" : " - no phone"}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block">
-          <span className="label">Second person</span>
-          <select
-            name="personBId"
-            required
-            value={bId}
-            onChange={(e) => setBId(e.target.value)}
-            className="field mt-1.5"
-          >
-            <option value="" disabled>
-              Choose a person
-            </option>
-            {people.map((p) => (
-              <option key={p.id} value={p.id} disabled={p.id === aId}>
-                {p.name} ({p.city}){p.phone ? "" : " - no phone"}
-              </option>
-            ))}
-          </select>
-        </label>
+      <form
+        action={createIntroduction}
+        className="mt-4 grid gap-3 sm:grid-cols-2"
+        onKeyDown={(e) => {
+          // Cmd/Ctrl+Enter sends without reaching for the mouse.
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && ready) {
+            e.preventDefault();
+            e.currentTarget.requestSubmit();
+          }
+        }}
+      >
+        <PersonCombobox
+          label="First person"
+          name="personAId"
+          people={people}
+          value={aId}
+          excludeId={bId}
+          onChange={(id) => selectPerson("a", id)}
+        />
+        <PersonCombobox
+          label="Second person"
+          name="personBId"
+          people={people}
+          value={bId}
+          excludeId={aId}
+          onChange={(id) => selectPerson("b", id)}
+        />
 
         <label className="block">
           <span className="label">
@@ -181,11 +183,96 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
         )}
 
         <div className="sm:col-span-2">
-          <button type="submit" disabled={!ready} className="btn-primary disabled:opacity-40">
+          <button type="submit" disabled={!ready} className="btn-primary">
             Send intro texts
           </button>
+          <span className="ml-3 text-xs text-muted">or press Cmd/Ctrl + Enter</span>
         </div>
       </form>
     </div>
+  );
+}
+
+// Typeahead person picker. Replaces a flat alphabetical <select> so the operator
+// types 2-3 letters and hits Enter instead of scrolling a long roster. Writes the
+// chosen id to a hidden input so the server action receives it unchanged.
+function PersonCombobox({
+  label,
+  name,
+  people,
+  value,
+  excludeId,
+  onChange,
+}: {
+  label: string;
+  name: string;
+  people: Person[];
+  value: string;
+  excludeId?: string;
+  onChange: (id: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const selected = people.find((p) => p.id === value);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return people
+      .filter((p) => p.id !== excludeId)
+      .filter((p) => !q || p.name.toLowerCase().includes(q) || p.city.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [people, query, excludeId]);
+
+  // Show the chosen person's name when closed; typing reopens the search.
+  const display = open ? query : selected ? `${selected.name} (${selected.city})` : "";
+
+  function choose(id: string) {
+    onChange(id);
+    setQuery("");
+    setOpen(false);
+  }
+
+  return (
+    <label className="relative block">
+      <span className="label">{label}</span>
+      <input
+        type="text"
+        className="field mt-1.5"
+        placeholder="Type a name..."
+        value={display}
+        autoComplete="off"
+        role="combobox"
+        aria-expanded={open}
+        onFocus={() => { setOpen(true); setQuery(""); setActive(0); }}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); setActive(0); }}
+        onKeyDown={(e) => {
+          if (!open) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, filtered.length - 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
+          else if (e.key === "Enter" && filtered[active]) { e.preventDefault(); choose(filtered[active].id); }
+          else if (e.key === "Escape") setOpen(false);
+        }}
+      />
+      <input type="hidden" name={name} value={value} />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-line bg-white py-1 shadow-card">
+          {filtered.map((p, i) => (
+            <li key={p.id}>
+              <button
+                type="button"
+                onMouseEnter={() => setActive(i)}
+                onMouseDown={(e) => { e.preventDefault(); choose(p.id); }}
+                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${i === active ? "bg-cream" : ""}`}
+              >
+                <span className="text-ink">{p.name}</span>
+                <span className="text-xs text-muted">{p.city}{p.phone ? "" : " · no phone"}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </label>
   );
 }
