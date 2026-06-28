@@ -17,6 +17,13 @@ _Append-only. Newest at top. Each entry: what was decided, why, and what was rej
   - Vouching via in-app votes: deferred to V2 (out of scope for call notes); current system is operator-curated vouch display.
 - Reversible?: Yes. All schema changes are additive; features are feature-flagged via env vars (SENTRY_DSN, LLM provider choice).
 
+## 2026-06-28 : Community-driven admissions deferred to V2
+- Decision: Do NOT build the admissions committee / swipe-to-admit flow now.
+- Why: Erik flagged it as a longer-term idea ("we can build this later"). V1
+  keeps centralized approval (operators approve applicants in the studio roster).
+- Reversible?: Yes - the Vouch graph + applicant review already provide the data
+  a committee flow would build on.
+
 ## 2026-06-24 : Context system created
 - Decision: Adopt durable markdown context (CLAUDE.md + docs/) for this project.
 - Why: Explicit, version-able context loads deterministically every session and is more reliable than chat/agent memory.

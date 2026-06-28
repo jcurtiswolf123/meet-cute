@@ -6,6 +6,8 @@ _Lightweight backlog. Move items between sections as they progress._
 - (none)
 
 ## Backlog (prioritized)
+- [ ] Set prod Sentry env (Fly secrets) + enable Seer AI autofix (docs/OBSERVABILITY.md)
+- [ ] Point Twilio Conversations onMessageAdded webhook at /api/sms/conversations
 - [ ] Community admissions voting (V2)
 - [ ] Extend Sentry context with match/person metadata for error triage
 - [ ] Health scoring: add latency metrics (hours since last activity)

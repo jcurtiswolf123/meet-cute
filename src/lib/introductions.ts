@@ -110,7 +110,7 @@ export async function recordIntroDecision(personId: string, decision: IntroDecis
   return { ok: true, side, matchId: match.id, nowMutual: true, connected, otherName: otherPerson.name };
 }
 
-/** Both said yes: connect them and mark connected. Idempotent — re-running
+/** Both said yes: connect them and mark connected. Idempotent: re-running
  *  won't double-send once connectedAt is set.
  *
  *  Preferred path: open a real 3-way group MMS thread (operator + both

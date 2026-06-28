@@ -23,14 +23,18 @@ Last updated: 2026-06-28
 - Operator console (/studio/conversations): list view with health badges, opt-in state, last activity; detail view with full transcript + jump-in form.
 - Member connections view (/app/connections): list of mutually connected people; detail view guarded by isConnectedTo().
 - Sentry.captureException() integrated into error paths; no-op until SENTRY_DSN env var is set.
+- Bot opener stores conversationSid on the match; invites + Y/N replies + group messages all log to IntroMessage so the console shows the full thread.
+- Member surface scoped: nav is Home / Connections / Profile / Settings; old swipe feed + events + invite redirect to /app.
+- Watchdog now pulls unresolved Sentry issues into its status/alerts. Sentry + Seer (AI autofix PRs) setup documented in docs/OBSERVABILITY.md.
 
 ## In progress
 - (none)
 
 ## Next (prioritized)
-1. Community admissions voting (V2 defer).
-2. Polish operator console health scoring logic (currently: exit/connected-quiet/waiting/no-reply/pending).
-3. Extend Sentry context with match/person/operator metadata for better error triage.
+1. Set prod env (Fly secrets): SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN / SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN, and enable Seer in the Sentry UI (docs/OBSERVABILITY.md).
+2. In Twilio, point the Conversations service onMessageAdded webhook at /api/sms/conversations so group transcripts populate the console.
+3. Community admissions voting (V2 defer, see DECISIONS).
+4. Extend Sentry context with match/person/operator metadata for better error triage.
 
 ## Blockers
 - (none)
