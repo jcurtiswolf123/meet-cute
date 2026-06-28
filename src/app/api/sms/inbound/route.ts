@@ -1,6 +1,16 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { phoneKey, normalizePhone, verifyTwilioSignature } from "@/lib/sms";
+import {
+  phoneKey,
+  normalizePhone,
+  verifyTwilioSignature,
+  isStopKeyword,
+  isHelpKeyword,
+  isStartKeyword,
+  OPT_OUT_REPLY,
+  HELP_REPLY,
+  OPT_IN_REPLY,
+} from "@/lib/sms";
 import { recordIntroDecision } from "@/lib/introductions";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +36,9 @@ function escapeXml(s: string): string {
 }
 
 const YES = /^\s*(y|ye|yes|yeah|yep|yup|sure|ok|okay|absolutely|sounds good|do it)\b/i;
-const NO = /^\s*(n|no|nope|nah|pass|stop|unsubscribe|cancel)\b/i;
+// STOP/unsubscribe/cancel are handled by the carrier-keyword branch below (a real
+// opt-out), not lumped in here as a one-off "pass".
+const NO = /^\s*(n|no|nope|nah|pass)\b/i;
 
 export async function POST(req: NextRequest) {
   const raw = await req.text();
@@ -41,6 +53,16 @@ export async function POST(req: NextRequest) {
 
   const from = params.From || "";
   const body = (params.Body || "").trim();
+
+  // Carrier-required keyword replies take precedence over intro Y/N parsing and
+  // must work for any inbound number, matched to a person or not.
+  if (isHelpKeyword(body)) return twiml(HELP_REPLY);
+  if (isStartKeyword(body)) return twiml(OPT_IN_REPLY);
+  if (isStopKeyword(body)) {
+    await applyOptOut(from);
+    return twiml(OPT_OUT_REPLY);
+  }
+
   const key = phoneKey(from);
   if (!key) return twiml();
 
@@ -50,9 +72,14 @@ export async function POST(req: NextRequest) {
   // a reply to the wrong person who merely shares 10 digits. If two people share a
   // number, the pending-intro check below picks the right one.
   const fromE164 = normalizePhone(from);
-  let candidates = fromE164
+  // Only an EXACT E.164 match may record a Y/N decision. The broader last-10-digit
+  // fallback below is used solely for non-consequential resolution (e.g. capturing
+  // post-connection feedback), never to act on a reply, since a shared or spoofed
+  // sender number could otherwise attach a decision to the wrong person.
+  const exact = fromE164
     ? await prisma.person.findMany({ where: { phone: fromE164 }, select: { id: true, name: true } })
     : [];
+  let candidates = exact;
   if (candidates.length === 0) {
     candidates = await prisma.person.findMany({
       where: { phone: { contains: key.slice(-10) } },
@@ -61,9 +88,9 @@ export async function POST(req: NextRequest) {
   }
   if (candidates.length === 0) return twiml();
 
-  // Does anyone on this number have an introduction awaiting their reply?
+  // Does anyone on this exact number have an introduction awaiting their reply?
   let actor: { id: string; name: string } | null = null;
-  for (const person of candidates) {
+  for (const person of exact) {
     const pending = await prisma.match.findFirst({
       where: {
         stage: { in: ["invited", "mutual_yes"] },
@@ -115,4 +142,40 @@ export async function POST(req: NextRequest) {
   }
 
   return twiml("Thanks! I don't have an open introduction for you right now, but I'll be in touch when I do.");
+}
+
+/** STOP handling: stop chasing this number. Closes any open introduction it is
+ *  part of and leaves the operator a durable note, so the dashboard and any
+ *  future session both see the opt-out. Best effort: an unmatched number still
+ *  gets the opt-out confirmation reply (compliance applies regardless). For
+ *  account-wide send suppression, also enable Advanced Opt-Out on the Twilio
+ *  Messaging Service. */
+async function applyOptOut(from: string): Promise<void> {
+  const key = phoneKey(from);
+  if (!key) return;
+  const fromE164 = normalizePhone(from);
+  const people = await prisma.person.findMany({
+    where: fromE164
+      ? { OR: [{ phone: fromE164 }, { phone: { contains: key.slice(-10) } }] }
+      : { phone: { contains: key.slice(-10) } },
+    select: { id: true },
+  });
+  if (people.length === 0) return;
+  const ids = people.map((p) => p.id);
+
+  // Close any open intros awaiting these people so we stop chasing a reply.
+  await prisma.match.updateMany({
+    where: {
+      stage: { in: ["invited", "mutual_yes"] },
+      OR: [{ personAId: { in: ids } }, { personBId: { in: ids } }],
+    },
+    data: { stage: "exit", exitReason: "opted_out_sms" },
+  });
+
+  // Leave an operator-visible record of the opt-out.
+  await prisma.note
+    .create({ data: { subjectId: ids[0], kind: "optout", body: "Texted STOP. Do not contact by SMS." } })
+    .catch(() => {
+      /* note is advisory; never fail the webhook over it */
+    });
 }

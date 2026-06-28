@@ -123,6 +123,39 @@ export function verifyTwilioSignature(args: {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+// --- carrier-required keyword handling (STOP / HELP / START) -----------------
+//
+// US A2P 10DLC rules require that STOP ends messaging and HELP returns help info
+// for ANY inbound number, whether or not it maps to a person. We match these as
+// leading whole words so an ordinary reply ("no, stop by later") is not misread,
+// and keep the exact reply copy here so it stays consistent and reviewable. For
+// durable, account-wide suppression of opted-out numbers, send via a Twilio
+// Messaging Service with Advanced Opt-Out enabled (TWILIO_MESSAGING_SERVICE_SID),
+// which blocks further sends automatically; this webhook copy is the fallback.
+const STOP_KEYWORDS = /^\s*(stop|stopall|unsubscribe|cancel|end|quit|optout|opt[-\s]?out|revoke)\b/i;
+const HELP_KEYWORDS = /^\s*(help|info)\b/i;
+const START_KEYWORDS = /^\s*(start|unstop|optin|opt[-\s]?in|subscribe)\b/i;
+
+export function isStopKeyword(body: string): boolean {
+  return STOP_KEYWORDS.test(body);
+}
+export function isHelpKeyword(body: string): boolean {
+  return HELP_KEYWORDS.test(body);
+}
+export function isStartKeyword(body: string): boolean {
+  return START_KEYWORDS.test(body);
+}
+
+/** Reply sent when someone texts STOP: confirms opt-out and how to return. */
+export const OPT_OUT_REPLY =
+  "You're opted out and won't get more Meet Cute texts. Reply START to opt back in.";
+/** Reply sent when someone texts HELP. */
+export const HELP_REPLY =
+  "Meet Cute matchmaking. We text intro invites you can accept (Y) or decline (N). Msg & data rates may apply. Reply STOP to opt out.";
+/** Reply sent when someone texts START to re-subscribe. */
+export const OPT_IN_REPLY =
+  "You're opted back in to Meet Cute texts. Reply STOP any time to opt out.";
+
 function first(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
 }
@@ -165,6 +198,8 @@ export function introInviteSMS(args: {
     ig ? `Take a look: ${ig}.` : null,
     blurb ? blurb : null,
     `Want me to introduce you two? Reply Y for yes or N for no.`,
+    // Carrier-required opt-out disclosure on the first message a recipient gets.
+    `Reply STOP to opt out.`,
   ]
     .filter(Boolean)
     .join(" ");
