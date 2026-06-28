@@ -377,6 +377,36 @@ export async function createGroupConversation(args: {
   }
 }
 
+/** Send a message into an existing group Conversation (operator "jump in").
+ *  Authored by our projected number so it lands in the same group thread. Mirrors
+ *  sendSMS' graceful degradation: logs and returns ok in dev with no creds,
+ *  refuses in production. */
+export async function sendConversationMessage(args: {
+  conversationSid: string;
+  body: string;
+}): Promise<{ ok: boolean; reason?: string }> {
+  const creds = twilioCreds();
+  const proxy = normalizePhone(process.env.TWILIO_FROM ?? null);
+  if (!creds) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[sms] Twilio credentials not set; cannot send group message in production");
+      return { ok: false, reason: "twilio not configured" };
+    }
+    console.log(`[sms:dev] group message convo=${args.conversationSid} body="${args.body}"`);
+    return { ok: true };
+  }
+  try {
+    const sent = await conversationsPost(creds, `/Conversations/${args.conversationSid}/Messages`, {
+      ...(proxy ? { Author: proxy } : {}),
+      Body: args.body,
+    });
+    if (!sent.ok) return { ok: false, reason: `send failed (${sent.status}): ${sent.text.slice(0, 200)}` };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: `group message error: ${(e as Error).message}` };
+  }
+}
+
 /** Best-effort teardown of a half-built Conversation so a failed attempt does
  *  not leave an orphaned thread (or block a retry with the same participants). */
 async function deleteConversation(creds: TwilioCreds, sid: string): Promise<void> {

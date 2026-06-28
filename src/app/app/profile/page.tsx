@@ -13,6 +13,9 @@ async function save(formData: FormData) {
     bio: String(formData.get("bio") ?? ""),
     lookingFor: String(formData.get("lookingFor") ?? ""),
     dealBreakers: String(formData.get("dealBreakers") ?? ""),
+    recommendation: String(formData.get("recommendation") ?? ""),
+    voucherName: String(formData.get("voucherName") ?? ""),
+    voucherContact: String(formData.get("voucherContact") ?? ""),
   });
 }
 
@@ -49,6 +52,28 @@ export default async function Profile() {
           <label className="label">Deal-breakers</label>
           <input name="dealBreakers" defaultValue={me.dealBreakers ?? ""} className="field mt-1.5" />
         </div>
+
+        {/* Community recommendation: shown on your profile to people you connect with. */}
+        <fieldset className="space-y-4 rounded-xl border border-line bg-paper/40 p-4">
+          <legend className="label px-1">Your recommendation</legend>
+          {me.recommendation && (
+            <p className="-mt-1 border-l-2 border-sage pl-3 text-sm italic text-ink/80">&ldquo;{me.recommendation}&rdquo;</p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label">Who vouches for you?</label>
+              <input name="voucherName" defaultValue={me.voucherName ?? ""} className="field mt-1.5" placeholder="Their full name" />
+            </div>
+            <div>
+              <label className="label">How we reach them</label>
+              <input name="voucherContact" defaultValue={me.voucherContact ?? ""} className="field mt-1.5" placeholder="Their email or phone" />
+            </div>
+          </div>
+          <div>
+            <label className="label">In their words</label>
+            <textarea name="recommendation" defaultValue={me.recommendation ?? ""} className="field mt-1.5 min-h-24" placeholder="A line about you, from someone who knows you well." />
+          </div>
+        </fieldset>
 
         <div className="space-y-3">
           {me.prompts.map((p) => (

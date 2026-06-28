@@ -94,6 +94,34 @@ function checkBuild(): Check {
   return { name: "build", ok: r.ok, detail: r.ok ? "ok" : r.out.slice(-4000) };
 }
 
+// Pull recent unresolved Sentry issues so live runtime errors show up in the
+// watchdog status + alerts alongside the build/typecheck checks. Informational:
+// having issues is not itself a "failed check" (it never blocks), but they are
+// surfaced so a human (or Sentry Seer's AI autofix, enabled in the Sentry UI)
+// can act. No-op unless SENTRY_AUTH_TOKEN + SENTRY_ORG + SENTRY_PROJECT are set.
+async function checkSentry(): Promise<Check | null> {
+  const token = process.env.SENTRY_AUTH_TOKEN;
+  const org = process.env.SENTRY_ORG;
+  const project = process.env.SENTRY_PROJECT;
+  if (!token || !org || !project) return null;
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15_000);
+    const res = await fetch(
+      `https://sentry.io/api/0/projects/${org}/${project}/issues/?query=${encodeURIComponent("is:unresolved")}&statsPeriod=24h`,
+      { headers: { Authorization: `Bearer ${token}` }, signal: ctrl.signal, cache: "no-store" }
+    );
+    clearTimeout(timer);
+    if (!res.ok) return { name: "sentry", ok: true, detail: `issues API ${res.status} (skipped)` };
+    const issues = (await res.json()) as { title?: string; culprit?: string; count?: string }[];
+    if (!Array.isArray(issues) || issues.length === 0) return { name: "sentry", ok: true, detail: "no unresolved issues (24h)" };
+    const top = issues.slice(0, 5).map((i) => `${i.title ?? "issue"}${i.culprit ? ` @ ${i.culprit}` : ""} (${i.count ?? "?"})`);
+    return { name: "sentry", ok: true, detail: `${issues.length} unresolved (24h): ${top.join(" | ")}` };
+  } catch (e) {
+    return { name: "sentry", ok: true, detail: `issues check error: ${(e as Error).message}` };
+  }
+}
+
 async function checkDb(): Promise<Check> {
   if (!process.env.DATABASE_URL) return { name: "db", ok: true, detail: "skipped (no DATABASE_URL)" };
   try {
@@ -210,6 +238,11 @@ async function cycle(n: number): Promise<boolean> {
   const checks: Check[] = [];
   checks.push(await checkHealth());
   checks.push(await checkDb());
+  const sentry = await checkSentry();
+  if (sentry) {
+    checks.push(sentry);
+    log(`sentry: ${sentry.detail}`);
+  }
   const tc = checkTypecheck();
   checks.push(tc);
   if (n % BUILD_EVERY === 0) checks.push(checkBuild());

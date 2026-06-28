@@ -84,6 +84,12 @@ export default async function Roster({
                   <span>
                     <span className="block text-sm font-medium text-ink">{a.name}{a.age ? `, ${a.age}` : ""}</span>
                     <span className="block text-xs text-muted">{a.email} · {a.city}</span>
+                    {a.voucherName && (
+                      <span className="mt-0.5 block text-xs text-sage">
+                        Vouched by {a.voucherName}
+                        {a.recommendation ? `: "${a.recommendation.slice(0, 80)}${a.recommendation.length > 80 ? "..." : ""}"` : ""}
+                      </span>
+                    )}
                   </span>
                 </Link>
                 <div className="flex gap-2">

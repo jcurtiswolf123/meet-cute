@@ -51,6 +51,42 @@ export async function mutualFriends(aId: string, bId: string) {
   });
 }
 
+// People this member has actually been introduced to: a match that reached
+// mutual yes or connected. This is the ONLY set whose profiles a member may view
+// (see the member visibility rule: application + own profile + connected
+// profiles only). Excludes anyone in a block relationship, in either direction.
+const CONNECTED_STAGES = ["mutual_yes", "connected"];
+
+export async function connectedPersonIds(meId: string): Promise<string[]> {
+  const [matches, blocks] = await Promise.all([
+    prisma.match.findMany({
+      where: { stage: { in: CONNECTED_STAGES }, OR: [{ personAId: meId }, { personBId: meId }] },
+      select: { personAId: true, personBId: true },
+    }),
+    prisma.block.findMany({
+      where: { OR: [{ blockerId: meId }, { blockedId: meId }] },
+      select: { blockerId: true, blockedId: true },
+    }),
+  ]);
+  const blocked = new Set<string>();
+  for (const b of blocks) blocked.add(b.blockerId === meId ? b.blockedId : b.blockerId);
+
+  const ids = new Set<string>();
+  for (const m of matches) {
+    const other = m.personAId === meId ? m.personBId : m.personAId;
+    if (other !== meId && !blocked.has(other)) ids.add(other);
+  }
+  return [...ids];
+}
+
+/** Guard: may `meId` view `otherId`'s profile? True only if they share a
+ *  connected/mutual match (and no block exists). */
+export async function isConnectedTo(meId: string, otherId: string): Promise<boolean> {
+  if (meId === otherId) return true;
+  const ids = await connectedPersonIds(meId);
+  return ids.includes(otherId);
+}
+
 export async function vouchesFor(personId: string) {
   return prisma.vouch.findMany({
     where: { subjectId: personId },

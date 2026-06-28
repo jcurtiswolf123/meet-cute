@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/prisma";
 import {
   phoneKey,
@@ -41,107 +42,115 @@ const YES = /^\s*(y|ye|yes|yeah|yep|yup|sure|ok|okay|absolutely|sounds good|do i
 const NO = /^\s*(n|no|nope|nah|pass)\b/i;
 
 export async function POST(req: NextRequest) {
-  const raw = await req.text();
-  const params = Object.fromEntries(new URLSearchParams(raw)) as Record<string, string>;
+  try {
+    const raw = await req.text();
+    const params = Object.fromEntries(new URLSearchParams(raw)) as Record<string, string>;
 
-  // Verify the request really came from Twilio (HMAC over URL + sorted params).
-  const url = `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || `https://${req.headers.get("host")}`}/api/sms/inbound`;
-  const valid = verifyTwilioSignature({ signature: req.headers.get("x-twilio-signature"), url, params });
-  if (!valid) {
-    return new Response("invalid signature", { status: 403 });
-  }
+    // Verify the request really came from Twilio (HMAC over URL + sorted params).
+    const url = `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || `https://${req.headers.get("host")}`}/api/sms/inbound`;
+    const valid = verifyTwilioSignature({ signature: req.headers.get("x-twilio-signature"), url, params });
+    if (!valid) {
+      return new Response("invalid signature", { status: 403 });
+    }
 
-  const from = params.From || "";
-  const body = (params.Body || "").trim();
+    const from = params.From || "";
+    const body = (params.Body || "").trim();
 
-  // Carrier-required keyword replies take precedence over intro Y/N parsing and
-  // must work for any inbound number, matched to a person or not.
-  if (isHelpKeyword(body)) return twiml(HELP_REPLY);
-  if (isStartKeyword(body)) return twiml(OPT_IN_REPLY);
-  if (isStopKeyword(body)) {
-    await applyOptOut(from);
-    return twiml(OPT_OUT_REPLY);
-  }
+    // Carrier-required keyword replies take precedence over intro Y/N parsing and
+    // must work for any inbound number, matched to a person or not.
+    if (isHelpKeyword(body)) return twiml(HELP_REPLY);
+    if (isStartKeyword(body)) return twiml(OPT_IN_REPLY);
+    if (isStopKeyword(body)) {
+      await applyOptOut(from);
+      return twiml(OPT_OUT_REPLY);
+    }
 
-  const key = phoneKey(from);
-  if (!key) return twiml();
+    const key = phoneKey(from);
+    if (!key) return twiml();
 
-  // Match the inbound number to a person. Prefer the exact normalized E.164, and
-  // only fall back to the last-10-digits substring when no exact row exists (so a
-  // number stored in an odd format still resolves) — exact-first avoids attaching
-  // a reply to the wrong person who merely shares 10 digits. If two people share a
-  // number, the pending-intro check below picks the right one.
-  const fromE164 = normalizePhone(from);
-  // Only an EXACT E.164 match may record a Y/N decision. The broader last-10-digit
-  // fallback below is used solely for non-consequential resolution (e.g. capturing
-  // post-connection feedback), never to act on a reply, since a shared or spoofed
-  // sender number could otherwise attach a decision to the wrong person.
-  const exact = fromE164
-    ? await prisma.person.findMany({ where: { phone: fromE164 }, select: { id: true, name: true } })
-    : [];
-  let candidates = exact;
-  if (candidates.length === 0) {
-    candidates = await prisma.person.findMany({
-      where: { phone: { contains: key.slice(-10) } },
-      select: { id: true, name: true },
-    });
-  }
-  if (candidates.length === 0) return twiml();
+    // Match the inbound number to a person. Prefer the exact normalized E.164, and
+    // only fall back to the last-10-digits substring when no exact row exists (so a
+    // number stored in an odd format still resolves) — exact-first avoids attaching
+    // a reply to the wrong person who merely shares 10 digits. If two people share a
+    // number, the pending-intro check below picks the right one.
+    const fromE164 = normalizePhone(from);
+    // Only an EXACT E.164 match may record a Y/N decision. The broader last-10-digit
+    // fallback below is used solely for non-consequential resolution (e.g. capturing
+    // post-connection feedback), never to act on a reply, since a shared or spoofed
+    // sender number could otherwise attach a decision to the wrong person.
+    const exact = fromE164
+      ? await prisma.person.findMany({ where: { phone: fromE164 }, select: { id: true, name: true } })
+      : [];
+    let candidates = exact;
+    if (candidates.length === 0) {
+      candidates = await prisma.person.findMany({
+        where: { phone: { contains: key.slice(-10) } },
+        select: { id: true, name: true },
+      });
+    }
+    if (candidates.length === 0) return twiml();
 
-  // Does anyone on this exact number have an introduction awaiting their reply?
-  let actor: { id: string; name: string } | null = null;
-  for (const person of exact) {
-    const pending = await prisma.match.findFirst({
+    // Does anyone on this exact number have an introduction awaiting their reply?
+    let actor: { id: string; name: string } | null = null;
+    for (const person of exact) {
+      const pending = await prisma.match.findFirst({
+        where: {
+          stage: { in: ["invited", "mutual_yes"] },
+          OR: [
+            { personAId: person.id, aDecision: "pending" },
+            { personBId: person.id, bDecision: "pending" },
+          ],
+        },
+        select: { id: true },
+      });
+      if (pending) {
+        actor = person;
+        break;
+      }
+    }
+
+    // Open introduction: parse the Y/N answer.
+    if (actor) {
+      const decision = YES.test(body) ? "yes" : NO.test(body) ? "pass" : null;
+      if (!decision) {
+        return twiml("Sorry, I didn't catch that. Reply Y if you'd like the introduction, or N to pass.");
+      }
+      const outcome = await recordIntroDecision(actor.id, decision);
+      if (outcome.ok && decision === "pass") {
+        return twiml("No problem - I won't make that introduction. I'll keep you in mind for someone else.");
+      }
+      if (outcome.ok && outcome.connected) {
+        return twiml(); // both confirmation texts already sent via REST
+      }
+      if (outcome.ok) {
+        return twiml(`Love it. I'll check with ${outcome.otherName.split(" ")[0]} and connect you both as soon as they say yes.`);
+      }
+    }
+
+    // No open introduction: if they were recently connected, capture the message
+    // as feedback the operator can read in the dashboard.
+    const recent = await prisma.match.findFirst({
       where: {
-        stage: { in: ["invited", "mutual_yes"] },
-        OR: [
-          { personAId: person.id, aDecision: "pending" },
-          { personBId: person.id, bDecision: "pending" },
-        ],
+        stage: "connected",
+        OR: [{ personAId: { in: candidates.map((c) => c.id) } }, { personBId: { in: candidates.map((c) => c.id) } }],
       },
-      select: { id: true },
+      orderBy: { connectedAt: "desc" },
+      select: { id: true, personAId: true, personBId: true },
     });
-    if (pending) {
-      actor = person;
-      break;
+    if (recent && body) {
+      const subjectId = candidates.find((c) => c.id === recent.personAId || c.id === recent.personBId)?.id || candidates[0].id;
+      await prisma.note.create({ data: { subjectId, matchId: recent.id, kind: "feedback", body: body.slice(0, 2000) } });
+      return twiml("Thanks for the update - that's really helpful. I'll be in touch.");
     }
-  }
 
-  // Open introduction: parse the Y/N answer.
-  if (actor) {
-    const decision = YES.test(body) ? "yes" : NO.test(body) ? "pass" : null;
-    if (!decision) {
-      return twiml("Sorry, I didn't catch that. Reply Y if you'd like the introduction, or N to pass.");
-    }
-    const outcome = await recordIntroDecision(actor.id, decision);
-    if (outcome.ok && decision === "pass") {
-      return twiml("No problem - I won't make that introduction. I'll keep you in mind for someone else.");
-    }
-    if (outcome.ok && outcome.connected) {
-      return twiml(); // both confirmation texts already sent via REST
-    }
-    if (outcome.ok) {
-      return twiml(`Love it. I'll check with ${outcome.otherName.split(" ")[0]} and connect you both as soon as they say yes.`);
-    }
+    return twiml("Thanks! I don't have an open introduction for you right now, but I'll be in touch when I do.");
+  } catch (e) {
+    // Log the error to Sentry for monitoring
+    Sentry.captureException(e);
+    console.error(`[sms/inbound] error: ${(e as Error).message}`);
+    // Still return a valid TwiML response so Twilio doesn't retry
+    return twiml();
   }
-
-  // No open introduction: if they were recently connected, capture the message
-  // as feedback the operator can read in the dashboard.
-  const recent = await prisma.match.findFirst({
-    where: {
-      stage: "connected",
-      OR: [{ personAId: { in: candidates.map((c) => c.id) } }, { personBId: { in: candidates.map((c) => c.id) } }],
-    },
-    orderBy: { connectedAt: "desc" },
-    select: { id: true, personAId: true, personBId: true },
-  });
-  if (recent && body) {
-    const subjectId = candidates.find((c) => c.id === recent.personAId || c.id === recent.personBId)?.id || candidates[0].id;
-    await prisma.note.create({ data: { subjectId, matchId: recent.id, kind: "feedback", body: body.slice(0, 2000) } });
-    return twiml("Thanks for the update - that's really helpful. I'll be in touch.");
-  }
-
-  return twiml("Thanks! I don't have an open introduction for you right now, but I'll be in touch when I do.");
 }
 
 /** STOP handling: stop chasing this number. Closes any open introduction it is

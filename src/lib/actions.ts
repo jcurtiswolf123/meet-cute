@@ -22,8 +22,9 @@ import {
   normalizeLinkedin,
   introInviteSMS,
   feedbackRequestSMS,
+  sendConversationMessage,
 } from "./sms";
-import { connectMatch } from "./introductions";
+import { connectMatch, logIntroMessage } from "./introductions";
 import { rateLimit } from "./ratelimit";
 import { startThread, recordPick } from "./concierge";
 import { mutualFriends } from "./social";
@@ -249,10 +250,24 @@ export async function updateProfile(form: {
   bio: string;
   lookingFor: string;
   dealBreakers: string;
+  recommendation?: string;
+  voucherName?: string;
+  voucherContact?: string;
 }) {
   const me = await getSessionPersonId();
   if (!me) throw new Error("not logged in");
-  await prisma.person.update({ where: { id: me }, data: form });
+  await prisma.person.update({
+    where: { id: me },
+    data: {
+      headline: form.headline,
+      bio: form.bio,
+      lookingFor: form.lookingFor,
+      dealBreakers: form.dealBreakers,
+      ...(form.recommendation !== undefined ? { recommendation: form.recommendation.trim().slice(0, 600) || null } : {}),
+      ...(form.voucherName !== undefined ? { voucherName: form.voucherName.trim().slice(0, 120) || null } : {}),
+      ...(form.voucherContact !== undefined ? { voucherContact: form.voucherContact.trim().slice(0, 200) || null } : {}),
+    },
+  });
   revalidatePath("/app/profile");
 }
 
@@ -337,9 +352,16 @@ export async function completeApplication(formData: FormData) {
   const instagram = normalizeInstagram(String(formData.get("instagram") || ""));
   const birthdateRaw = String(formData.get("birthdate") || "");
   const agreed = formData.get("agree") === "on";
+  // Community recommendation: every applicant names someone who vouches for them.
+  const voucherName = String(formData.get("voucherName") || "").trim().slice(0, 120);
+  const voucherContact = String(formData.get("voucherContact") || "").trim().slice(0, 200);
+  const recommendation = String(formData.get("recommendation") || "").trim().slice(0, 600);
 
   if (!agreed) throw new Error("You must accept the Terms and Privacy Policy to continue.");
   if (!phone) throw new Error("Enter a mobile number so your matchmaker can text you introductions.");
+  if (!voucherName || !voucherContact) {
+    throw new Error("Meet Cute is vouched-for: name someone in the community who can recommend you.");
+  }
   const birthdate = birthdateRaw ? new Date(birthdateRaw) : null;
   if (!birthdate || Number.isNaN(birthdate.getTime())) throw new Error("Enter your date of birth.");
   const age = Math.floor((Date.now() - birthdate.getTime()) / (365.25 * 24 * 3600 * 1000));
@@ -348,7 +370,7 @@ export async function completeApplication(formData: FormData) {
   const name = `${first} ${last}`.trim() || me!.name;
   await prisma.person.update({
     where: { id: me!.id },
-    data: { name, city, lookingFor, phone, linkedin, instagram, birthdate, age, agreedTosAt: new Date() },
+    data: { name, city, lookingFor, phone, linkedin, instagram, birthdate, age, agreedTosAt: new Date(), voucherName, voucherContact, recommendation: recommendation || null },
   });
   redirect("/apply/thanks");
 }
@@ -846,7 +868,21 @@ export async function createIntroduction(formData: FormData) {
     sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, about: aboutA, otherInstagram: a.instagram, blurb, operatorName: op.name }) }),
   ]);
 
+  // Seed the transcript with the two invites so the operator console shows the
+  // intro from its first message. Resolve the match id (created or reused above).
+  const intro = await prisma.match.findFirst({
+    where: { OR: [{ personAId: aId, personBId: bId }, { personAId: bId, personBId: aId }] },
+    select: { id: true },
+  });
+  if (intro) {
+    await Promise.all([
+      logIntroMessage({ matchId: intro.id, body: `Invited ${a.name.split(" ")[0]}: want an intro to ${b.name.split(" ")[0]}? (Y/N)`, author: "bot", kind: "invite" }),
+      logIntroMessage({ matchId: intro.id, body: `Invited ${b.name.split(" ")[0]}: want an intro to ${a.name.split(" ")[0]}? (Y/N)`, author: "bot", kind: "invite" }),
+    ]);
+  }
+
   revalidatePath("/studio/matchmaking");
+  revalidatePath("/studio/conversations");
 }
 
 // Operator: re-send the "want an intro?" text to whoever hasn't replied yet.
@@ -944,6 +980,50 @@ export async function setIntroFollowUp(formData: FormData) {
     data: { followUpAt: days > 0 ? new Date(Date.now() + days * 24 * 3600 * 1000) : null },
   });
   revalidatePath("/studio/matchmaking");
+}
+
+// Operator: "jump in" to an introduction's group thread. Posts into the live
+// Twilio group conversation when one exists; otherwise falls back to texting
+// both participants the same message. Logged to the transcript either way.
+export async function messageGroup(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const matchId = String(formData.get("matchId") || "");
+  const message = String(formData.get("message") || "").trim().slice(0, 480);
+  if (!message) throw new Error("Write a message first.");
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      personA: { select: { name: true, phone: true } },
+      personB: { select: { name: true, phone: true } },
+    },
+  });
+  if (!match) throw new Error("No such introduction.");
+
+  let delivered = false;
+  if (match.conversationSid) {
+    const res = await sendConversationMessage({ conversationSid: match.conversationSid, body: message });
+    delivered = res.ok;
+  }
+  if (!delivered) {
+    // No live group thread (or send failed): text each side directly.
+    const jobs: Promise<unknown>[] = [];
+    if (match.personA.phone) jobs.push(sendSMS({ to: match.personA.phone, body: message }));
+    if (match.personB.phone) jobs.push(sendSMS({ to: match.personB.phone, body: message }));
+    await Promise.all(jobs);
+  }
+
+  await logIntroMessage({
+    matchId,
+    body: message,
+    direction: "out",
+    author: op.name.split(" ")[0],
+    personId: op.id,
+    kind: "operator",
+  });
+  revalidatePath(`/studio/conversations/${matchId}`);
+  revalidatePath("/studio/conversations");
 }
 
 // Operator: send a free-form text to one person (notify / nudge / check in).

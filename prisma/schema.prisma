@@ -55,6 +55,15 @@ model Person {
   birthdate    DateTime? // 18+ gate, collected at application
   agreedTosAt  DateTime? // consent to Terms + Privacy at signup
 
+  // community recommendation (collected at application): every applicant names
+  // someone who can vouch for them. voucherContact is the voucher's email/phone
+  // so an operator can verify; recommendation is the displayed blurb shown on the
+  // profile ("Josh is fun-loving, adventurous..."). See lib/social.ts for the
+  // member-to-member Vouch[] relation that powers aggregate social proof.
+  voucherName    String?
+  voucherContact String?
+  recommendation String?
+
   // ambassador
   ambassadorTitle String?
   ambassadorSince DateTime?
@@ -216,14 +225,46 @@ model Match {
   notifiedBAt DateTime?
   connectedAt DateTime?
 
+  // Twilio Conversations SID for the 3-way group MMS thread opened on mutual yes.
+  // Null when the connection fell back to brokering numbers (no group thread).
+  // Lets the operator console deep-link and attribute logged group messages.
+  conversationSid String?
+
   // Operator follow-up: when to check back in (feedback after a connection).
   followUpAt  DateTime?
 
   thread     ConciergeThread?
   references Reference[]
   notes      Note[]
+  introMessages IntroMessage[]
 
   @@unique([personAId, personBId])
+}
+
+// Transcript of the SMS introduction for a match: the per-side invite texts, the
+// bot's group opener, and any messages logged from the 3-way group thread via the
+// Twilio Conversations webhook. This is what the operator console renders so a
+// matchmaker can monitor conversation health and jump in. Distinct from
+// ConciergeMessage (the legacy dating/scheduling concierge), which is keyed to a
+// ConciergeThread rather than the lightweight operator-driven intro flow.
+model IntroMessage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  // out = sent by Meet Cute (bot/operator); in = a participant replied.
+  direction String  @default("out")
+  // Display label for who sent it: "bot" | "operator" | a participant's first name.
+  author    String  @default("bot")
+  // The participant this message is attributed to/from, when known.
+  personId  String?
+  body      String
+  // text | invite | group_open | first_step | operator | system
+  kind      String  @default("text")
+
+  @@index([matchId])
+  @@index([createdAt])
 }
 
 model Vouch {

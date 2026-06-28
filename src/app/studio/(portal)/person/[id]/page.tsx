@@ -73,6 +73,19 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
         {p.bio && <p className="mt-5 text-sm leading-relaxed">{p.bio}</p>}
 
+        {(p.recommendation || p.voucherName) && (
+          <div className="mt-5 rounded-xl border border-sage/30 bg-sage/8 p-4">
+            <p className="label text-sage">Recommendation</p>
+            {p.recommendation && <p className="mt-1.5 text-sm italic leading-relaxed text-ink/85">&ldquo;{p.recommendation}&rdquo;</p>}
+            {p.voucherName && (
+              <p className="mt-2 text-xs text-muted">
+                Vouched for by <span className="font-medium text-ink">{p.voucherName}</span>
+                {p.voucherContact ? ` · ${p.voucherContact}` : ""}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {p.lookingFor && <Box label="Looking for" body={p.lookingFor} />}
           {p.dealBreakers && <Box label="Deal-breakers" body={p.dealBreakers} />}

@@ -104,6 +104,36 @@ export default async function Apply() {
             />
           </div>
 
+          {/* Community recommendation. Meet Cute is vouched-for: every applicant
+              names someone already in the community who will speak for them. */}
+          <fieldset className="space-y-4 rounded-xl border border-line bg-paper/40 p-4">
+            <legend className="label px-1">Your recommendation</legend>
+            <p className="-mt-1 text-xs text-muted">
+              Meet Cute runs on trust. Name someone already in the community who can vouch for you, and
+              share a line in their words. It shows on your profile and tells us more than a bio could.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label" htmlFor="voucherName">Who vouches for you?</label>
+                <input id="voucherName" className="field mt-1.5" name="voucherName" required defaultValue={me.voucherName ?? ""} placeholder="Their full name" />
+              </div>
+              <div>
+                <label className="label" htmlFor="voucherContact">How do we reach them?</label>
+                <input id="voucherContact" className="field mt-1.5" name="voucherContact" required defaultValue={me.voucherContact ?? ""} placeholder="Their email or phone" />
+              </div>
+            </div>
+            <div>
+              <label className="label" htmlFor="recommendation">What would they say about you?</label>
+              <textarea
+                id="recommendation"
+                className="field mt-1.5 min-h-24"
+                name="recommendation"
+                defaultValue={me.recommendation ?? ""}
+                placeholder="In their words: e.g. &ldquo;Josh is fun-loving, adventurous, and one of the best friends you will ever have.&rdquo;"
+              />
+            </div>
+          </fieldset>
+
           <label className="flex items-start gap-3 text-sm">
             <input type="checkbox" name="agree" required className="mt-1" />
             <span className="text-muted">

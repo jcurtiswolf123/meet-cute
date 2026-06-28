@@ -5,8 +5,36 @@
 // other's number) and the match moves to "connected". One "no" closes it.
 //
 // A Match in this flow moves: invited -> mutual_yes -> connected, or -> exit.
+import * as Sentry from "@sentry/nextjs";
 import { prisma } from "./prisma";
-import { sendSMS, connectedSMS, createGroupConversation, groupIntroSMS } from "./sms";
+import { sendSMS, connectedSMS, createGroupConversation } from "./sms";
+import { composeGroupIntro } from "./intro-bot";
+
+/** Append a line to a match's introduction transcript (operator-console view).
+ *  Never throws: a logging failure must not break the intro flow. */
+export async function logIntroMessage(args: {
+  matchId: string;
+  body: string;
+  direction?: "in" | "out";
+  author?: string;
+  personId?: string | null;
+  kind?: string;
+}): Promise<void> {
+  try {
+    await prisma.introMessage.create({
+      data: {
+        matchId: args.matchId,
+        body: args.body.slice(0, 2000),
+        direction: args.direction ?? "out",
+        author: args.author ?? "bot",
+        personId: args.personId ?? null,
+        kind: args.kind ?? "text",
+      },
+    });
+  } catch {
+    /* transcript logging is best-effort */
+  }
+}
 
 export type IntroDecision = "yes" | "pass";
 
@@ -40,6 +68,15 @@ export async function recordIntroDecision(personId: string, decision: IntroDecis
 
   const side: "a" | "b" = match.personAId === personId ? "a" : "b";
   const otherPerson = side === "a" ? match.personB : match.personA;
+  const me = side === "a" ? match.personA : match.personB;
+  await logIntroMessage({
+    matchId: match.id,
+    body: decision === "yes" ? "Replied Y (yes to the intro)" : "Replied N (passed)",
+    direction: "in",
+    author: me.name.split(" ")[0],
+    personId,
+    kind: "decision",
+  });
 
   if (decision === "pass") {
     await prisma.match.update({
@@ -87,8 +124,8 @@ export async function connectMatch(matchId: string): Promise<boolean> {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
-      personA: { select: { name: true, phone: true } },
-      personB: { select: { name: true, phone: true } },
+      personA: { select: { name: true, phone: true, city: true } },
+      personB: { select: { name: true, phone: true, city: true } },
     },
   });
   if (!match) return false;
@@ -109,21 +146,39 @@ export async function connectMatch(matchId: string): Promise<boolean> {
     if (op?.name) operatorName = op.name;
   }
 
+  // The bot's group opener: introduces both, shares a line about each, and
+  // suggests a concrete first step. Composed once and reused for the group
+  // message (and logged to the transcript) so what the operator sees matches
+  // what went out.
+  const opener = await composeGroupIntro({
+    operatorName,
+    aName: a.name,
+    bName: b.name,
+    aboutA: match.aboutPersonA,
+    aboutB: match.aboutPersonB,
+    city: a.city || b.city,
+  });
+
   let grouped = false;
+  let conversationSid: string | null = null;
   if (operatorPhone && a.phone && b.phone) {
     try {
       const res = await createGroupConversation({
         participants: [operatorPhone, a.phone, b.phone],
         operatorAddress: process.env.TWILIO_FROM ?? null,
-        body: groupIntroSMS({ operatorName, aName: a.name, bName: b.name }),
+        body: opener,
         friendlyName: `mc-intro-${matchId}`,
       });
       grouped = res.ok;
-      if (!res.ok) {
+      if (res.ok) {
+        conversationSid = res.conversationSid;
+      } else {
         console.error(`[intro] group MMS failed for match ${matchId} (${res.reason}); falling back to broker`);
+        Sentry.captureMessage(`group MMS failed for match ${matchId}: ${res.reason}`, "warning");
       }
     } catch (e) {
       console.error(`[intro] group MMS threw for match ${matchId}: ${(e as Error).message}; falling back to broker`);
+      Sentry.captureException(e);
     }
   }
 
@@ -140,7 +195,17 @@ export async function connectMatch(matchId: string): Promise<boolean> {
 
   await prisma.match.update({
     where: { id: matchId },
-    data: { stage: "connected", connectedAt: new Date() },
+    data: { stage: "connected", connectedAt: new Date(), conversationSid },
+  });
+
+  // Record the bot's opener on the transcript so the operator console shows it
+  // (group_open when a real group thread opened, otherwise the brokered handoff).
+  await logIntroMessage({
+    matchId,
+    body: grouped ? opener : `Connected ${a.name.split(" ")[0]} and ${b.name.split(" ")[0]} by sharing numbers (no group thread).`,
+    direction: "out",
+    author: "bot",
+    kind: grouped ? "group_open" : "system",
   });
   return true;
 }
