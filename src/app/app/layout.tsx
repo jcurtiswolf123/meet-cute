@@ -18,6 +18,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const me = await getCurrentPerson();
   if (!me) redirect("/login");
   if (me.isOperator) redirect("/studio");
+  // Removed/declined members lose access immediately (decline also revokes their
+  // sessions); never let an exited account into the member app.
+  if (me.status === "exited") redirect("/login");
 
   return (
     <div className="min-h-screen">

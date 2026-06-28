@@ -45,18 +45,30 @@ export default async function Roster({
   else enriched.sort((a, b) => a.p.name.localeCompare(b.p.name));
 
   // metrics
+  // Accept rate is measured within the application funnel: of people who actually
+  // applied, how many were accepted. Counting all acceptedAt rows (which include
+  // seeded/operator-added actives that never applied) let the rate exceed 100%.
   const [applicants, accepted, byStage] = await Promise.all([
     prisma.person.count({ where: { appliedAt: { not: null } } }),
-    prisma.person.count({ where: { acceptedAt: { not: null } } }),
+    prisma.person.count({ where: { appliedAt: { not: null }, acceptedAt: { not: null } } }),
     prisma.match.groupBy({ by: ["stage"], _count: true }),
   ]);
   const stageCount = (s: string) => byStage.find((b) => b.stage === s)?._count ?? 0;
 
-  // New applicants awaiting review (what a fresh magic-link signup creates).
+  // New applicants awaiting review. Gate on appliedAt so only people who actually
+  // completed the application show up here. A bare magic-link click creates an
+  // "applicant" row with no appliedAt; surfacing those would bury the operator in
+  // half-finished signups.
   const pendingApplicants = await prisma.person.findMany({
-    where: { isOperator: false, isAmbassador: false, isCoach: false, status: "applicant" },
+    where: {
+      isOperator: false,
+      isAmbassador: false,
+      isCoach: false,
+      status: "applicant",
+      appliedAt: { not: null },
+    },
     include: { photos: true },
-    orderBy: { createdAt: "desc" },
+    orderBy: { appliedAt: "desc" },
   });
 
   return (
@@ -65,11 +77,25 @@ export default async function Roster({
         <h1 className="font-display text-2xl font-medium">Directory</h1>
         <p className="mt-1 text-sm text-muted">Everyone on the roster, with new applicants to review at a glance.</p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-4">
-        <Metric label="On roster" value={people.length} />
-        <Metric label="Accept rate" value={applicants ? `${Math.round((accepted / applicants) * 100)}%` : "-"} hint="target 20-30%" />
-        <Metric label="In pipeline" value={stageCount("suggested") + stageCount("mutual_yes") + stageCount("date_scheduled")} />
-        <Metric label="Together" value={stageCount("relationship")} tone="sage" />
+      {/* Metrics ledger: "Together" (the north-star outcome) carries the sage accent */}
+      <div className="ledger">
+        <div className="ledger-cell">
+          <div className="ledger-num">{people.length}</div>
+          <div className="ledger-label">On roster</div>
+        </div>
+        <div className="ledger-cell">
+          <div className="ledger-num">{applicants ? `${Math.round((accepted / applicants) * 100)}%` : "-"}</div>
+          <div className="ledger-label">Accept rate</div>
+          <div className="text-[10px] text-muted">target 20-30%</div>
+        </div>
+        <div className="ledger-cell">
+          <div className="ledger-num">{stageCount("suggested") + stageCount("mutual_yes") + stageCount("date_scheduled")}</div>
+          <div className="ledger-label">In pipeline</div>
+        </div>
+        <div className="ledger-cell bg-sage/[0.06]">
+          <div className="ledger-num text-sage">{stageCount("relationship")}</div>
+          <div className="ledger-label">Together</div>
+        </div>
       </div>
 
       {pendingApplicants.length > 0 && (
@@ -112,48 +138,38 @@ export default async function Roster({
         <button className="btn-ghost">Filter</button>
       </form>
 
-      <div className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-white">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead className="border-b border-line bg-paper/60 text-left text-xs uppercase tracking-wide text-muted">
+      <div className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-white shadow-card">
+        <table className="roster min-w-[640px]">
+          <thead>
             <tr>
-              <th className="px-4 py-3 font-medium">Member</th>
-              <th className="px-4 py-3 font-medium">Wants</th>
-              <th className="px-4 py-3 font-medium">Vouches</th>
-              <th className="px-4 py-3 font-medium">Dinners</th>
-              <th className="px-4 py-3 font-medium">Source</th>
+              <th>Member</th>
+              <th>Wants</th>
+              <th>Vouches</th>
+              <th>Dinners</th>
+              <th>Source</th>
             </tr>
           </thead>
           <tbody>
             {enriched.map(({ p, vouches, dinners }) => (
-              <tr key={p.id} className="border-b border-line/70 hover:bg-cream/60">
-                <td className="px-4 py-3">
+              <tr key={p.id}>
+                <td>
                   <Link href={`/studio/person/${p.id}`} className="flex items-center gap-3">
                     <Avatar url={p.photos[0]?.url} name={p.name} size={36} />
                     <span>
-                      <span className="block font-medium text-ink">{p.name}, {p.age}</span>
+                      <span className="block font-medium text-ink">{p.name}{p.age ? `, ${p.age}` : ""}</span>
                       <span className="block text-xs text-muted">{p.city} · {p.neighborhood}</span>
                     </span>
                   </Link>
                 </td>
-                <td className="max-w-[22ch] px-4 py-3 text-muted">{p.lookingFor?.slice(0, 60)}</td>
-                <td className="px-4 py-3">{vouches > 0 ? <span className="pill">{vouches}</span> : <span className="text-muted">-</span>}</td>
-                <td className="px-4 py-3 text-muted">{dinners}</td>
-                <td className="px-4 py-3 text-muted">{p.referredBy?.name ?? "direct"}</td>
+                <td className="max-w-[22ch] text-muted">{p.lookingFor?.slice(0, 60)}</td>
+                <td>{vouches > 0 ? <span className="pill">{vouches}</span> : <span className="text-muted">-</span>}</td>
+                <td className="text-muted">{dinners}</td>
+                <td className="text-muted">{p.referredBy?.name ?? "direct"}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-function Metric({ label, value, hint, tone }: { label: string; value: number | string; hint?: string; tone?: string }) {
-  return (
-    <div className="card p-4">
-      <div className="label">{label}</div>
-      <div className={`mt-1 font-display text-3xl ${tone === "sage" ? "text-sage" : "text-ink"}`}>{value}</div>
-      {hint && <div className="text-xs text-muted">{hint}</div>}
     </div>
   );
 }

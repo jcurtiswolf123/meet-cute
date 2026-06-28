@@ -60,9 +60,13 @@ export async function normalizeImage(input: Buffer): Promise<Buffer> {
  *  object lives in Blob, or null when it lives on local disk. */
 export async function writeUpload(id: string, ext: string, bytes: Buffer): Promise<string | null> {
   if (blobEnabled()) {
+    // addRandomSuffix:true so the public object URL is an unguessable capability
+    // (not photos/{cuid}.webp): the app always serves photos through the
+    // auth-gated /api/photos route, and a random suffix stops anyone from
+    // deriving a pending/unmoderated image's raw blob URL from the person id.
     const { url } = await put(`photos/${id}.${ext}`, bytes, {
       access: "public",
-      addRandomSuffix: false,
+      addRandomSuffix: true,
       contentType: contentTypeForExt(ext),
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });

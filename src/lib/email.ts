@@ -11,6 +11,15 @@ type SendArgs = { to: string; subject: string; html: string; text?: string };
 export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<{ ok: boolean }> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM || "Meet Cute <hello@meet-cute.app>";
+  const isProd = process.env.NODE_ENV === "production";
+  // Dev convenience: surface just the sign-in link to the server console so the
+  // flow stays testable locally even when mail does not actually go out (no key,
+  // or a send failure such as an unverified sender domain). Never in production.
+  const logDevLink = () => {
+    if (isProd) return;
+    const link = (text || "").match(/https?:\/\/\S+/)?.[0] ?? "(no link)";
+    console.log(`[email:dev] to=${to} subject="${subject}" link=${link}`);
+  };
 
   if (!key) {
     // In production a missing key is a misconfiguration: fail loudly, never
@@ -21,8 +30,7 @@ export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<
       return { ok: false };
     }
     // Dev only: surface just the sign-in link so the flow can be tested locally.
-    const link = (text || "").match(/https?:\/\/\S+/)?.[0] ?? "(no link)";
-    console.log(`[email:dev] to=${to} subject="${subject}" link=${link}`);
+    logDevLink();
     return { ok: true };
   }
 
@@ -46,11 +54,13 @@ export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(`[email] Resend ${res.status}: ${body.slice(0, 300)}`);
+      logDevLink();
       return { ok: false };
     }
     return { ok: true };
   } catch (e) {
     console.error(`[email] send failed: ${(e as Error).message}`);
+    logDevLink();
     return { ok: false };
   }
 }
