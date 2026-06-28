@@ -55,8 +55,10 @@ const sentryEnabled = !!(process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTR
 
 export default sentryEnabled
   ? withSentryConfig(nextConfig, {
-      org: process.env.SENTRY_ORG,
-      project: process.env.SENTRY_PROJECT,
+      // Planned Sentry project: org "riiva", slug "meet-cute". Env vars win so
+      // the target can move without a code change.
+      org: process.env.SENTRY_ORG || "riiva",
+      project: process.env.SENTRY_PROJECT || "meet-cute",
       authToken: process.env.SENTRY_AUTH_TOKEN, // set at build time to upload source maps
       silent: !process.env.CI,
       widenClientFileUpload: true,
