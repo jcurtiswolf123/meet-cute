@@ -109,7 +109,7 @@ export default function CopilotChat() {
         members to events, book dates, and more. Typed commands run for real.
       </p>
 
-      <div className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-xl2 border border-line bg-white p-4">
+      <div className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-xl2 border border-line bg-panel p-4">
         {!messages.length && (
           <div className="space-y-4">
             <div>

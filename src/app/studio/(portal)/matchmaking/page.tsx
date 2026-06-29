@@ -243,7 +243,7 @@ export default async function Matchmaking() {
       {/* People list */}
       <div>
         <h2 className="font-display text-lg font-medium">People ({people.length})</h2>
-        <div className="mt-3 overflow-x-auto rounded-xl2 border border-line bg-white shadow-card">
+        <div className="mt-3 overflow-x-auto rounded-xl2 border border-line bg-panel shadow-card">
           <table className="roster min-w-[560px]">
             <thead>
               <tr>

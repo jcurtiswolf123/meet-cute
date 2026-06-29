@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 html {
@@ -14,6 +14,17 @@ html {
 body {
   background-color: theme("colors.cream");
   color: theme("colors.ink");
+  /* Candlelit canvas: two faint warm pools so the near-black plum never reads as
+     a flat dark slab. Fixed so it stays put as content scrolls. */
+  background-image:
+    radial-gradient(60% 50% at 15% 0%, rgba(230, 169, 78, 0.06), transparent 70%),
+    radial-gradient(55% 45% at 100% 8%, rgba(214, 83, 107, 0.05), transparent 70%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background-color: theme("colors.ember.DEFAULT");
+  color: theme("colors.espresso.deep");
 }
 
 @layer components {
@@ -24,19 +35,21 @@ body {
     @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition duration-200 ease-soft;
   }
   .btn-primary {
-    @apply btn bg-claret text-cream transition duration-200 hover:bg-claret-dark active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-claret;
+    /* Ember amber with dark ink text: a gold-foil read that owns the page. */
+    @apply btn bg-ember text-espresso-deep font-semibold transition duration-200 hover:bg-ember-soft active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember;
   }
   .btn-ghost {
-    @apply btn border border-line bg-transparent text-ink transition duration-200 hover:border-ink/60 hover:bg-paper/50 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink;
+    @apply btn border border-line bg-transparent text-ink transition duration-200 hover:border-ember/50 hover:bg-paper/60 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink;
   }
   .card {
-    @apply rounded-xl2 border border-line bg-white shadow-card;
+    @apply rounded-xl2 border border-line bg-panel shadow-card;
   }
+  /* Eyebrow labels: the "concierge stamp" - mono, small-caps, wide-tracked, ember. */
   .label {
-    @apply text-xs font-medium uppercase tracking-[0.14em] text-muted;
+    @apply font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-ember/75;
   }
   .field {
-    @apply w-full rounded-lg border border-line bg-cream/60 px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-claret/60 focus:bg-white;
+    @apply w-full rounded-lg border border-line bg-espresso/40 px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted/70 focus:border-ember/60 focus:bg-espresso/70;
   }
   .pill {
     @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 text-xs text-muted;
@@ -55,7 +68,7 @@ body {
      instead of a row of identical floating boxes (the dashboard "AI tell").
      Mark the lead cell with .ledger-cell-lead to tint it claret. */
   .ledger {
-    @apply flex flex-col divide-y divide-line overflow-hidden rounded-xl2 border border-line bg-white shadow-card sm:flex-row sm:divide-x sm:divide-y-0;
+    @apply flex flex-col divide-y divide-line overflow-hidden rounded-xl2 border border-line bg-panel shadow-card sm:flex-row sm:divide-x sm:divide-y-0;
   }
   .ledger-cell {
     @apply flex flex-1 flex-col gap-1 px-5 py-4;
@@ -67,10 +80,10 @@ body {
     @apply text-[11px] font-medium uppercase tracking-[0.14em] text-muted;
   }
   .ledger-cell-lead {
-    @apply bg-claret/[0.04];
+    @apply bg-ember/[0.07];
   }
   .ledger-cell-lead .ledger-num {
-    @apply text-claret;
+    @apply text-ember;
   }
 
   /* A primary card carries a thin claret top-rule to break the
@@ -83,9 +96,9 @@ body {
     @apply absolute inset-x-0 top-0 h-[3px];
     background-image: linear-gradient(
       90deg,
+      theme("colors.ember.DEFAULT"),
       theme("colors.claret.DEFAULT"),
-      theme("colors.claret.soft"),
-      theme("colors.champagne.DEFAULT")
+      theme("colors.ember.soft")
     );
   }
 
@@ -131,13 +144,13 @@ body {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  background: linear-gradient(90deg, transparent, rgba(244, 236, 226, 0.08), transparent);
   animation: shimmer 1.4s infinite;
 }
 
 /* accessible focus ring on interactive elements */
 a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid theme("colors.claret.DEFAULT");
+  outline: 2px solid theme("colors.ember.DEFAULT");
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -154,16 +167,16 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   50%  { transform: translate3d(4%, 3%, 0)   scale(1.25) rotate(6deg); }
   100% { transform: translate3d(-4%, -2%, 0) scale(1.1)  rotate(0deg); }
 }
-.hero-aurora { position: relative; overflow: hidden; background: #1c1511; }
+.hero-aurora { position: relative; overflow: hidden; background: #0c0809; }
 .hero-aurora::before {
   content: "";
   position: absolute;
   inset: -25%;
   background:
-    radial-gradient(38% 48% at 24% 32%, rgba(155, 45, 59, 0.55), transparent 62%),
-    radial-gradient(42% 52% at 78% 64%, rgba(201, 168, 106, 0.42), transparent 60%),
-    radial-gradient(46% 56% at 62% 22%, rgba(194, 90, 102, 0.30), transparent 60%);
-  filter: blur(46px);
+    radial-gradient(38% 48% at 22% 34%, rgba(230, 169, 78, 0.50), transparent 62%),
+    radial-gradient(42% 52% at 80% 62%, rgba(214, 83, 107, 0.40), transparent 60%),
+    radial-gradient(46% 56% at 60% 20%, rgba(240, 200, 137, 0.26), transparent 60%);
+  filter: blur(48px);
   animation: auroraShift 26s ease-in-out infinite;
 }
 /* fine film grain to kill banding and read "cinematic" */

@@ -25,10 +25,10 @@ export function Hero({ members, couples, dinners }: { members: number; couples: 
         initial={reduce ? false : "hidden"}
         animate={reduce ? false : "show"}
       >
-        <motion.p {...v} className="mb-5 text-xs font-semibold uppercase tracking-[0.16em] text-claret">
+        <motion.p {...v} className="mb-5 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-ember/80">
           Thoughtful matchmaking · NYC &amp; SF
         </motion.p>
-        <h1 className="font-display text-5xl font-medium leading-[1.05] tracking-tight md:text-6xl">
+        <h1 className="font-display text-5xl font-medium leading-[1.04] tracking-tight md:text-[4.25rem]">
           <motion.span {...v} className="block">
             We help you <span className="italic text-claret">meet</span>,
           </motion.span>
@@ -68,7 +68,7 @@ export function Hero({ members, couples, dinners }: { members: number; couples: 
         transition={{ duration: 0.9, ease: EASE, delay: 0.2 }}
         className="relative"
       >
-        <div className="relative overflow-hidden rounded-xl2 border border-line bg-paper shadow-card ring-1 ring-claret/10">
+        <div className="relative overflow-hidden rounded-xl2 border border-line bg-paper shadow-glow ring-1 ring-ember/15">
           <video
             className="aspect-[4/5] w-full object-cover"
             autoPlay
@@ -82,8 +82,8 @@ export function Hero({ members, couples, dinners }: { members: number; couples: 
           >
             <source src="/hero.mp4" type="video/mp4" />
           </video>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/20 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 rounded-full bg-cream/90 px-3 py-1 text-xs font-medium text-ink shadow-sm backdrop-blur">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-espresso-deep/80 via-espresso-deep/10 to-transparent" />
+          <div className="absolute bottom-4 left-4 rounded-full border border-line/60 bg-espresso/80 px-3 py-1 text-xs font-medium text-ink shadow-sm backdrop-blur">
             Maya &amp; Daniel, introduced this spring
           </div>
         </div>

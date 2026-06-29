@@ -101,7 +101,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         <h2 className="label mt-8">Match history</h2>
         <div className="mt-2 space-y-1.5">
           {matches.length ? matches.map((m) => (
-            <div key={m.id} className="flex items-center justify-between rounded-lg border border-line bg-white px-3 py-2 text-sm">
+            <div key={m.id} className="flex items-center justify-between rounded-lg border border-line bg-panel px-3 py-2 text-sm">
               <Link href={`/studio/person/${m.other.id}`} className="hover:underline">{m.other.name}</Link>
               <StageBadge stage={m.stage} />
             </div>
@@ -117,7 +117,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
         </form>
         <div className="mt-3 space-y-2">
           {notes.map((n) => (
-            <div key={n.id} className="rounded-lg border border-line bg-white p-3 text-sm">
+            <div key={n.id} className="rounded-lg border border-line bg-panel p-3 text-sm">
               <div className="flex items-center justify-between text-xs text-muted">
                 <span className="pill">{n.kind}</span>
                 <span>{n.author?.name ?? "system"} · {n.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
@@ -195,7 +195,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
 
 function Box({ label, body }: { label: string; body: string }) {
   return (
-    <div className="rounded-lg border border-line bg-white p-3">
+    <div className="rounded-lg border border-line bg-panel p-3">
       <p className="label">{label}</p>
       <p className="mt-1 text-sm">{body}</p>
     </div>

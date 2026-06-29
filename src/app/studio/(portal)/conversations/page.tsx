@@ -71,7 +71,7 @@ export default async function Conversations() {
           <Link href="/studio/matchmaking" className="text-claret underline">Matchmaking</Link>.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl2 border border-line bg-white">
+        <div className="overflow-x-auto rounded-xl2 border border-line bg-panel">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b border-line bg-paper/60 text-left text-xs uppercase tracking-wide text-muted">
               <tr>

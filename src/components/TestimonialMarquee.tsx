@@ -20,7 +20,7 @@ const ROW_B: Quote[] = [
 
 function QuoteCard({ q }: { q: Quote }) {
   return (
-    <figure className="mx-3 w-80 shrink-0 rounded-xl2 border border-line bg-white p-6 shadow-card transition-transform duration-200 ease-soft hover:-translate-y-1">
+    <figure className="mx-3 w-80 shrink-0 rounded-xl2 border border-line bg-panel p-6 shadow-card transition-transform duration-200 ease-soft hover:-translate-y-1">
       <span className="font-display text-3xl leading-none text-claret/40">&ldquo;</span>
       <blockquote className="mt-1 text-[15px] leading-relaxed text-ink/90">{q.text}</blockquote>
       <figcaption className="mt-4 flex items-baseline justify-between border-t border-line pt-3">

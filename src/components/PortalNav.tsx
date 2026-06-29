@@ -29,7 +29,7 @@ export function PortalNav({
 }) {
   const pathname = usePathname();
   const isActive = (href: string) => (href === homeHref ? pathname === href : pathname.startsWith(href));
-  const barBg = tone === "white" ? "bg-white" : "bg-cream/80 backdrop-blur";
+  const barBg = tone === "white" ? "bg-panel" : "bg-cream/80 backdrop-blur";
 
   return (
     <header className={`border-b border-line ${barBg}`}>

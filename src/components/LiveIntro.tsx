@@ -143,7 +143,7 @@ function Bubble({
       exit={{ opacity: 0 }}
       transition={{ duration: 0.45, ease: EASE, delay }}
       className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-card ${
-        tone === "confirm" ? "border border-claret/25 bg-claret/[0.06] text-ink" : "bg-white text-ink/90"
+        tone === "confirm" ? "border border-claret/25 bg-claret/[0.06] text-ink" : "bg-panel text-ink/90"
       }`}
     >
       {children}

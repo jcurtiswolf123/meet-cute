@@ -9,7 +9,7 @@ export default function Loading() {
         ))}
       </div>
       <Skeleton className="mt-6 h-10 w-full max-w-md" />
-      <div className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-white">
+      <div className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-panel">
         {Array.from({ length: 8 }).map((_, i) => (
           <RowSkeleton key={i} />
         ))}

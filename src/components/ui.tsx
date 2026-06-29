@@ -3,8 +3,8 @@ import Link from "next/link";
 export function Logo({ subtle = false, light = false }: { subtle?: boolean; light?: boolean }) {
   return (
     <Link href="/" className="inline-flex items-baseline gap-1.5">
-      <span className={`font-display text-xl font-medium tracking-tight ${light ? "text-cream" : "text-ink"}`}>Meet Cute</span>
-      {!subtle && <span className={light ? "text-champagne" : "text-claret"}>♥</span>}
+      <span className="font-display text-xl font-medium tracking-tight text-ink">Meet Cute</span>
+      {!subtle && <span className={light ? "text-ember" : "text-claret"}>♥</span>}
     </Link>
   );
 }

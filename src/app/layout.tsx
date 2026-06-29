@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
-import { Fraunces, Hanken_Grotesk } from "next/font/google";
+import { Bodoni_Moda, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-// Distinctive, editorial pairing (no Inter / system-default tell): Fraunces is a
-// characterful old-style display serif; Hanken Grotesk is a warm, slightly
-// humanist grotesque for UI and body that reads friendlier than Inter.
-const display = Fraunces({
+// "Nightcap" type system. Bodoni Moda is a dramatic, high-contrast fashion-
+// editorial serif (the headline voice) - nothing like Fraunces or the generic
+// AI serif. Hanken Grotesk is the warm body grotesque. JetBrains Mono sets the
+// small-caps "concierge stamp" eyebrow labels for an editorial, stamped feel.
+const display = Bodoni_Moda({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+  weight: ["400", "500", "600", "700", "800"],
   style: ["normal", "italic"],
   variable: "--font-display",
   display: "swap",
@@ -18,6 +19,13 @@ const sans = Hanken_Grotesk({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
   display: "swap",
 });
 
@@ -38,10 +46,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable}`}>
+    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body className="font-sans antialiased">
         {children}
-        <Toaster position="top-center" toastOptions={{ style: { fontFamily: "var(--font-sans)" } }} />
+        <Toaster position="top-center" theme="dark" toastOptions={{ style: { fontFamily: "var(--font-sans)" } }} />
       </body>
     </html>
   );

@@ -257,7 +257,7 @@ function PersonCombobox({
       />
       <input type="hidden" name={name} value={value} />
       {open && filtered.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-line bg-white py-1 shadow-card">
+        <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-line bg-panel py-1 shadow-card">
           {filtered.map((p, i) => (
             <li key={p.id}>
               <button

@@ -87,7 +87,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
                 <li
                   key={msg.id}
                   className={`rounded-xl border p-3 text-sm ${
-                    inbound ? "border-line bg-white" : "border-sage/25 bg-sage/5"
+                    inbound ? "border-line bg-panel" : "border-sage/25 bg-sage/5"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">

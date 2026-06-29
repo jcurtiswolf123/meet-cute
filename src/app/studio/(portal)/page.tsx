@@ -104,7 +104,7 @@ export default async function Roster({
           <p className="mt-1 text-sm text-muted">Review and approve to add them to the roster.</p>
           <ul className="mt-4 space-y-2">
             {pendingApplicants.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white px-4 py-2.5">
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel px-4 py-2.5">
                 <Link href={`/studio/person/${a.id}`} className="flex items-center gap-3">
                   <Avatar url={a.photos[0]?.url} name={a.name} size={32} />
                   <span>
@@ -144,7 +144,7 @@ export default async function Roster({
         <button className="btn-ghost">Filter</button>
       </form>
 
-      <div className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-white shadow-card">
+      <div className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-panel shadow-card">
         <table className="roster min-w-[640px]">
           <thead>
             <tr>

@@ -17,7 +17,7 @@ export function SafetyControls({ subjectId, name }: { subjectId: string; name: s
       <summary className="cursor-pointer list-none rounded-full px-2 py-1 text-muted hover:bg-paper" aria-label="Safety options">
         &#8943;
       </summary>
-      <div className="absolute right-0 z-10 mt-1 w-64 rounded-xl border border-line bg-white p-3 text-sm shadow-card">
+      <div className="absolute right-0 z-10 mt-1 w-64 rounded-xl border border-line bg-panel p-3 text-sm shadow-card">
         {mode === "menu" ? (
           <div className="space-y-2">
             <button onClick={() => setMode("report")} className="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-paper">
