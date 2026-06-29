@@ -18,7 +18,7 @@ primary_region = "sjc"
   SENTRY_DSN = "https://ec7ed63a21303d6dbaf509a8c115bb7b@o4511616620363776.ingest.us.sentry.io/4511649571864576"
   NEXT_PUBLIC_SENTRY_DSN = "https://ec7ed63a21303d6dbaf509a8c115bb7b@o4511616620363776.ingest.us.sentry.io/4511649571864576"
   SENTRY_ORG = "riiva"
-  SENTRY_PROJECT = "javascript-nextjs-j2"
+  SENTRY_PROJECT = "meet-cute"
 
 [env]
   NODE_ENV = "production"
