@@ -7,6 +7,19 @@ primary_region = "sjc"
 # (rare). No release_command, so deploys never block on a DB round-trip from the
 # ephemeral release machine.
 
+# Sentry build-time config so plain `fly deploy` always wires error tracking:
+# the public DSN is inlined into the client bundle and withSentryConfig activates.
+# The DSN is PUBLIC by design (it already ships in client JS), so it is safe here.
+# SENTRY_AUTH_TOKEN is deliberately NOT committed (it is a real secret). Source-map
+# upload is skipped unless you pass it at deploy time:
+#   fly deploy --build-arg SENTRY_AUTH_TOKEN="$(cat ~/.gstack/credentials/sentry-auth-token.txt)"
+# Runtime server-side capture uses the SENTRY_DSN Fly secret (set separately).
+[build.args]
+  SENTRY_DSN = "https://ec7ed63a21303d6dbaf509a8c115bb7b@o4511616620363776.ingest.us.sentry.io/4511649571864576"
+  NEXT_PUBLIC_SENTRY_DSN = "https://ec7ed63a21303d6dbaf509a8c115bb7b@o4511616620363776.ingest.us.sentry.io/4511649571864576"
+  SENTRY_ORG = "riiva"
+  SENTRY_PROJECT = "javascript-nextjs-j2"
+
 [env]
   NODE_ENV = "production"
   NEXT_PUBLIC_SITE_URL = "https://hellomeetcute.com"
