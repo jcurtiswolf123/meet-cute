@@ -6,13 +6,10 @@ import { Logo } from "@/components/ui";
 // sm and up. Secondary destinations stay reachable on mobile via SiteFooter.
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-cream/85 backdrop-blur">
-      {/* thin ember rule along the very top: a masthead signature, not a SaaS bar */}
-      <div className="rule-ember" />
-      <div className="container-mc flex items-center justify-between gap-4 py-4">
-        <div className="flex items-baseline gap-3">
+    <header className="border-b border-line bg-cream/80 backdrop-blur">
+      <div className="container-mc flex items-center justify-between gap-4 py-5">
+        <div className="shrink-0 whitespace-nowrap">
           <Logo />
-          <span className="kicker hidden sm:inline">By introduction only</span>
         </div>
         <nav className="flex items-center gap-5 text-sm sm:gap-7">
           <Link href="/dinners" className="hidden -my-2 py-2 text-muted transition-colors hover:text-ink sm:inline">
