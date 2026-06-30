@@ -25,7 +25,7 @@ import {
   feedbackRequestSMS,
   sendConversationMessage,
 } from "./sms";
-import { connectMatch, logIntroMessage } from "./introductions";
+import { connectMatch, logIntroMessage, stalledWhere, expiredWhere } from "./introductions";
 import { rateLimit } from "./ratelimit";
 import { startThread, recordPick } from "./concierge";
 import { mutualFriends } from "./social";
@@ -836,7 +836,7 @@ export async function quickAddPerson(formData: FormData) {
   if (!isTextablePhone(phone)) throw new Error("Add a valid mobile number (at least 10 digits).");
 
   // De-dupe on the EXACT normalized number, and never match a privileged account
-  // (operator/ambassador/coach) — a matchee sharing a number with the operator
+  // (operator/ambassador/coach): a matchee sharing a number with the operator
   // must not overwrite that operator's record. Substring matching is avoided so a
   // new add can't hijack an unrelated person whose number merely shares 10 digits.
   const existing = await prisma.person.findFirst({
@@ -1000,6 +1000,8 @@ export async function resendIntro(formData: FormData) {
   await Promise.all(jobs);
   await prisma.match.update({ where: { id: matchId }, data: { notifiedAAt: now, notifiedBAt: now } });
   revalidatePath("/studio/matchmaking");
+  revalidatePath("/studio/conversations");
+  revalidatePath(`/studio/conversations/${matchId}`);
 }
 
 // Operator: close an introduction (either side passed, or it fizzled).
@@ -1012,6 +1014,63 @@ export async function closeIntroduction(formData: FormData) {
     data: { stage: "exit", exitReason: "operator_closed" },
   });
   revalidatePath("/studio/matchmaking");
+  revalidatePath("/studio/conversations");
+  revalidatePath(`/studio/conversations/${matchId}`);
+}
+
+// Operator bulk action: resend the "want an intro?" text to every stalled
+// introduction (no reply for STALLED_DAYS+), texting only the side(s) still
+// pending. Capped so one click can't fan out an unbounded number of sends.
+export async function bulkResendStalled() {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+
+  const stalled = await prisma.match.findMany({
+    where: stalledWhere(),
+    include: {
+      personA: { select: { name: true, phone: true, instagram: true } },
+      personB: { select: { name: true, phone: true, instagram: true } },
+    },
+    orderBy: { notifiedAAt: "asc" },
+    take: 50,
+  });
+
+  const now = new Date();
+  let resent = 0;
+  for (const match of stalled) {
+    const jobs: Promise<unknown>[] = [];
+    if (match.aDecision === "pending" && match.personA.phone) {
+      jobs.push(sendSMS({ to: match.personA.phone, body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, otherInstagram: match.personB.instagram, blurb: match.rationale, operatorName: op.name }) }));
+    }
+    if (match.bDecision === "pending" && match.personB.phone) {
+      jobs.push(sendSMS({ to: match.personB.phone, body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, otherInstagram: match.personA.instagram, blurb: match.rationale, operatorName: op.name }) }));
+    }
+    if (jobs.length === 0) continue;
+    await Promise.all(jobs);
+    await prisma.match.update({ where: { id: match.id }, data: { notifiedAAt: now, notifiedBAt: now } });
+    await logIntroMessage({ matchId: match.id, body: "Resent the intro invite (bulk nudge to whoever hadn't replied).", author: "operator", kind: "operator" });
+    resent += 1;
+  }
+
+  revalidatePath("/studio/conversations");
+  revalidatePath("/studio/matchmaking");
+  redirect(`/studio/conversations?resent=${resent}`);
+}
+
+// Operator bulk action: close every introduction that expired (no reply for
+// EXPIRED_DAYS+ and never mutual). One updateMany, then revalidate.
+export async function bulkCloseExpired() {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+
+  const res = await prisma.match.updateMany({
+    where: expiredWhere(),
+    data: { stage: "exit", exitReason: "expired" },
+  });
+
+  revalidatePath("/studio/conversations");
+  revalidatePath("/studio/matchmaking");
+  redirect(`/studio/conversations?closed=${res.count}`);
 }
 
 // Operator: force the connection now (e.g. both said yes by phone/in person).
@@ -1055,6 +1114,7 @@ export async function askForFeedback(formData: FormData) {
     data: { followUpAt: new Date(Date.now() + 7 * 24 * 3600 * 1000) },
   });
   revalidatePath("/studio/matchmaking");
+  revalidatePath(`/studio/conversations/${matchId}`);
 }
 
 // Operator: schedule (or clear) a follow-up reminder on an introduction.

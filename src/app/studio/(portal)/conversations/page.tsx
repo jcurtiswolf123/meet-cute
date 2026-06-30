@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { conversationHealth, toneClass } from "@/lib/conversation-health";
+import { conversationHealth, toneClass, relativeAge } from "@/lib/conversation-health";
+import { stalledWhere, expiredWhere, STALLED_DAYS, EXPIRED_DAYS } from "@/lib/introductions";
+import { bulkResendStalled, bulkCloseExpired } from "@/lib/actions";
+import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
@@ -11,16 +14,26 @@ function firstName(name: string) {
 // Operator console: visibility into every active introduction conversation.
 // Shows who has opted in, a health badge, and the last activity, with a row per
 // intro that links to the full transcript + a jump-in box.
-export default async function Conversations() {
-  const intros = await prisma.match.findMany({
-    where: { stage: { in: ["invited", "mutual_yes", "connected"] } },
-    include: {
-      personA: { select: { name: true } },
-      personB: { select: { name: true } },
-      introMessages: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true, body: true } },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
+export default async function Conversations({
+  searchParams,
+}: {
+  searchParams: Promise<{ resent?: string; closed?: string }>;
+}) {
+  const sp = await searchParams;
+  const now = new Date();
+  const [intros, stalledCount, expiredCount] = await Promise.all([
+    prisma.match.findMany({
+      where: { stage: { in: ["invited", "mutual_yes", "connected"] } },
+      include: {
+        personA: { select: { name: true } },
+        personB: { select: { name: true } },
+        introMessages: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true, body: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.match.count({ where: stalledWhere(now) }),
+    prisma.match.count({ where: expiredWhere(now) }),
+  ]);
 
   const rows = intros.map((m) => {
     const lastMessageAt = m.introMessages[0]?.createdAt ?? null;
@@ -52,6 +65,13 @@ export default async function Conversations() {
         </p>
       </div>
 
+      {(sp.resent !== undefined || sp.closed !== undefined) && (
+        <div className="rounded-xl border border-sage/30 bg-sage/10 px-4 py-3 text-sm text-ink">
+          {sp.resent !== undefined && <span>Resent {sp.resent} stalled {Number(sp.resent) === 1 ? "intro" : "intros"}. </span>}
+          {sp.closed !== undefined && <span>Closed {sp.closed} expired {Number(sp.closed) === 1 ? "intro" : "intros"}.</span>}
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: "Active", value: rows.length },
@@ -64,6 +84,26 @@ export default async function Conversations() {
           </div>
         ))}
       </div>
+
+      {(stalledCount > 0 || expiredCount > 0) && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-paper/60 px-4 py-3">
+          <span className="text-xs uppercase tracking-wide text-muted">Bulk actions</span>
+          {stalledCount > 0 && (
+            <form action={bulkResendStalled}>
+              <SubmitButton className="btn-ghost text-sm" pendingText="Resending...">
+                Resend {stalledCount} stalled (no reply {STALLED_DAYS}d+)
+              </SubmitButton>
+            </form>
+          )}
+          {expiredCount > 0 && (
+            <form action={bulkCloseExpired}>
+              <SubmitButton className="btn-ghost text-sm" pendingText="Closing...">
+                Close {expiredCount} expired (silent {EXPIRED_DAYS}d+)
+              </SubmitButton>
+            </form>
+          )}
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div className="card p-8 text-center text-sm text-muted">
@@ -102,8 +142,11 @@ export default async function Conversations() {
                   <td className="max-w-[24ch] truncate px-4 py-3 text-muted">
                     {lastBody ? <span title={lastBody}>{lastBody}</span> : "-"}
                     {lastMessageAt && (
-                      <span className="block text-[11px] text-muted/70">
-                        {lastMessageAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      <span
+                        className="block text-[11px] text-muted/70"
+                        title={lastMessageAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      >
+                        {relativeAge(lastMessageAt, now)}
                       </span>
                     )}
                   </td>

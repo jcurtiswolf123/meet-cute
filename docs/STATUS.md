@@ -2,7 +2,7 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-06-28
+Last updated: 2026-06-30
 
 ## Now (current state)
 - Five core features from Erik's call notes completed and integrated:
@@ -34,14 +34,19 @@ Last updated: 2026-06-28
 - QA pass on signup + operator dashboard: isTextablePhone validation, inline apply-form errors via useActionState, appliedAt stamping, accept-rate metric fix, composer bio prefill, dev sign-in link logging on send failure.
 
 ## In progress
-- (none)
+- A2P 10DLC completion (auto-driven by ~/.gstack/a2p advancer, launchd com.meetcute.a2p, now 10-min cadence). As of 2026-06-29 ~17:24 UTC: Customer Profile = twilio-approved; A2P Trust Product = in-review (resubmitted); Brand + Campaign + number-attach still pending. Texting will not deliver (error 30034) until the campaign approves and +16465860039 is attached to MG9fd14c01c6e72fea4e39d4d6c48cc50e. App code + webhooks are deployed and healthy; only carrier registration is the gate.
+- Sentry + Seer: DONE. Capture live (DSN wired via fly.toml build args + runtime secrets), Seer scanner + autofix=high + code mappings set for BOTH meet-cute and riiva projects (org=riiva). User token at ~/.gstack/credentials/sentry-user-token.txt.
+
+## Verified live 2026-06-30
+- App live + healthy: meet-cute.fly.dev AND hellomeetcute.com both return 200; one machine in sjc, deployed 2026-06-29.
+- Sentry prod env: DONE. All five secrets present in Fly (SENTRY_DSN, NEXT_PUBLIC_SENTRY_DSN, SENTRY_ORG, SENTRY_PROJECT, SENTRY_AUTH_TOKEN).
+- Magic-link email: VERIFIED end to end. Submitted /login on hellomeetcute.com; Resend logged "Your Meet Cute sign-in link" from `Meet Cute <hello@hellomeetcute.com>` -> delivered. RESEND_FROM confirmed = hello@hellomeetcute.com (verified domain).
+- Conversations webhook: ALREADY WIRED + live. Account-level Conversations config: onMessageAdded -> POST https://hellomeetcute.com/api/sms/conversations. Endpoint live: GET->405 (POST-only), unsigned POST->403 (signature-guarded). Done.
+- A2P 10DLC (live Twilio check): Customer Profile = twilio-approved. A2P Trust Product = in-review (last updated 2026-06-29T17:06Z, ~25h no movement). Brand registrations = 0 (cannot create until TP approves). Advancer (launchd com.meetcute.a2p, 10-min cadence) running normally; will auto-advance Brand -> Campaign -> number-attach once Twilio clears.
 
 ## Next (prioritized)
-1. BLOCKER: A2P 10DLC. Twilio account has zero brand registrations, so every SMS returns error 30034 (carrier-blocked). Register Brand + Campaign in Twilio, attach the sending number to the Meet Cute Messaging Service. Texting will not deliver until this is approved.
-2. Set prod env (Fly secrets): SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN / SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN, and enable Seer in the Sentry UI (docs/OBSERVABILITY.md).
-3. Point the Twilio Conversations service onMessageAdded webhook at /api/sms/conversations so group transcripts populate the console.
-4. Verify the production Resend sender domain (`RESEND_FROM`); default `meet-cute.app` returns 403 so magic-link email fails outside dev.
-5. Community admissions voting (V2 defer, see DECISIONS).
+1. BLOCKER (external, waiting on Twilio only): A2P 10DLC Trust Product review. SMS returns error 30034 until TP approves, then Brand + Campaign register and +16465860039 attaches to MG9fd14c01c6e72fea4e39d4d6c48cc50e. Advancer auto-driving; escalate to Twilio support if still in-review past ~2026-07-02.
+2. Backlog polish (non-blocking): health-score latency metric, operator bulk actions (close expired / resend stalled intros), post-connection member feedback, community admissions voting (V2).
 
 ## Blockers
 - (none)

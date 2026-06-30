@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { conversationHealth, toneClass } from "@/lib/conversation-health";
-import { messageGroup } from "@/lib/actions";
+import { conversationHealth, toneClass, relativeAge } from "@/lib/conversation-health";
+import { messageGroup, resendIntro, closeIntroduction, askForFeedback } from "@/lib/actions";
 import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +23,17 @@ export default async function ConversationDetail({ params }: { params: Promise<{
       personA: { select: { name: true, phone: true } },
       personB: { select: { name: true, phone: true } },
       introMessages: { orderBy: { createdAt: "asc" } },
+      notes: {
+        where: { kind: "feedback" },
+        orderBy: { createdAt: "desc" },
+        include: { subject: { select: { name: true } } },
+      },
     },
   });
   if (!match) notFound();
+
+  const isConnected = match.stage === "connected";
+  const isPending = match.stage === "invited" || match.stage === "mutual_yes";
 
   const lastMessageAt = match.introMessages.at(-1)?.createdAt ?? null;
   const health = conversationHealth({
@@ -104,6 +112,56 @@ export default async function ConversationDetail({ params }: { params: Promise<{
               );
             })}
           </ol>
+        )}
+      </div>
+
+      {/* post-connection feedback the members texted back */}
+      {match.notes.length > 0 && (
+        <div>
+          <h2 className="font-display text-lg font-medium">Feedback</h2>
+          <ul className="mt-3 space-y-2">
+            {match.notes.map((n) => (
+              <li key={n.id} className="rounded-xl border border-champagne/40 bg-champagne/10 p-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted">
+                    {firstName(n.subject.name)}
+                  </span>
+                  <span className="text-[11px] text-muted/70" title={n.createdAt.toLocaleString()}>
+                    {relativeAge(n.createdAt)}
+                  </span>
+                </div>
+                <p className="mt-1 leading-relaxed text-ink/90">{n.body}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* operator quick actions, scoped to the intro's stage */}
+      <div className="flex flex-wrap items-center gap-3">
+        {isConnected && (
+          <form action={askForFeedback}>
+            <input type="hidden" name="matchId" value={match.id} />
+            <SubmitButton className="btn-ghost text-sm" pendingText="Texting...">
+              Ask how it went
+            </SubmitButton>
+          </form>
+        )}
+        {isPending && (
+          <>
+            <form action={resendIntro}>
+              <input type="hidden" name="matchId" value={match.id} />
+              <SubmitButton className="btn-ghost text-sm" pendingText="Resending...">
+                Resend invite
+              </SubmitButton>
+            </form>
+            <form action={closeIntroduction}>
+              <input type="hidden" name="matchId" value={match.id} />
+              <SubmitButton className="btn-ghost text-sm" pendingText="Closing...">
+                Close intro
+              </SubmitButton>
+            </form>
+          </>
         )}
       </div>
 

@@ -27,6 +27,33 @@ function daysSince(d: Date | null | undefined, now: Date): number | null {
   return Math.floor((now.getTime() - d.getTime()) / DAY);
 }
 
+/** Compact latency for a badge: minutes under an hour, hours under two days,
+ *  then days. Gives the operator hours-level resolution on fresh activity
+ *  ("Waiting on Maya 30h") instead of rounding everything to whole days. */
+function ageShort(d: Date | null | undefined, now: Date): string | null {
+  if (!d) return null;
+  const ms = now.getTime() - d.getTime();
+  if (ms < 0) return "0m";
+  const hours = ms / 3600000;
+  if (hours < 1) return `${Math.max(1, Math.floor(ms / 60000))}m`;
+  if (hours < 48) return `${Math.floor(hours)}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
+/** Human "time ago" for the console's last-activity column. */
+export function relativeAge(d: Date | null | undefined, now: Date = new Date()): string {
+  if (!d) return "no activity";
+  const ms = now.getTime() - d.getTime();
+  if (ms < 60000) return "just now";
+  const min = Math.floor(ms / 60000);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day}d ago`;
+  return `${Math.floor(day / 30)}mo ago`;
+}
+
 function first(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
 }
@@ -44,30 +71,33 @@ export function conversationHealth(input: HealthInput): Health {
   }
 
   if (input.stage === "connected") {
-    const quiet = daysSince(input.lastMessageAt ?? input.connectedAt, now);
-    if (quiet !== null && quiet >= 6) {
-      return { label: `Connected, quiet ${quiet}d`, tone: "stale", needsAttention: true };
+    const quietRef = input.lastMessageAt ?? input.connectedAt;
+    const quietDays = daysSince(quietRef, now);
+    const quietAge = ageShort(quietRef, now);
+    if (quietDays !== null && quietDays >= 6) {
+      return { label: `Connected, quiet ${quietAge}`, tone: "stale", needsAttention: true };
     }
     return { label: "Connected", tone: "good", needsAttention: false };
   }
 
   // invited / mutual_yes: waiting on one or both replies.
   const waitDays = daysSince(input.notifiedAt, now);
+  const waitAge = ageShort(input.notifiedAt, now);
   const aYes = input.aDecision === "yes";
   const bYes = input.bDecision === "yes";
 
   if (aYes && !bYes) {
     const stale = waitDays !== null && waitDays >= 3;
-    return { label: stale ? `Waiting on ${b} ${waitDays}d` : `${a} said yes`, tone: stale ? "stale" : "warn", needsAttention: stale };
+    return { label: stale ? `Waiting on ${b} ${waitAge}` : `${a} said yes`, tone: stale ? "stale" : "warn", needsAttention: stale };
   }
   if (bYes && !aYes) {
     const stale = waitDays !== null && waitDays >= 3;
-    return { label: stale ? `Waiting on ${a} ${waitDays}d` : `${b} said yes`, tone: stale ? "stale" : "warn", needsAttention: stale };
+    return { label: stale ? `Waiting on ${a} ${waitAge}` : `${b} said yes`, tone: stale ? "stale" : "warn", needsAttention: stale };
   }
 
   // neither decided yet
   if (waitDays !== null && waitDays >= 3) {
-    return { label: `No reply ${waitDays}d`, tone: "stale", needsAttention: true };
+    return { label: `No reply ${waitAge}`, tone: "stale", needsAttention: true };
   }
   return { label: "Awaiting both", tone: "warn", needsAttention: false };
 }
