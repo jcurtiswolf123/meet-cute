@@ -6,6 +6,7 @@
 //
 // A Match in this flow moves: invited -> mutual_yes -> connected, or -> exit.
 import * as Sentry from "@sentry/nextjs";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { sendSMS, connectedSMS, createGroupConversation } from "./sms";
 import { composeGroupIntro } from "./intro-bot";
@@ -34,6 +35,32 @@ export async function logIntroMessage(args: {
   } catch {
     /* transcript logging is best-effort */
   }
+}
+
+// Bulk-action thresholds, shared by the operator console (to count candidates)
+// and the bulk server actions (to act on them) so the two never disagree.
+const DAY = 24 * 3600 * 1000;
+export const STALLED_DAYS = 3; // no reply for this long -> offer a resend
+export const EXPIRED_DAYS = 14; // no reply for this long -> offer to close
+
+/** Prisma where-clause for intros that have stalled: still invited or waiting on
+ *  one reply, last invited at least STALLED_DAYS ago. */
+export function stalledWhere(now: Date = new Date()): Prisma.MatchWhereInput {
+  return {
+    stage: { in: ["invited", "mutual_yes"] },
+    OR: [{ aDecision: "pending" }, { bDecision: "pending" }],
+    notifiedAAt: { lte: new Date(now.getTime() - STALLED_DAYS * DAY) },
+  };
+}
+
+/** Prisma where-clause for intros that have expired: never reached mutual yes and
+ *  have been silent for at least EXPIRED_DAYS. */
+export function expiredWhere(now: Date = new Date()): Prisma.MatchWhereInput {
+  return {
+    stage: { in: ["invited", "mutual_yes"] },
+    NOT: { AND: [{ aDecision: "yes" }, { bDecision: "yes" }] },
+    notifiedAAt: { lte: new Date(now.getTime() - EXPIRED_DAYS * DAY) },
+  };
 }
 
 export type IntroDecision = "yes" | "pass";
