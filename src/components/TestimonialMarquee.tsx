@@ -39,7 +39,7 @@ function Row({ data, reverse, speed, dark = false }: { data: Quote[]; reverse?: 
 
   return (
     <div className="relative w-full overflow-hidden">
-      <div className={`pointer-events-none absolute left-0 top-0 z-10 h-full w-24 ${bgGradient}`} />
+      <div className={`pointer-events-none absolute left-0 top-0 z-10 h-full w-16 sm:w-32 ${bgGradient}`} />
       <div
         className="flex min-w-[200%] py-3 [animation-play-state:running] hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:!animate-none"
         style={{ animation: `mc-marquee ${speed}s linear infinite`, animationDirection: reverse ? "reverse" : "normal" }}
@@ -48,7 +48,7 @@ function Row({ data, reverse, speed, dark = false }: { data: Quote[]; reverse?: 
           <QuoteCard key={i} q={q} />
         ))}
       </div>
-      <div className={`pointer-events-none absolute right-0 top-0 z-10 h-full w-24 ${bgGradientReverse}`} />
+      <div className={`pointer-events-none absolute right-0 top-0 z-10 h-full w-16 sm:w-32 ${bgGradientReverse}`} />
     </div>
   );
 }
