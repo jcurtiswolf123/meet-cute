@@ -17,7 +17,7 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen">
-      <SiteHeader />
+      <SiteHeader overlay />
 
       <Hero members={members} couples={couples} dinners={dinners} />
 
