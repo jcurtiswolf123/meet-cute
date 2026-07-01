@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
 
-// Shared top bar. On mobile the secondary text links collapse so the logo never
-// wraps and the primary action (Apply) stays uncramped; the full nav returns at
-// sm and up. Secondary destinations stay reachable on mobile via SiteFooter.
+// Shared top bar. On mobile the browse-oriented links (Dinners, Coaching, Studio)
+// collapse so the logo never wraps and the primary action (Apply) stays uncramped;
+// the full nav returns at sm and up. Sign in stays in the header at every width so
+// a returning member never has to scroll to the footer to get back in. The rest
+// stay reachable on mobile via SiteFooter.
 export function SiteHeader() {
   return (
     <header className="border-b border-line bg-cream/80 backdrop-blur">
@@ -18,7 +20,7 @@ export function SiteHeader() {
           <Link href="/coaching" className="hidden -my-2 py-2 text-muted transition-colors hover:text-ink sm:inline">
             Coaching
           </Link>
-          <Link href="/login" className="hidden -my-2 py-2 text-muted transition-colors hover:text-ink sm:inline">
+          <Link href="/login" className="-my-2 py-2 text-muted transition-colors hover:text-ink">
             Sign in
           </Link>
           <Link href="/studio/login" className="hidden -my-2 py-2 text-muted transition-colors hover:text-ink sm:inline">
