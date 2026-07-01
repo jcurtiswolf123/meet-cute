@@ -4,6 +4,13 @@ _Single source of truth for current state. Update at the end of every work sessi
 
 Last updated: 2026-06-30
 
+## Design (2026-06-30, on master, not yet deployed to Fly)
+- Full-bleed cinematic hero: edge-to-edge intro video, transparent overlay nav (SiteHeader `overlay` prop), dual scrim + film grain, three reduced-motion-safe motions (Ken Burns, scroll parallax/fade, staggered reveal). PR #8.
+- Mobile: hero serves optimized poster via next/image (AVIF/WebP) instead of the 8.4MB video (video is display:none < md, never fetched on cellular); desktop keeps the video. No horizontal overflow at 390px; sections stack.
+- Earlier polish (PR #7): Sign in kept in the mobile header; testimonial marquee edge fades widened.
+- Operator console polish (PR #6): hours-level latency, bulk resend/close, feedback surfacing.
+- NOTE: master is ahead of production. `fly deploy` needed to push the new hero live to hellomeetcute.com / meet-cute.fly.dev.
+
 ## Now (current state)
 - Five core features from Erik's call notes completed and integrated:
   1. Bot text introductions with Y/N SMS opt-in and 3-way group MMS (Twilio Conversations)
