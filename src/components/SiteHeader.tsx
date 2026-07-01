@@ -6,9 +6,18 @@ import { Logo } from "@/components/ui";
 // the full nav returns at sm and up. Sign in stays in the header at every width so
 // a returning member never has to scroll to the footer to get back in. The rest
 // stay reachable on mobile via SiteFooter.
-export function SiteHeader() {
+export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
+  // overlay: float transparently over a full-bleed hero (home page). A soft top
+  // scrim keeps the nav legible over the video without a hard bar. Default: the
+  // normal opaque bar with a hairline divider used on every other page.
   return (
-    <header className="border-b border-line bg-cream/80 backdrop-blur">
+    <header
+      className={
+        overlay
+          ? "absolute inset-x-0 top-0 z-50 bg-gradient-to-b from-espresso-deep/80 via-espresso-deep/30 to-transparent"
+          : "border-b border-line bg-cream/80 backdrop-blur"
+      }
+    >
       <div className="container-mc flex items-center justify-between gap-4 py-5">
         <div className="shrink-0 whitespace-nowrap">
           <Logo />
