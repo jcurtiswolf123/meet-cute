@@ -161,7 +161,9 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
             <Link href="/privacy" className="text-claret underline" target="_blank">
               Privacy Policy
             </Link>
-            .
+            . I agree to receive text messages (SMS) from Meet Cute about my introductions at the
+            number I provide. Message and data rates may apply; message frequency varies. Reply STOP
+            to opt out or HELP for help.
           </span>
         </label>
         {e.agree && <p className="mt-1 text-xs text-claret">{e.agree}</p>}
