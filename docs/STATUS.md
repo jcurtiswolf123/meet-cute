@@ -51,8 +51,14 @@ Last updated: 2026-06-30 (hero + mobile shipped live)
 - Conversations webhook: ALREADY WIRED + live. Account-level Conversations config: onMessageAdded -> POST https://hellomeetcute.com/api/sms/conversations. Endpoint live: GET->405 (POST-only), unsigned POST->403 (signature-guarded). Done.
 - A2P 10DLC (live Twilio check): Customer Profile = twilio-approved. A2P Trust Product = in-review (last updated 2026-06-29T17:06Z, ~25h no movement). Brand registrations = 0 (cannot create until TP approves). Advancer (launchd com.meetcute.a2p, 10-min cadence) running normally; will auto-advance Brand -> Campaign -> number-attach once Twilio clears.
 
+## Checked live 2026-07-08 (~21:30 UTC)
+- A2P 10DLC: Customer Profile = twilio-approved (unchanged). A2P Trust Product BU26c444d0a43a6c5044db6aa9692445db = STILL in-review, zero movement since submission 2026-06-29T17:06Z (9 calendar days). Latest evaluation = compliant on both checks (Primary CP Bundle Proof passed, US A2P General Business Info passed); entity assignments correct. Nothing fixable on our side.
+- Brands = 0, Campaigns on MG9fd14c01c6e72fea4e39d4d6c48cc50e = 0 (both gated behind TP approval). SMS still returns error 30034.
+- Advancer healthy: launchd com.meetcute.a2p polling every 10 min, logging "halt: trust product status=in-review" continuously through today. Will auto-run Brand -> Campaign -> number-attach the moment Twilio approves.
+- ESCALATION DUE: the 2026-07-02 escalate-by date has passed. Filing a Twilio support ticket requires console/Help Center login (help.twilio.com), which needs Joshua's Twilio login + MFA (browse daemon has no Twilio session). Ticket ask: "A2P Messaging Trust Product BU26c444d0a43a6c5044db6aa9692445db has been in-review since 2026-06-29 with a compliant evaluation and an approved Primary Customer Profile (BUa9f097eb7a501dde7a3b8dfefffd3304); please review/approve."
+
 ## Next (prioritized)
-1. BLOCKER (external, waiting on Twilio only): A2P 10DLC Trust Product review. SMS returns error 30034 until TP approves, then Brand + Campaign register and +16465860039 attaches to MG9fd14c01c6e72fea4e39d4d6c48cc50e. Advancer auto-driving; escalate to Twilio support if still in-review past ~2026-07-02.
+1. BLOCKER (external, waiting on Twilio only): A2P 10DLC Trust Product review. SMS returns error 30034 until TP approves, then Brand + Campaign register and +16465860039 attaches to MG9fd14c01c6e72fea4e39d4d6c48cc50e. Advancer auto-driving. ESCALATE NOW (past the 2026-07-02 threshold): Joshua logs into help.twilio.com and files the ticket per the 2026-07-08 note above.
 2. Backlog polish (non-blocking): health-score latency metric, operator bulk actions (close expired / resend stalled intros), post-connection member feedback, community admissions voting (V2).
 
 ## Blockers

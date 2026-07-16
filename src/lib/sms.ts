@@ -1,12 +1,28 @@
-// Transactional SMS via Twilio's REST API (no SDK dependency).
+// Transactional SMS via Twilio OR Telnyx REST APIs (no SDK dependency).
 //
-// Degrades gracefully like email.ts: with no Twilio credentials (local dev), it
-// logs the message to the server console and returns ok, so the intro flow is
-// testable without sending real texts. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
-// and TWILIO_FROM in production.
-import { createHmac, timingSafeEqual } from "crypto";
+// Provider is selected by SMS_PROVIDER ("twilio" | "telnyx", default "twilio").
+// This lets us flip carriers with an env var while Twilio remains the fallback:
+//   - Twilio:  TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM
+//   - Telnyx:  TELNYX_API_KEY, TELNYX_FROM, TELNYX_MESSAGING_PROFILE_ID,
+//              TELNYX_PUBLIC_KEY (base64 Ed25519, for inbound signature verify)
+//
+// Degrades gracefully like email.ts: with no credentials (local dev), it logs the
+// message to the server console and returns ok, so the intro flow is testable
+// without sending real texts.
+//
+// NOTE on group MMS: the 3-way group intro (createGroupConversation below) uses
+// Twilio Conversations "projected address" masking, which has NO Telnyx
+// equivalent. Under SMS_PROVIDER=telnyx that path returns { ok: false } so the
+// caller falls back to brokering numbers (connectedSMS). 1:1 SMS (the Y/N invite
+// flow, opt-out, feedback) works fully on either provider.
+import { createHmac, timingSafeEqual, createPublicKey, verify as edVerify } from "crypto";
 
 type SendArgs = { to: string; body: string };
+
+/** Which carrier to send through. Twilio is the default/fallback. */
+export function smsProvider(): "twilio" | "telnyx" {
+  return process.env.SMS_PROVIDER === "telnyx" ? "telnyx" : "twilio";
+}
 
 /** Normalize a raw phone string to E.164. Assumes US (+1) for 10-digit numbers.
  *  Returns null when there aren't enough digits to be a real number. */
@@ -60,15 +76,18 @@ export function normalizeLinkedin(raw: string | null | undefined): string | null
 }
 
 export async function sendSMS({ to, body }: SendArgs): Promise<{ ok: boolean }> {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_FROM;
   const e164 = normalizePhone(to);
-
   if (!e164) {
     console.error("[sms] no valid destination number; skipping send");
     return { ok: false };
   }
+  return smsProvider() === "telnyx" ? sendViaTelnyx(e164, body) : sendViaTwilio(e164, body);
+}
+
+async function sendViaTwilio(e164: string, body: string): Promise<{ ok: boolean }> {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_FROM;
 
   if (!sid || !token || !from) {
     // In production a missing credential is a misconfiguration: fail loudly so a
@@ -77,7 +96,7 @@ export async function sendSMS({ to, body }: SendArgs): Promise<{ ok: boolean }> 
       console.error("[sms] Twilio credentials not set; refusing to send in production");
       return { ok: false };
     }
-    console.log(`[sms:dev] to=${e164} body="${body}"`);
+    console.log(`[sms:dev] (twilio) to=${e164} body="${body}"`);
     return { ok: true };
   }
 
@@ -93,6 +112,48 @@ export async function sendSMS({ to, body }: SendArgs): Promise<{ ok: boolean }> 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error(`[sms] Twilio ${res.status}: ${text.slice(0, 300)}`);
+      return { ok: false };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error(`[sms] send failed: ${(e as Error).message}`);
+    return { ok: false };
+  }
+}
+
+async function sendViaTelnyx(e164: string, body: string): Promise<{ ok: boolean }> {
+  const apiKey = process.env.TELNYX_API_KEY;
+  const from = process.env.TELNYX_FROM;
+  const profileId = process.env.TELNYX_MESSAGING_PROFILE_ID;
+
+  // Telnyx accepts either an explicit `from` number or a `messaging_profile_id`
+  // (which lets Telnyx pick the sending number / number pool). Require at least
+  // one alongside the API key.
+  if (!apiKey || (!from && !profileId)) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[sms] Telnyx credentials not set; refusing to send in production");
+      return { ok: false };
+    }
+    console.log(`[sms:dev] (telnyx) to=${e164} body="${body}"`);
+    return { ok: true };
+  }
+
+  try {
+    const payload: Record<string, string> = { to: e164, text: body };
+    if (from) payload.from = from;
+    if (profileId) payload.messaging_profile_id = profileId;
+
+    const res = await fetch("https://api.telnyx.com/v2/messages", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`[sms] Telnyx ${res.status}: ${text.slice(0, 300)}`);
       return { ok: false };
     }
     return { ok: true };
@@ -121,6 +182,50 @@ export function verifyTwilioSignature(args: {
   const a = Buffer.from(expected);
   const b = Buffer.from(args.signature);
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Wrap a raw 32-byte Ed25519 public key (Telnyx gives it base64) in SPKI DER so
+ *  Node's crypto can build a KeyObject. The 12-byte prefix is the fixed ASN.1
+ *  header for an Ed25519 SubjectPublicKeyInfo. */
+function telnyxPublicKey(): ReturnType<typeof createPublicKey> | null {
+  const b64 = process.env.TELNYX_PUBLIC_KEY;
+  if (!b64) return null;
+  try {
+    const raw = Buffer.from(b64, "base64");
+    if (raw.length !== 32) return null; // not a raw Ed25519 key
+    const spkiPrefix = Buffer.from("302a300506032b6570032100", "hex");
+    return createPublicKey({ key: Buffer.concat([spkiPrefix, raw]), format: "der", type: "spki" });
+  } catch {
+    return null;
+  }
+}
+
+/** Verify a Telnyx webhook: Ed25519 signature over `timestamp|rawBody`, sent in
+ *  the `telnyx-signature-ed25519` (base64) + `telnyx-timestamp` headers. Also
+ *  rejects timestamps older than `toleranceSecs` (default 5 min) to stop replay.
+ *  Returns true (skip) in dev when no public key is configured; denies in prod. */
+export function verifyTelnyxSignature(args: {
+  signature: string | null;
+  timestamp: string | null;
+  rawBody: string;
+  nowSecs: number;
+  toleranceSecs?: number;
+}): boolean {
+  const key = telnyxPublicKey();
+  if (!key) return process.env.NODE_ENV !== "production"; // dev: allow; prod: deny
+  if (!args.signature || !args.timestamp) return false;
+
+  const ts = Number(args.timestamp);
+  if (!Number.isFinite(ts)) return false;
+  const tolerance = args.toleranceSecs ?? 300;
+  if (Math.abs(args.nowSecs - ts) > tolerance) return false; // stale / replayed
+
+  try {
+    const signed = Buffer.from(`${args.timestamp}|${args.rawBody}`, "utf-8");
+    return edVerify(null, signed, key, Buffer.from(args.signature, "base64"));
+  } catch {
+    return false;
+  }
 }
 
 // --- carrier-required keyword handling (STOP / HELP / START) -----------------
@@ -299,6 +404,11 @@ export async function createGroupConversation(args: {
   body: string;
   friendlyName?: string;
 }): Promise<GroupConversationResult> {
+  // Group-MMS masking is a Twilio Conversations feature with no Telnyx analog.
+  // Under Telnyx we decline so the caller falls back to brokering numbers.
+  if (smsProvider() === "telnyx") {
+    return { ok: false, reason: "group MMS unavailable on Telnyx; broker numbers instead" };
+  }
   const proxy = normalizePhone(args.operatorAddress ?? process.env.TWILIO_FROM ?? null);
   const numbers = Array.from(
     new Set(
@@ -385,6 +495,9 @@ export async function sendConversationMessage(args: {
   conversationSid: string;
   body: string;
 }): Promise<{ ok: boolean; reason?: string }> {
+  if (smsProvider() === "telnyx") {
+    return { ok: false, reason: "group conversations unavailable on Telnyx" };
+  }
   const creds = twilioCreds();
   const proxy = normalizePhone(process.env.TWILIO_FROM ?? null);
   if (!creds) {

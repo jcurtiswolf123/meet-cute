@@ -5,6 +5,9 @@ import {
   phoneKey,
   normalizePhone,
   verifyTwilioSignature,
+  verifyTelnyxSignature,
+  smsProvider,
+  sendSMS,
   isStopKeyword,
   isHelpKeyword,
   isStartKeyword,
@@ -42,31 +45,59 @@ const YES = /^\s*(y|ye|yes|yeah|yep|yup|sure|ok|okay|absolutely|sounds good|do i
 const NO = /^\s*(n|no|nope|nah|pass)\b/i;
 
 export async function POST(req: NextRequest) {
+  const provider = smsProvider();
   try {
     const raw = await req.text();
-    const params = Object.fromEntries(new URLSearchParams(raw)) as Record<string, string>;
 
-    // Verify the request really came from Twilio (HMAC over URL + sorted params).
-    const url = `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || `https://${req.headers.get("host")}`}/api/sms/inbound`;
-    const valid = verifyTwilioSignature({ signature: req.headers.get("x-twilio-signature"), url, params });
-    if (!valid) {
-      return new Response("invalid signature", { status: 403 });
+    // Parse + verify per provider, then normalize to { from, body }. Telnyx posts
+    // JSON with an Ed25519 signature; Twilio posts form-urlencoded with an HMAC.
+    let from = "";
+    let body = "";
+    if (provider === "telnyx") {
+      const valid = verifyTelnyxSignature({
+        signature: req.headers.get("telnyx-signature-ed25519"),
+        timestamp: req.headers.get("telnyx-timestamp"),
+        rawBody: raw,
+        nowSecs: Math.floor(Date.now() / 1000),
+      });
+      if (!valid) return new Response("invalid signature", { status: 403 });
+      const payload = (JSON.parse(raw || "{}")?.data?.payload ?? {}) as {
+        from?: { phone_number?: string };
+        text?: string;
+      };
+      from = payload.from?.phone_number || "";
+      body = (payload.text || "").trim();
+    } else {
+      const params = Object.fromEntries(new URLSearchParams(raw)) as Record<string, string>;
+      const url = `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || `https://${req.headers.get("host")}`}/api/sms/inbound`;
+      const valid = verifyTwilioSignature({ signature: req.headers.get("x-twilio-signature"), url, params });
+      if (!valid) return new Response("invalid signature", { status: 403 });
+      from = params.From || "";
+      body = (params.Body || "").trim();
     }
 
-    const from = params.From || "";
-    const body = (params.Body || "").trim();
+    // Reply helper: Twilio takes a synchronous TwiML response; Telnyx has no
+    // TwiML, so we send any reply out-of-band via the API and return a plain 200.
+    const senderFrom = from;
+    async function reply(message?: string): Promise<Response> {
+      if (provider === "telnyx") {
+        if (message && senderFrom) await sendSMS({ to: senderFrom, body: message });
+        return new Response(null, { status: 200 });
+      }
+      return twiml(message);
+    }
 
     // Carrier-required keyword replies take precedence over intro Y/N parsing and
     // must work for any inbound number, matched to a person or not.
-    if (isHelpKeyword(body)) return twiml(HELP_REPLY);
-    if (isStartKeyword(body)) return twiml(OPT_IN_REPLY);
+    if (isHelpKeyword(body)) return await reply(HELP_REPLY);
+    if (isStartKeyword(body)) return await reply(OPT_IN_REPLY);
     if (isStopKeyword(body)) {
       await applyOptOut(from);
-      return twiml(OPT_OUT_REPLY);
+      return await reply(OPT_OUT_REPLY);
     }
 
     const key = phoneKey(from);
-    if (!key) return twiml();
+    if (!key) return await reply();
 
     // Match the inbound number to a person. Prefer the exact normalized E.164, and
     // only fall back to the last-10-digits substring when no exact row exists (so a
@@ -88,7 +119,7 @@ export async function POST(req: NextRequest) {
         select: { id: true, name: true },
       });
     }
-    if (candidates.length === 0) return twiml();
+    if (candidates.length === 0) return await reply();
 
     // Does anyone on this exact number have an introduction awaiting their reply?
     let actor: { id: string; name: string } | null = null;
@@ -113,17 +144,17 @@ export async function POST(req: NextRequest) {
     if (actor) {
       const decision = YES.test(body) ? "yes" : NO.test(body) ? "pass" : null;
       if (!decision) {
-        return twiml("Sorry, I didn't catch that. Reply Y if you'd like the introduction, or N to pass.");
+        return await reply("Sorry, I didn't catch that. Reply Y if you'd like the introduction, or N to pass.");
       }
       const outcome = await recordIntroDecision(actor.id, decision);
       if (outcome.ok && decision === "pass") {
-        return twiml("No problem - I won't make that introduction. I'll keep you in mind for someone else.");
+        return await reply("No problem - I won't make that introduction. I'll keep you in mind for someone else.");
       }
       if (outcome.ok && outcome.connected) {
-        return twiml(); // both confirmation texts already sent via REST
+        return await reply(); // both confirmation texts already sent via REST
       }
       if (outcome.ok) {
-        return twiml(`Love it. I'll check with ${outcome.otherName.split(" ")[0]} and connect you both as soon as they say yes.`);
+        return await reply(`Love it. I'll check with ${outcome.otherName.split(" ")[0]} and connect you both as soon as they say yes.`);
       }
     }
 
@@ -140,10 +171,10 @@ export async function POST(req: NextRequest) {
     if (recent && body) {
       const subjectId = candidates.find((c) => c.id === recent.personAId || c.id === recent.personBId)?.id || candidates[0].id;
       await prisma.note.create({ data: { subjectId, matchId: recent.id, kind: "feedback", body: body.slice(0, 2000) } });
-      return twiml("Thanks for the update - that's really helpful. I'll be in touch.");
+      return await reply("Thanks for the update - that's really helpful. I'll be in touch.");
     }
 
-    return twiml("Thanks! I don't have an open introduction for you right now, but I'll be in touch when I do.");
+    return await reply("Thanks! I don't have an open introduction for you right now, but I'll be in touch when I do.");
   } catch (e) {
     // Log the error to Sentry for monitoring
     Sentry.captureException(e);
