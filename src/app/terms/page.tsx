@@ -21,7 +21,7 @@ export default function Terms() {
 
         <p className="label mt-8 mb-3">Terms</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Terms of Service</h1>
-        <p className="mt-3 text-sm text-muted">Last updated: 2026-06-15</p>
+        <p className="mt-3 text-sm text-muted">Last updated: 2026-07-16</p>
 
         <p className="mt-6 text-sm leading-relaxed text-muted">
           These Terms of Service (&quot;Terms&quot;) are an agreement between you and Meet Cute
@@ -82,7 +82,31 @@ export default function Terms() {
           </p>
         </Section>
 
-        <Section title="5. No guarantee of matches or outcomes">
+        <Section title="5. Text messaging (SMS) program terms">
+          <p>
+            By providing your mobile number and joining Meet Cute, you agree to receive text messages
+            (SMS/MMS) from Meet Cute as part of the service. These include introduction invites you can
+            accept or decline, connection details once both people say yes, scheduling notes, and
+            account notices. Consent to receive these messages is not a condition of any purchase.
+          </p>
+          <p>
+            Message frequency varies with your introductions and activity.{" "}
+            <span className="font-medium text-ink">Message and data rates may apply.</span> Reply{" "}
+            <span className="font-medium text-ink">STOP</span> to any message to cancel and stop
+            receiving texts, and reply <span className="font-medium text-ink">HELP</span> for help.
+            You can also contact us at the address in the Contact section for assistance.
+          </p>
+          <p>
+            We will not share your mobile information (including your phone number and SMS opt-in or
+            consent) with third parties or affiliates for marketing or promotional purposes. See our{" "}
+            <Link href="/privacy" className="text-claret underline">
+              Privacy Policy
+            </Link>{" "}
+            for how we handle your information.
+          </p>
+        </Section>
+
+        <Section title="6. No guarantee of matches or outcomes">
           <p>
             We do not promise that you will receive any particular number of introductions, that you
             will be matched at all, or that any introduction, date, or relationship will result. The
@@ -91,7 +115,7 @@ export default function Terms() {
           </p>
         </Section>
 
-        <Section title="6. Safety disclaimer">
+        <Section title="7. Safety disclaimer">
           <p>
             Meet Cute curates introductions, but we do not conduct criminal background checks on every
             member and we cannot verify everything a member tells us. We are not responsible for the
@@ -106,7 +130,7 @@ export default function Terms() {
           </p>
         </Section>
 
-        <Section title="7. Content, photos, and moderation">
+        <Section title="8. Content, photos, and moderation">
           <p>
             You keep ownership of the content and photos you submit. By submitting them, you grant
             Meet Cute a non-exclusive, worldwide, royalty-free license to host, store, display, and
@@ -121,7 +145,7 @@ export default function Terms() {
           </p>
         </Section>
 
-        <Section title="8. Termination">
+        <Section title="9. Termination">
           <p>
             You may stop using the service and delete your account at any time from your account
             settings. We may suspend or terminate your access if you violate these Terms, if your
@@ -131,7 +155,7 @@ export default function Terms() {
           </p>
         </Section>
 
-        <Section title="9. Disclaimers and limitation of liability">
+        <Section title="10. Disclaimers and limitation of liability">
           <p>
             The service is provided &quot;as is&quot; and &quot;as available,&quot; without warranties
             of any kind, whether express or implied, to the fullest extent permitted by law. We do not
@@ -149,7 +173,7 @@ export default function Terms() {
           </p>
         </Section>
 
-        <Section title="10. Governing law">
+        <Section title="11. Governing law">
           <p>
             These Terms are governed by the laws of [GOVERNING LAW JURISDICTION PLACEHOLDER], without
             regard to its conflict-of-laws rules. Any disputes will be resolved in the courts located
@@ -158,7 +182,7 @@ export default function Terms() {
           </p>
         </Section>
 
-        <Section title="11. Changes to these Terms">
+        <Section title="12. Changes to these Terms">
           <p>
             We may update these Terms as the service evolves or the law changes. When we make material
             changes, we will update the date above and, where appropriate, notify you in the app or by
@@ -167,7 +191,7 @@ export default function Terms() {
           </p>
         </Section>
 
-        <Section title="12. Contact us">
+        <Section title="13. Contact us">
           <p>
             Questions about these Terms? Email us at{" "}
             <a href="mailto:support@meetcute.com" className="text-claret underline">

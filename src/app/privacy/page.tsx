@@ -21,7 +21,7 @@ export default function Privacy() {
 
         <p className="label mt-8 mb-3">Privacy</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-muted">Last updated: 2026-06-15</p>
+        <p className="mt-3 text-sm text-muted">Last updated: 2026-07-16</p>
 
         <p className="mt-6 text-sm leading-relaxed text-muted">
           Meet Cute is a curated, invitation-only matchmaking service. To introduce you to people
@@ -105,7 +105,33 @@ export default function Privacy() {
           <p className="font-medium text-ink">We never sell your personal information.</p>
         </Section>
 
-        <Section title="6. AI and automated tools">
+        <Section title="6. SMS, text messaging, and your mobile information">
+          <p>
+            Meet Cute sends text messages (SMS/MMS) as part of the service, such as introduction
+            invites you can accept or decline, connection details once both people say yes, scheduling
+            notes, and account notices. You provide your mobile number and agree to receive these
+            messages when you apply or join, and you can opt out at any time.
+          </p>
+          <p className="font-medium text-ink">
+            No mobile information (including your phone number and SMS opt-in or consent) will be
+            shared with third parties or affiliates for marketing or promotional purposes. Text
+            messaging originator opt-in data and consent are never shared with any third parties.
+          </p>
+          <p>
+            The only parties that ever receive your mobile number are the vendors that deliver the
+            messaging service to us (for example, our SMS provider), and only so they can send the
+            messages you asked for on our behalf. They may not use it for their own or any marketing
+            purpose.
+          </p>
+          <p>
+            You are always in control: reply <span className="font-medium text-ink">STOP</span> to any
+            message to opt out of further texts, and reply{" "}
+            <span className="font-medium text-ink">HELP</span> for help. Message and data rates may
+            apply. Message frequency varies with your introductions and activity.
+          </p>
+        </Section>
+
+        <Section title="7. AI and automated tools">
           <p>
             We use software, including AI tools, to help organize profiles and surface possible
             matches. A human matchmaker remains involved in curating introductions. These tools act
@@ -114,7 +140,7 @@ export default function Privacy() {
           </p>
         </Section>
 
-        <Section title="7. Data retention">
+        <Section title="8. Data retention">
           <p>
             We keep your personal information for as long as your account is active and as long as we
             need it to provide the service. After you close your account, we delete or anonymize your
@@ -124,7 +150,7 @@ export default function Privacy() {
           </p>
         </Section>
 
-        <Section title="8. Security">
+        <Section title="9. Security">
           <p>
             We protect your data with administrative, technical, and physical safeguards, including
             encryption in transit, hashed passwords, access controls, and limits on who on our team
@@ -134,7 +160,7 @@ export default function Privacy() {
           </p>
         </Section>
 
-        <Section title="9. Your rights and choices">
+        <Section title="10. Your rights and choices">
           <p>Depending on where you live, you may have the right to:</p>
           <List
             items={[
@@ -153,7 +179,7 @@ export default function Privacy() {
           </p>
         </Section>
 
-        <Section title="10. Account and data deletion">
+        <Section title="11. Account and data deletion">
           <p>
             You can delete your account at any time from your account settings in the app. Deleting
             your account removes your profile from circulation and starts the deletion of your
@@ -162,7 +188,7 @@ export default function Privacy() {
           </p>
         </Section>
 
-        <Section title="11. Age requirement">
+        <Section title="12. Age requirement">
           <p>
             Meet Cute is only for adults. You must be at least 18 years old to create an account or
             use the service. We do not knowingly collect personal information from anyone under 18. If
@@ -170,7 +196,7 @@ export default function Privacy() {
           </p>
         </Section>
 
-        <Section title="12. Cookies and sessions">
+        <Section title="13. Cookies and sessions">
           <p>
             We use cookies and similar technologies to keep you signed in, remember your preferences,
             keep the service secure, and understand how the product is used so we can improve it. You
@@ -179,7 +205,7 @@ export default function Privacy() {
           </p>
         </Section>
 
-        <Section title="13. Changes to this policy">
+        <Section title="14. Changes to this policy">
           <p>
             We may update this policy as the service evolves or the law changes. When we make material
             changes, we will update the date above and, where appropriate, notify you in the app or by
@@ -188,7 +214,7 @@ export default function Privacy() {
           </p>
         </Section>
 
-        <Section title="14. Contact us">
+        <Section title="15. Contact us">
           <p>
             Questions about your privacy or this policy? Email us at{" "}
             <a href="mailto:privacy@meetcute.com" className="text-claret underline">
