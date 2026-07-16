@@ -15,6 +15,8 @@ export function SiteFooter() {
             <Link href="/login" className="-my-1 py-1 transition-colors hover:text-ink">Sign in</Link>
             <Link href="/studio/login" className="-my-1 py-1 transition-colors hover:text-ink">Studio</Link>
             <Link href="/apply" className="-my-1 py-1 transition-colors hover:text-ink">Apply</Link>
+            <Link href="/privacy" className="-my-1 py-1 transition-colors hover:text-ink">Privacy Policy</Link>
+            <Link href="/terms" className="-my-1 py-1 transition-colors hover:text-ink">Terms of Service</Link>
           </nav>
         </div>
         <div className="text-sm text-muted sm:text-right">
