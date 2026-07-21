@@ -24,8 +24,16 @@ primary_region = "sjc"
   NODE_ENV = "production"
   NEXT_PUBLIC_SITE_URL = "https://hellomeetcute.com"
 
-# No volumes: the app is stateless (DB on Neon). The legacy meetcute_data volumes
-# have been retired, so machines run without any per-machine storage.
+# Legacy meetcute_data volume, one per machine. No longer read (DB is on Neon),
+# but kept mounted so the config matches the live machines. Fly has no zero-
+# downtime way to detach a sticky volume (no detach on `machine update`, deploy
+# keeps it, clone re-creates it, `machine run` skips the service/LB), so removing
+# these two 1GB volumes needs a maintenance window (destroy both machines, then
+# `fly deploy` fresh from a no-mount config). Not worth ~60s of downtime for
+# unused storage; retire during a planned window if desired.
+[[mounts]]
+  source = "meetcute_data"
+  destination = "/data"
 
 [http_service]
   internal_port = 3009
