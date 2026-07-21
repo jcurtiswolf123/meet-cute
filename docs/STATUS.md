@@ -5,6 +5,14 @@ _Single source of truth for current state. Update at the end of every work sessi
 Last updated: 2026-06-30 (hero + mobile shipped live)
 
 
+
+## 2026-07-21: Auto-email-on-match + optional SMS consent (branch design/warm-inviting-refresh, commit 9fd8922)
+- FEATURE (Joshua): matched people are auto-connected by EMAIL. connectMatch (src/lib/introductions.ts) now emails BOTH people the moment a match goes mutual, handing each the other's contact (email always; phone only if that person opted in to SMS). New connectionEmail template in src/lib/email.ts (warm, terracotta-branded). Best-effort + idempotent (connectedAt guards re-sends), fires whether or not either side uses SMS. Email is captured on the application form (baseline channel) with a uniqueness guard.
+- COMPLIANCE / answers Twilio ticket #27999003 (Chirag A asked for opt-in screenshot + purpose + proof consent is not forced): split the single bundled consent checkbox into (a) required 18+/Terms/Privacy box and (b) a SEPARATE, unchecked, OPTIONAL SMS opt-in ("Consent is not a condition of joining"). Phone is now optional (required only if SMS opted). Added Person.smsConsentAt (nullable col ADDED to Neon prod DB via prisma db execute ALTER; project uses db push, no migration files).
+- Replied to Chirag via send-as-josh -> support+id00RPYN-3MVX0@twilio.zendesk.com (Zendesk Reply-To token, threads into #27999003) with the opt-in screenshot attached, answering all three points. Confirmed in Sent Mail.
+- Verified: prisma generate, tsc clean, next build passes; drove the live signup form end-to-end (email field + separate optional unchecked SMS opt-in; screenshot ~/.playwright-mcp/mc-apply-full.png).
+- NOT DEPLOYED. The compliant form + auto-email feature are committed but live hellomeetcute.com still runs the old bundled-consent form and does not yet auto-email on match. Deploy (fly deploy) needed to make live match the Twilio screenshot AND activate auto-email. Rides the same branch as the warm redesign, so deploy ships both - gated on Joshua's go.
+
 ## 2026-07-21: Warm daylight redesign (branch design/warm-inviting-refresh)
 - Removed the alcohol/cocktail-bar hero per Joshua. Deleted public/hero.mp4 (8.4MB bar video) + hero-poster.jpg. New hero = warm cafe photo of two people laughing over coffee (public/hero-warm.jpg), generated via Gemini Imagen 4 (OpenAI gpt-image-1 was at billing hard limit). No alcohol anywhere.
 - Flipped the whole "Nightcap" dark theme to a "Warm Daylight" light palette by reskinning token VALUES in place (names preserved so every token-based page cascaded): cream = warm morning cream #fbf5ec, ink = soft espresso brown #382a20, ember accent = terracotta #d76a45, claret = warm rose, warm hairlines + soft warm shadows. globals.css body wash/selection/button/field, layout color-scheme + light toaster all updated.
