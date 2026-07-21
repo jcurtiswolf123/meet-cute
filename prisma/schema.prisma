@@ -54,6 +54,11 @@ model Person {
   // compliance / safety
   birthdate    DateTime? // 18+ gate, collected at application
   agreedTosAt  DateTime? // consent to Terms + Privacy at signup
+  // SMS opt-in is SEPARATE and OPTIONAL from the Terms/Privacy agreement (CTIA /
+  // A2P 10DLC requirement: consent to receive texts must not be bundled with, or
+  // required by, joining). Null = has not opted in to SMS; they are still a full
+  // member and are connected to matches by email.
+  smsConsentAt DateTime?
 
   // community recommendation (collected at application): every applicant names
   // someone who can vouch for them. voucherContact is the voucher's email/phone

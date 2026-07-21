@@ -93,6 +93,63 @@ export function eventInviteEmail(args: {
   return { subject, html, text };
 }
 
+// Warm introduction email sent to BOTH people the moment a match becomes mutual.
+// It hands each person the other's name and a way to reach them (their email,
+// which is the baseline channel; phone only if that person opted in to SMS), so
+// two people who said yes are actually connected even with no texting at all.
+export function connectionEmail(args: {
+  toName: string;
+  otherName: string;
+  otherEmail?: string | null;
+  otherPhone?: string | null;
+  city?: string | null;
+  note?: string | null;
+}): { subject: string; html: string; text: string } {
+  const first = (args.toName || "there").split(" ")[0];
+  const otherFirst = (args.otherName || "your match").split(" ")[0];
+  const subject = `You and ${otherFirst} both said yes`;
+
+  const reach: string[] = [];
+  if (args.otherEmail) reach.push(`Email: ${args.otherEmail}`);
+  if (args.otherPhone) reach.push(`Text: ${args.otherPhone}`);
+  const reachText = reach.length ? reach.join("\n") : "Just reply to this email and we will pass it along.";
+
+  const note = args.note?.trim()
+    ? args.note.trim()
+    : `Say hello, find a time this week, and keep it easy. A short first message goes a long way.`;
+
+  const text =
+    `Hi ${first},\n\n` +
+    `Good news: you and ${otherFirst} both said yes to an introduction${args.city ? ` in ${args.city}` : ""}.\n\n` +
+    `Here is how to reach ${otherFirst}:\n${reachText}\n\n` +
+    `${note}\n\n` +
+    `Warmly,\nMeet Cute\n\n` +
+    `Reply to this email any time if you would like a hand.`;
+
+  const reachHtml = reach.length
+    ? reach
+        .map(
+          (r) =>
+            `<p style="margin:2px 0;font-size:14px;color:#382a20">${r
+              .replace("Email:", "<span style=\"color:#7d6f62\">Email</span>")
+              .replace("Text:", "<span style=\"color:#7d6f62\">Text</span>")}</p>`,
+        )
+        .join("")
+    : `<p style="margin:2px 0;font-size:14px;color:#7d6f62">Just reply to this email and we will pass it along.</p>`;
+
+  const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#382a20">
+    <h1 style="font-size:22px;font-weight:500;color:#d76a45">Meet Cute</h1>
+    <p style="font-size:15px;line-height:1.6">Hi ${first}, you and <strong>${otherFirst}</strong> both said yes to an introduction${args.city ? ` in ${args.city}` : ""}.</p>
+    <div style="margin:16px 0;padding:16px;border:1px solid #ecdcc7;border-radius:12px;background:#fffdf8">
+      <p style="margin:0 0 6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#7d6f62">How to reach ${otherFirst}</p>
+      ${reachHtml}
+    </div>
+    <p style="font-size:15px;line-height:1.6;color:#382a20">${note}</p>
+    <p style="font-size:12px;color:#8a817c">Warmly, Meet Cute. Reply to this email any time if you would like a hand.</p>
+  </div>`;
+  return { subject, html, text };
+}
+
 export function magicLinkEmail(link: string): { subject: string; html: string; text: string } {
   const subject = "Your Meet Cute sign-in link";
   const text = `Sign in to Meet Cute:\n${link}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;

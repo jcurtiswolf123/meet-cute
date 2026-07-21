@@ -382,6 +382,8 @@ export async function completeApplication(
   // One short line on what they want; the fast signup intentionally drops the
   // long free-form profile fields (headline/bio/deal-breakers).
   const lookingFor = String(formData.get("lookingFor") || "").trim().slice(0, 280);
+  const emailRaw = String(formData.get("email") || "");
+  const email = normalizeEmail(emailRaw);
   const phoneRaw = String(formData.get("phone") || "");
   const phone = normalizePhone(phoneRaw);
   const linkedinRaw = String(formData.get("linkedin") || "");
@@ -390,6 +392,8 @@ export async function completeApplication(
   const instagram = normalizeInstagram(instagramRaw);
   const birthdateRaw = String(formData.get("birthdate") || "");
   const agreed = formData.get("agree") === "on";
+  // SMS opt-in is separate and optional; only meaningful with a textable number.
+  const smsConsent = formData.get("smsConsent") === "on";
   // Community recommendation: every applicant names someone who vouches for them.
   const voucherName = String(formData.get("voucherName") || "").trim().slice(0, 120);
   const voucherContact = String(formData.get("voucherContact") || "").trim().slice(0, 200);
@@ -399,6 +403,7 @@ export async function completeApplication(
   const values = {
     first,
     last,
+    email: emailRaw,
     city,
     lookingFor,
     phone: phoneRaw,
@@ -412,10 +417,15 @@ export async function completeApplication(
 
   const fieldErrors: Record<string, string> = {};
   if (!first) fieldErrors.first = "Enter your first name.";
-  // Last name is optional: matching only needs a first name + phone.
-  if (!phoneRaw.trim()) {
-    fieldErrors.phone = "Enter a mobile number so your matchmaker can text you introductions.";
-  } else if (!isTextablePhone(phone)) {
+  // Email is the baseline channel: it is how a match and you are introduced.
+  if (!email.includes("@") || email.length > 254) {
+    fieldErrors.email = "Enter a valid email so we can introduce you to your matches.";
+  }
+  // Phone is optional. It is only required when the applicant opts in to SMS
+  // introductions, and it must be a real, textable mobile number when present.
+  if (smsConsent && !phoneRaw.trim()) {
+    fieldErrors.phone = "Add a mobile number to receive text introductions, or uncheck that option.";
+  } else if (phoneRaw.trim() && !isTextablePhone(phone)) {
     fieldErrors.phone = "That does not look like a valid mobile number. Use a 10-digit number.";
   }
   const birthdate = birthdateRaw ? new Date(birthdateRaw) : null;
@@ -430,6 +440,14 @@ export async function completeApplication(
   if (!voucherName) fieldErrors.voucherName = "Name someone in the community who can vouch for you.";
   if (!voucherContact) fieldErrors.voucherContact = "Add their email or phone so we can reach them.";
 
+  // If they changed their email, make sure it is not already another member's.
+  if (email && email !== me!.email) {
+    const taken = await prisma.person.findUnique({ where: { email }, select: { id: true } });
+    if (taken && taken.id !== me!.id) {
+      fieldErrors.email = "That email is already tied to another account.";
+    }
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
     return { fieldErrors, values };
   }
@@ -443,6 +461,7 @@ export async function completeApplication(
     // clicked a magic link and never finished.
     data: {
       name,
+      email: email || me!.email,
       city,
       lookingFor,
       phone,
@@ -451,6 +470,9 @@ export async function completeApplication(
       birthdate,
       age,
       agreedTosAt: new Date(),
+      // SMS opt-in is stamped only when they actually checked the separate box and
+      // gave a textable number. Unchecking (or no number) leaves it null.
+      smsConsentAt: smsConsent && isTextablePhone(phone) ? new Date() : null,
       appliedAt: me!.appliedAt ?? new Date(),
       voucherName,
       voucherContact,

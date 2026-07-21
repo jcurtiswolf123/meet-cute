@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/forms";
 type Defaults = {
   first: string;
   last: string;
+  email: string;
   phone: string;
   city: string;
   instagram: string;
@@ -36,9 +37,32 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
         <Field label="First name" name="first" defaultValue={val("first")} error={e.first} required autoFocus />
         <Field label="Last name" name="last" defaultValue={val("last")} error={e.last} optionalHint />
       </div>
+      <div>
+        <label className="label" htmlFor="email">Email</label>
+        <input
+          id="email"
+          className="field mt-1.5"
+          name="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          defaultValue={val("email")}
+          placeholder="you@email.com"
+          aria-invalid={e.email ? true : undefined}
+        />
+        {e.email ? (
+          <p className="mt-1 text-xs text-claret">{e.email}</p>
+        ) : (
+          <p className="mt-1 text-xs text-muted">
+            How we reach you, and how you and a match are introduced by email when you both say yes.
+          </p>
+        )}
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="label" htmlFor="phone">Mobile number</label>
+          <label className="label" htmlFor="phone">
+            Mobile number <span className="text-muted">(optional)</span>
+          </label>
           <input
             id="phone"
             className="field mt-1.5"
@@ -53,7 +77,7 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
           {e.phone ? (
             <p className="mt-1 text-xs text-claret">{e.phone}</p>
           ) : (
-            <p className="mt-1 text-xs text-muted">Your matchmaker texts introductions here. Reply Y to opt in.</p>
+            <p className="mt-1 text-xs text-muted">Only needed if you opt in to text introductions below.</p>
           )}
         </div>
         <div>
@@ -149,6 +173,8 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
         </div>
       </fieldset>
 
+      {/* Required agreement: age + Terms + Privacy. This is the only box needed
+          to join. */}
       <div>
         <label className="flex items-start gap-3 text-sm">
           <input type="checkbox" name="agree" className="mt-1" aria-invalid={e.agree ? true : undefined} />
@@ -161,12 +187,29 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
             <Link href="/privacy" className="text-claret underline" target="_blank">
               Privacy Policy
             </Link>
-            . I agree to receive text messages (SMS) from Meet Cute about my introductions at the
-            number I provide. Message and data rates may apply; message frequency varies. Reply STOP
-            to opt out or HELP for help.
+            .
           </span>
         </label>
         {e.agree && <p className="mt-1 text-xs text-claret">{e.agree}</p>}
+      </div>
+
+      {/* SEPARATE, OPTIONAL SMS opt-in. Unchecked by default and never required to
+          join (CTIA / A2P 10DLC: SMS consent must not be bundled with, or a
+          condition of, the service). Members who skip it are connected to matches
+          by email instead. */}
+      <div className="rounded-xl border border-line bg-paper/40 p-4">
+        <label className="flex items-start gap-3 text-sm">
+          <input type="checkbox" name="smsConsent" className="mt-1" />
+          <span className="text-muted">
+            <span className="font-medium text-ink">Text me my introductions (optional).</span> I agree to
+            receive recurring text messages (SMS) from Meet Cute about my matchmaking introductions at
+            the mobile number above. Message and data rates may apply; message frequency varies. Consent
+            is not a condition of joining. Reply STOP to cancel, HELP for help.
+          </span>
+        </label>
+        <p className="mt-2 pl-8 text-xs text-muted">
+          Prefer not to? Leave this unchecked. You will still be introduced to your matches by email.
+        </p>
       </div>
 
       <SubmitButton className="btn-primary w-full py-3" pendingText="Submitting...">

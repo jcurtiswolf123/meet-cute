@@ -10,6 +10,27 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { sendSMS, connectedSMS, createGroupConversation } from "./sms";
 import { composeGroupIntro } from "./intro-bot";
+import { sendEmail, connectionEmail } from "./email";
+
+/** Email BOTH matched people the moment they connect, handing each the other's
+ *  contact. Email is the baseline channel, so this fires whether or not either
+ *  side opted in to SMS. Best-effort: a mail failure never breaks the connect. */
+async function emailConnection(
+  a: { name: string; email: string | null; phone: string | null; city: string | null },
+  b: { name: string; email: string | null; phone: string | null; city: string | null },
+): Promise<void> {
+  const city = a.city || b.city || null;
+  const jobs: Promise<unknown>[] = [];
+  if (a.email) {
+    const m = connectionEmail({ toName: a.name, otherName: b.name, otherEmail: b.email, otherPhone: b.phone, city });
+    jobs.push(sendEmail({ to: a.email, subject: m.subject, html: m.html, text: m.text }));
+  }
+  if (b.email) {
+    const m = connectionEmail({ toName: b.name, otherName: a.name, otherEmail: a.email, otherPhone: a.phone, city });
+    jobs.push(sendEmail({ to: b.email, subject: m.subject, html: m.html, text: m.text }));
+  }
+  await Promise.allSettled(jobs);
+}
 
 /** Append a line to a match's introduction transcript (operator-console view).
  *  Never throws: a logging failure must not break the intro flow. */
@@ -151,8 +172,8 @@ export async function connectMatch(matchId: string): Promise<boolean> {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
-      personA: { select: { name: true, phone: true, city: true } },
-      personB: { select: { name: true, phone: true, city: true } },
+      personA: { select: { name: true, phone: true, email: true, city: true } },
+      personB: { select: { name: true, phone: true, email: true, city: true } },
     },
   });
   if (!match) return false;
@@ -224,6 +245,15 @@ export async function connectMatch(matchId: string): Promise<boolean> {
     where: { id: matchId },
     data: { stage: "connected", connectedAt: new Date(), conversationSid },
   });
+
+  // Email both people their introduction (baseline channel, independent of SMS).
+  // Best-effort and idempotent: connectedAt above guards re-runs from re-sending.
+  try {
+    await emailConnection(a, b);
+  } catch (e) {
+    console.error(`[intro] connection email failed for match ${matchId}: ${(e as Error).message}`);
+    Sentry.captureException(e);
+  }
 
   // Record the bot's opener on the transcript so the operator console shows it
   // (group_open when a real group thread opened, otherwise the brokered handoff).

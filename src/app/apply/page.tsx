@@ -69,6 +69,7 @@ export default async function Apply() {
           defaults={{
             first,
             last,
+            email: me.email ?? "",
             phone: me.phone ?? "",
             city: me.city === "SF" ? "SF" : "NYC",
             instagram: me.instagram ?? "",
