@@ -12,13 +12,6 @@ export default function Terms() {
           ← Back to home
         </Link>
 
-        <div className="card mt-6 border-claret/30 bg-claret/5 px-5 py-4">
-          <p className="text-sm font-medium text-claret">Draft for review.</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted">
-            This is not legal advice; have counsel review before launch.
-          </p>
-        </div>
-
         <p className="label mt-8 mb-3">Terms</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Terms of Service</h1>
         <p className="mt-3 text-sm text-muted">Last updated: 2026-07-16</p>
