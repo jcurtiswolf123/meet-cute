@@ -24,18 +24,28 @@ primary_region = "sjc"
   NODE_ENV = "production"
   NEXT_PUBLIC_SITE_URL = "https://hellomeetcute.com"
 
-# Legacy SQLite volume, no longer used (DB is on Neon). Kept mounted to avoid a
-# detach prompt; safe to remove with `fly deploy -y` later.
-[[mounts]]
-  source = "meetcute_data"
-  destination = "/data"
+# Legacy SQLite volume removed: the DB lives on Neon and nothing read /data.
+# Dropping the per-machine mount lets the app run as a clean, stateless, N-machine
+# service (rolling zero-downtime deploys, no per-machine volume to clone).
 
 [http_service]
   internal_port = 3009
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 1
+  # Two machines minimum: no single point of failure, and rolling deploys keep
+  # one machine serving while the other is replaced (zero downtime).
+  min_machines_running = 2
+
+  # Liveness health check. Fly gates a release on this: a machine that does not
+  # return 200 from /healthz is not rolled into service, so a broken build cannot
+  # replace a healthy one.
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "3s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
 
 [[vm]]
   size = "shared-cpu-1x"

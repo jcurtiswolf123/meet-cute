@@ -17,6 +17,13 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npm run typecheck
+      # Full production build gate: catch build-time breakage (bad imports, RSC
+      # boundary errors, font/axes config) before we ship, not on the Fly builder.
+      - run: npm run build
+        env:
+          # Build only needs the schema/types, not a live DB, but Prisma wants a
+          # URL present. A dummy is fine; no queries run at build time.
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/db?schema=public"
 
   deploy:
     needs: ci
