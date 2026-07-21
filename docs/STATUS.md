@@ -6,6 +6,13 @@ Last updated: 2026-06-30 (hero + mobile shipped live)
 
 
 
+
+## 2026-07-21: DEPLOYED to production (Fly version 88, live)
+- `fly deploy` shipped master to meet-cute.fly.dev / hellomeetcute.com. Version 87 -> 88, released 2026-07-21T17:17 UTC. (First two attempts died on a local 120s Bash timeout mid-release, not an app error; re-run under a detached process completed.)
+- Verified LIVE: homepage serves the warm design (hero-warm.jpg, no hero.mp4 / no alcohol); home + /apply + /privacy + /terms all HTTP 200; draft-for-review banners gone from privacy + terms; SMS program language intact. Screenshot ~/.playwright-mcp/mc-live-home.png.
+- Now live and active: warm daylight redesign, auto-email-on-match, separate optional SMS consent + email field on /apply, email-HTML XSS escaping. The opt-in screenshot sent to Twilio ticket #27999003 now matches the live form.
+- Pushed: master (6a0f81b) + branch design/warm-inviting-refresh to origin (github.com/jcurtiswolf123/meet-cute).
+
 ## 2026-07-21: Auto-email-on-match + optional SMS consent (branch design/warm-inviting-refresh, commit 9fd8922)
 - FEATURE (Joshua): matched people are auto-connected by EMAIL. connectMatch (src/lib/introductions.ts) now emails BOTH people the moment a match goes mutual, handing each the other's contact (email always; phone only if that person opted in to SMS). New connectionEmail template in src/lib/email.ts (warm, terracotta-branded). Best-effort + idempotent (connectedAt guards re-sends), fires whether or not either side uses SMS. Email is captured on the application form (baseline channel) with a uniqueness guard.
 - COMPLIANCE / answers Twilio ticket #27999003 (Chirag A asked for opt-in screenshot + purpose + proof consent is not forced): split the single bundled consent checkbox into (a) required 18+/Terms/Privacy box and (b) a SEPARATE, unchecked, OPTIONAL SMS opt-in ("Consent is not a condition of joining"). Phone is now optional (required only if SMS opted). Added Person.smsConsentAt (nullable col ADDED to Neon prod DB via prisma db execute ALTER; project uses db push, no migration files).
