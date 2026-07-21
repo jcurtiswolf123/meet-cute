@@ -6,6 +6,18 @@
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
+// Escape untrusted values before interpolating them into email HTML. Names,
+// emails, phones, and free-text notes are member-supplied, so an unescaped
+// interpolation would let one member inject markup into another's inbox.
+function esc(s: string | null | undefined): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 type SendArgs = { to: string; subject: string; html: string; text?: string };
 
 export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<{ ok: boolean }> {
@@ -79,14 +91,14 @@ export function eventInviteEmail(args: {
   const text = `Hi ${first},\n\nYou're invited to a Meet Cute dinner.\n\n${theme}\n${when}\n${venue}, ${city}\n\nSign in to see details: ${link}\n\nReply to this email to RSVP or with any questions.`;
   const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#2a2320">
     <h1 style="font-size:22px;font-weight:500;color:#7a1f2b">Meet Cute</h1>
-    <p style="font-size:15px;line-height:1.6">Hi ${first}, you're invited to a Meet Cute dinner.</p>
+    <p style="font-size:15px;line-height:1.6">Hi ${esc(first)}, you're invited to a Meet Cute dinner.</p>
     <div style="margin:16px 0;padding:16px;border:1px solid #ece6df;border-radius:12px">
-      <p style="margin:0;font-size:18px;font-weight:500">${theme}</p>
-      <p style="margin:6px 0 0;font-size:14px;color:#6b625c">${when}</p>
-      <p style="margin:2px 0 0;font-size:14px;color:#6b625c">${venue}, ${city}</p>
+      <p style="margin:0;font-size:18px;font-weight:500">${esc(theme)}</p>
+      <p style="margin:6px 0 0;font-size:14px;color:#6b625c">${esc(when)}</p>
+      <p style="margin:2px 0 0;font-size:14px;color:#6b625c">${esc(venue)}, ${esc(city)}</p>
     </div>
     <p style="margin:24px 0">
-      <a href="${link}" style="background:#7a1f2b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">View &amp; RSVP</a>
+      <a href="${encodeURI(link)}" style="background:#7a1f2b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">View &amp; RSVP</a>
     </p>
     <p style="font-size:12px;color:#8a817c">Reply to this email to RSVP or with any questions.</p>
   </div>`;
@@ -126,25 +138,29 @@ export function connectionEmail(args: {
     `Warmly,\nMeet Cute\n\n` +
     `Reply to this email any time if you would like a hand.`;
 
-  const reachHtml = reach.length
-    ? reach
-        .map(
-          (r) =>
-            `<p style="margin:2px 0;font-size:14px;color:#382a20">${r
-              .replace("Email:", "<span style=\"color:#7d6f62\">Email</span>")
-              .replace("Text:", "<span style=\"color:#7d6f62\">Text</span>")}</p>`,
-        )
-        .join("")
+  // Build the contact rows from escaped labels + escaped values so a member's
+  // own email/phone string cannot smuggle markup into the recipient's inbox.
+  const reachRows: string[] = [];
+  if (args.otherEmail)
+    reachRows.push(
+      `<p style="margin:2px 0;font-size:14px;color:#382a20"><span style="color:#7d6f62">Email</span> ${esc(args.otherEmail)}</p>`,
+    );
+  if (args.otherPhone)
+    reachRows.push(
+      `<p style="margin:2px 0;font-size:14px;color:#382a20"><span style="color:#7d6f62">Text</span> ${esc(args.otherPhone)}</p>`,
+    );
+  const reachHtml = reachRows.length
+    ? reachRows.join("")
     : `<p style="margin:2px 0;font-size:14px;color:#7d6f62">Just reply to this email and we will pass it along.</p>`;
 
   const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#382a20">
     <h1 style="font-size:22px;font-weight:500;color:#d76a45">Meet Cute</h1>
-    <p style="font-size:15px;line-height:1.6">Hi ${first}, you and <strong>${otherFirst}</strong> both said yes to an introduction${args.city ? ` in ${args.city}` : ""}.</p>
+    <p style="font-size:15px;line-height:1.6">Hi ${esc(first)}, you and <strong>${esc(otherFirst)}</strong> both said yes to an introduction${args.city ? ` in ${esc(args.city)}` : ""}.</p>
     <div style="margin:16px 0;padding:16px;border:1px solid #ecdcc7;border-radius:12px;background:#fffdf8">
-      <p style="margin:0 0 6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#7d6f62">How to reach ${otherFirst}</p>
+      <p style="margin:0 0 6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#7d6f62">How to reach ${esc(otherFirst)}</p>
       ${reachHtml}
     </div>
-    <p style="font-size:15px;line-height:1.6;color:#382a20">${note}</p>
+    <p style="font-size:15px;line-height:1.6;color:#382a20">${esc(note)}</p>
     <p style="font-size:12px;color:#8a817c">Warmly, Meet Cute. Reply to this email any time if you would like a hand.</p>
   </div>`;
   return { subject, html, text };
@@ -157,7 +173,7 @@ export function magicLinkEmail(link: string): { subject: string; html: string; t
     <h1 style="font-size:22px;font-weight:500;color:#7a1f2b">Meet Cute</h1>
     <p style="font-size:15px;line-height:1.6">Tap to sign in. This link expires in 15 minutes and can be used once.</p>
     <p style="margin:24px 0">
-      <a href="${link}" style="background:#7a1f2b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">Sign in to Meet Cute</a>
+      <a href="${encodeURI(link)}" style="background:#7a1f2b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">Sign in to Meet Cute</a>
     </p>
     <p style="font-size:12px;color:#8a817c">If you did not request this, ignore this email.</p>
   </div>`;
