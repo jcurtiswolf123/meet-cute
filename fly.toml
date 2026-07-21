@@ -36,7 +36,9 @@ primary_region = "sjc"
 [http_service]
   internal_port = 3009
   force_https = true
-  auto_stop_machines = "stop"
+  # Keep both machines always-on: never auto-stop below the minimum, so there is a
+  # genuine hot standby (no single point of failure) and no cold-start latency.
+  auto_stop_machines = "off"
   auto_start_machines = true
   # Two machines minimum: no single point of failure, and rolling deploys keep
   # one machine serving while the other is replaced (zero downtime).
