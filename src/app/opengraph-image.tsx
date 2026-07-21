@@ -15,21 +15,21 @@ export default async function OG() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: "#faf7f2",
+          background: "#fbf5ec",
           padding: "72px",
           fontFamily: "Georgia, serif",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 34, color: "#1f1a16" }}>
-          Meet Cute <span style={{ color: "#9b2d3b" }}>♥</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 34, color: "#382a20" }}>
+          Meet Cute <span style={{ color: "#d76a45" }}>♥</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", fontSize: 78, color: "#1f1a16", lineHeight: 1.05, maxWidth: 980 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", fontSize: 78, color: "#382a20", lineHeight: 1.05, maxWidth: 980 }}>
             <span>We help you&nbsp;</span>
-            <span style={{ color: "#9b2d3b", fontStyle: "italic" }}>meet</span>
+            <span style={{ color: "#d76a45", fontStyle: "italic" }}>meet</span>
             <span>, date, and stay together.</span>
           </div>
-          <div style={{ display: "flex", fontSize: 30, color: "#6b6258", marginTop: 24 }}>
+          <div style={{ display: "flex", fontSize: 30, color: "#7d6f62", marginTop: 24 }}>
             Premium matchmaking, by introduction only. NYC + SF.
           </div>
         </div>

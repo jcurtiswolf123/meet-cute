@@ -14,7 +14,7 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
     <header
       className={
         overlay
-          ? "absolute inset-x-0 top-0 z-50 bg-gradient-to-b from-espresso-deep/80 via-espresso-deep/30 to-transparent"
+          ? "absolute inset-x-0 top-0 z-50 bg-gradient-to-b from-cream/85 via-cream/45 to-transparent"
           : "border-b border-line bg-cream/80 backdrop-blur"
       }
     >

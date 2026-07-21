@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html {
@@ -14,16 +14,16 @@ html {
 body {
   background-color: theme("colors.cream");
   color: theme("colors.ink");
-  /* Candlelit canvas: two faint warm pools so the near-black plum never reads as
-     a flat dark slab. Fixed so it stays put as content scrolls. */
+  /* Warm daylight canvas: two soft sunlit pools (terracotta + rose) so the cream
+     never reads as a flat sheet. Fixed so it stays put as content scrolls. */
   background-image:
-    radial-gradient(60% 50% at 15% 0%, rgba(230, 169, 78, 0.06), transparent 70%),
-    radial-gradient(55% 45% at 100% 8%, rgba(214, 83, 107, 0.05), transparent 70%);
+    radial-gradient(60% 50% at 12% 0%, rgba(215, 106, 69, 0.07), transparent 70%),
+    radial-gradient(55% 45% at 100% 6%, rgba(207, 106, 113, 0.06), transparent 70%);
   background-attachment: fixed;
 }
 
 ::selection {
-  background-color: theme("colors.ember.DEFAULT");
+  background-color: theme("colors.ember.soft");
   color: theme("colors.espresso.deep");
 }
 
@@ -35,8 +35,9 @@ body {
     @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition duration-200 ease-soft;
   }
   .btn-primary {
-    /* Ember amber with dark ink text: a gold-foil read that owns the page. */
-    @apply btn bg-ember text-espresso-deep font-semibold transition duration-200 hover:bg-ember-soft active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember;
+    /* Warm terracotta with cream text: a friendly, hand-warmed CTA that owns the
+       page without shouting. Deepens on hover. */
+    @apply btn bg-ember text-cream font-semibold shadow-[0_8px_20px_-10px_rgba(182,77,44,0.55)] transition duration-200 hover:bg-ember-deep active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember;
   }
   .btn-ghost {
     @apply btn border border-line bg-transparent text-ink transition duration-200 hover:border-ember/50 hover:bg-paper/60 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink;
@@ -49,7 +50,7 @@ body {
     @apply font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-ember/75;
   }
   .field {
-    @apply w-full rounded-lg border border-line bg-espresso/40 px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted/70 focus:border-ember/60 focus:bg-espresso/70;
+    @apply w-full rounded-lg border border-line bg-panel px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted/70 focus:border-ember/60 focus:bg-cream;
   }
   .pill {
     @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 text-xs text-muted;

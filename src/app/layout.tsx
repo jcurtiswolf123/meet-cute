@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Bodoni_Moda, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Fraunces, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-// "Nightcap" type system. Bodoni Moda is a dramatic, high-contrast fashion-
-// editorial serif (the headline voice) - nothing like Fraunces or the generic
-// AI serif. Hanken Grotesk is the warm body grotesque. JetBrains Mono sets the
-// small-caps "concierge stamp" eyebrow labels for an editorial, stamped feel.
-const display = Bodoni_Moda({
+// "Warm Daylight" type system. Fraunces is a soft, warm, high-optical-contrast
+// old-style serif with real personality (gentle wedge serifs, friendly curves)
+// that reads inviting rather than icy-formal. Hanken Grotesk is the warm humanist
+// body grotesque. JetBrains Mono sets the small-caps eyebrow labels.
+const display = Fraunces({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
   style: ["normal", "italic"],
+  axes: ["opsz", "SOFT"],
   variable: "--font-display",
   display: "swap",
 });
@@ -40,8 +40,9 @@ export const metadata: Metadata = {
     title: "Meet Cute - premium matchmaking",
     description: "We help you meet, date, and stay together. By introduction only.",
     type: "website",
+    images: [{ url: "/og.jpg", width: 1408, height: 768, alt: "Two people laughing over coffee" }],
   },
-  twitter: { card: "summary_large_image" },
+  twitter: { card: "summary_large_image", images: ["/og.jpg"] },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -49,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body className="font-sans antialiased">
         {children}
-        <Toaster position="top-center" theme="dark" toastOptions={{ style: { fontFamily: "var(--font-sans)" } }} />
+        <Toaster position="top-center" theme="light" toastOptions={{ style: { fontFamily: "var(--font-sans)" } }} />
       </body>
     </html>
   );

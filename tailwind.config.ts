@@ -5,25 +5,27 @@ export default {
   theme: {
     extend: {
       colors: {
-        // "Nightcap" dark palette. Token NAMES are preserved (cream/paper/ink/
-        // line/muted) so the whole token-based component layer re-skins, but
-        // their VALUES are flipped dark: cream/paper are now the near-black plum
-        // canvas + panels, ink is candlelight off-white, line is a dark hairline.
-        cream: "#161013", // app canvas (near-black plum)
-        paper: "#221a1f", // raised section band
-        panel: "#1e171b", // cards / surfaces (replaces literal bg-white)
-        ink: "#f4ece2", // candlelight off-white (primary text)
-        muted: "#a3978a", // secondary text on dark
-        line: "#3a2f34", // hairline / borders on dark
-        // Ember amber: the single dominant accent (candleflame). Primary CTAs use
-        // it with dark ink text for a premium gold-foil read.
-        ember: { DEFAULT: "#e6a94e", soft: "#f0c889", deep: "#c98a2f" },
-        // Garnet rose: romantic secondary accent (the heart, hairlines, hovers).
-        claret: { DEFAULT: "#d6536b", dark: "#b23e54", soft: "#e58195" },
-        sage: "#8fa07f",
-        espresso: { DEFAULT: "#120c0e", deep: "#0c0809" },
-        champagne: { DEFAULT: "#e6a94e", soft: "#f0c889" },
-        blush: "#e58195",
+        // "Warm Daylight" palette. Token NAMES are preserved (cream/paper/ink/
+        // line/muted) so the whole token-based component layer re-skins in place;
+        // the VALUES are sunlit and warm: cream/paper are a warm morning canvas +
+        // sand band, ink is a soft espresso brown (never pure black), line is a
+        // warm hairline. The feel is a bright, inviting cafe, not a dim bar.
+        cream: "#fbf5ec", // app canvas (warm morning cream)
+        paper: "#f4e8d7", // raised section band (soft sand)
+        panel: "#fffdf8", // cards / surfaces (warm white)
+        ink: "#382a20", // soft espresso brown (primary text)
+        muted: "#7d6f62", // warm taupe (secondary text)
+        line: "#ecdcc7", // warm hairline / borders
+        // Terracotta: the single dominant accent (warm clay). Primary CTAs use it
+        // with cream text for a friendly, hand-warmed read.
+        ember: { DEFAULT: "#d76a45", soft: "#e79b78", deep: "#b64d2c" },
+        // Warm rose: romantic secondary accent (the heart, hairlines, hovers).
+        claret: { DEFAULT: "#cf6a71", dark: "#b24e58", soft: "#e6989d" },
+        sage: "#7f8d67",
+        // Espresso: warm deep brown, used for text-on-light-photo and rich edges.
+        espresso: { DEFAULT: "#2c2019", deep: "#241a13" },
+        champagne: { DEFAULT: "#eec48a", soft: "#f6ddb6" },
+        blush: "#f3d9cf",
       },
       fontFamily: {
         display: ["var(--font-display)", "Georgia", "serif"],
@@ -32,8 +34,9 @@ export default {
       },
       borderRadius: { xl2: "1.25rem" },
       boxShadow: {
-        card: "0 1px 0 rgba(255,255,255,0.03) inset, 0 18px 40px -18px rgba(0,0,0,0.7)",
-        glow: "0 0 0 1px rgba(230,169,78,0.18), 0 10px 40px -10px rgba(230,169,78,0.25)",
+        // Soft, warm-tinted elevation for a light canvas (no harsh black drop).
+        card: "0 1px 0 rgba(255,255,255,0.6) inset, 0 20px 44px -24px rgba(120,74,46,0.28)",
+        glow: "0 0 0 1px rgba(215,106,69,0.16), 0 12px 40px -12px rgba(215,106,69,0.28)",
       },
       transitionTimingFunction: { soft: "cubic-bezier(0.22, 1, 0.36, 1)" },
       fontSize: {
