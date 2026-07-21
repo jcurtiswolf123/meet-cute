@@ -7,6 +7,15 @@ Last updated: 2026-06-30 (hero + mobile shipped live)
 
 
 
+
+## 2026-07-21 (later): hero photo removed, Twenty-style portal sidebar, reliability, Twilio follow-up
+- LANDING: removed the hero photo per Joshua. Hero is now text-forward (confident warm Fraunces headline, ambient wash, stats on a hairline ledger). No image on the front.
+- PORTAL: replaced the vibecoded top-tab nav with a Twenty (twentyhq/twenty) style LEFT SIDEBAR (src/components/PortalSidebar.tsx): workspace header, small-caps section labels (Workspace / Manage), icon+label stacked rows, terracotta active pill, collapse toggle -> icon rail (persisted in localStorage), mobile slide-in drawer. Dependency-free inline Tabler-style icons. Applied to BOTH studio (operator) and member /app layouts. PortalNav now unused.
+- Design review: verified expanded, collapsed icon-rail, and mobile drawer while signed in as an operator (minted+deleted a temp session for the test operator jesswolflord). Screens: mc-hero-nophoto, mc-studio-expanded/collapsed/mobile-drawer in ~/.playwright-mcp/.
+- RELIABILITY: /healthz liveness route + Fly http_service health check (checks passing live); scaled to 2 machines in sjc (no SPOF, zero-downtime rolling deploys); auto_stop set off so both stay hot (commit d19435c, applied via CI); CI deploy.yml gained a full `npm run build` gate before deploy. Legacy meetcute_data volume mount kept (each machine has its own harmless unused 1GB volume).
+- Deployed through Fly v90 (both machines started, checks passing, /healthz 200 live, new no-photo hero live). Pushed master; CI auto-deploys on push.
+- TWILIO ticket #27999003: Chirag A (13:52 UTC) asked for opt-in screenshot + purpose + proof consent not forced (answered earlier with the compliant-form screenshot). Sent a follow-up via send-as-josh noting the compliant opt-in form is now LIVE at hellomeetcute.com/apply and re-asking for opt-in validation + campaign re-vet. No Twilio reply since.
+
 ## 2026-07-21: DEPLOYED to production (Fly version 88, live)
 - `fly deploy` shipped master to meet-cute.fly.dev / hellomeetcute.com. Version 87 -> 88, released 2026-07-21T17:17 UTC. (First two attempts died on a local 120s Bash timeout mid-release, not an app error; re-run under a detached process completed.)
 - Verified LIVE: homepage serves the warm design (hero-warm.jpg, no hero.mp4 / no alcohol); home + /apply + /privacy + /terms all HTTP 200; draft-for-review banners gone from privacy + terms; SMS program language intact. Screenshot ~/.playwright-mcp/mc-live-home.png.
