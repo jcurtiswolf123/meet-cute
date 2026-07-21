@@ -24,14 +24,8 @@ primary_region = "sjc"
   NODE_ENV = "production"
   NEXT_PUBLIC_SITE_URL = "https://hellomeetcute.com"
 
-# Legacy SQLite volume (meetcute_data). No longer read (DB is on Neon), but kept
-# mounted so the machine config matches the existing per-machine volumes: with 2+
-# machines Fly clones a volume per machine, and declaring the mount here keeps
-# deploys from trying to detach/recreate them. Safe to retire later by destroying
-# the volumes and dropping this block together.
-[[mounts]]
-  source = "meetcute_data"
-  destination = "/data"
+# No volumes: the app is stateless (DB on Neon). The legacy meetcute_data volumes
+# have been retired, so machines run without any per-machine storage.
 
 [http_service]
   internal_port = 3009
