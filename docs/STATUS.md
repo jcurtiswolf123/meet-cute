@@ -2,7 +2,23 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-21 (email double opt-in on match)
+Last updated: 2026-07-22 (reply-by-email WIRED + verified live)
+
+## 2026-07-22: reply-by-email inbound WIRED + verified end-to-end LIVE
+- The email double opt-in now works both ways in production. Button path (/i/<token>) already live; the REPLY-BY-EMAIL path is now wired and proven.
+- RESEND INBOUND: `hellomeetcute.com` lives on the paid Resend account (verified sending). Enabled `receiving` on it via API (PATCH /domains). Created an account webhook `dafa2a8d-...` for `email.received` -> `https://hellomeetcute.com/api/email/inbound`; signing secret saved at `~/.gstack/credentials/meetcute-resend-webhook-secret.txt`. Resend fans `email.received` out to all enabled webhooks, so this coexists with the existing crown-app webhook; every handler filters by the `to` token.
+- REPLY DOMAIN (interim): the branded `r+<token>@hellomeetcute.com` needs a root MX (`inbound-smtp.us-east-1.amazonaws.com`, pri 10) in Cloudflare, but the stored Cloudflare API token is INVALID (401) and no other CF cred/session exists, so I could not add it autonomously. Wired the reply domain to `inbound.shiftsupportnetwork.com` instead (already receiving-verified on the same account, zero new DNS). Fly secrets set: `RESEND_INBOUND_DOMAIN=inbound.shiftsupportnetwork.com` + `RESEND_WEBHOOK_SECRET` (imported, machines restarted healthy). So current invite Reply-To = `Meet Cute <r+<token>@inbound.shiftsupportnetwork.com>`. FOLLOW-UP (needs Joshua's Cloudflare access): add the root MX on hellomeetcute.com (receiving already enabled), then `fly secrets set RESEND_INBOUND_DOMAIN=hellomeetcute.com` to switch to the branded reply address. One-line flip, no code change.
+- BUG FOUND + FIXED during wiring: `api.resend.com` is Cloudflare-fronted and 403s (error 1010) any request with no/bare User-Agent. The inbound route fetches the reply BODY via `GET /emails/receiving/:id` (the `email.received` webhook is metadata-only), and Node's fetch sent no UA -> 403 -> empty body -> "no decision". Fixed by sending a browser User-Agent + Accept header on that fetch (commit 2d67612). Proven: same request 200s with a UA, 403s without.
+- VERIFIED LIVE (temp rows, created + deleted):
+  1. Signed-webhook POST to prod endpoint: bad signature -> 403, valid signature -> 200; with the real received-email id it fetched the body, parsed "Y", and recorded aDecision=yes / stage=mutual_yes / invite.decidedAt set.
+  2. FULLY NATURAL: sent a real "Y" email to `r+<token>@inbound.shiftsupportnetwork.com`; Resend received it (MX + receiving confirmed) and delivered its OWN `email.received` webhook to prod, which auto-recorded aDecision=yes with NO manual POST. Full pipeline (inbound MX -> Resend -> webhook -> signature verify -> body fetch -> Y parse -> connect logic) works in production.
+- Route hardened: gates on the `to` token in webhook metadata FIRST and only fetches a body when a token matches, so other projects' inbound mail on the shared account is never inspected. Signature fails closed in prod.
+- REMAINING: (a) branded MX flip above (Joshua's Cloudflare); (b) the outbound invite Reply-To in prod is a pure function of RESEND_INBOUND_DOMAIN (set) + token (verified format) - first real match confirms it. The Yes/Pass button path needs none of this.
+
+## 2026-07-21 (later): DEPLOYED email double opt-in to production
+- Merged feat/email-double-optin to master, CI-deployed to Fly (v95, both sjc machines, checks passing). Verified live: home 200, `/i/<token>` SSR 200 rendering the other person's profile + Yes/Pass buttons (real prod token), `/api/email/inbound` GET 405 / unsigned POST 403.
+
+## 2026-07-21 (earlier): email double opt-in on match
 
 ## 2026-07-21: EMAIL DOUBLE OPT-IN on match (branch feat/email-double-optin)
 - FEATURE (Joshua): when a match is made, each person gets an EMAIL with a link to the OTHER person's profile, opts in by replying Y/N (or tapping Yes/Pass on the page), an inbox webhook records it, and when BOTH say yes they get one SECOND email with both on the same thread (reply-all connects them directly). This makes the connect flow work with zero carrier/A2P setup (the whole SMS path is still blocked on TCR).
