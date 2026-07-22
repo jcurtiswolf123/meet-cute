@@ -242,8 +242,35 @@ model Match {
   references Reference[]
   notes      Note[]
   introMessages IntroMessage[]
+  invites    MatchInvite[]
 
   @@unique([personAId, personBId])
+}
+
+// One recipient's email-based double opt-in for a match. When a match is made,
+// each of the two people gets a MatchInvite: an opaque, unguessable token that
+// (a) links to a token-gated page showing the OTHER person's profile with
+// Yes/Pass buttons, and (b) is embedded in that email's Reply-To local part
+// (r+<token>@<inbound domain>) so a plain "Y"/"N" email reply maps back to the
+// exact person + match. Both channels converge on recordIntroDecision, so a
+// match connects the moment both sides say yes, whether they clicked or replied.
+model MatchInvite {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  // The person who receives this invite and makes the Y/N decision.
+  personId  String
+  // Opaque capability token (base64url). Unique so a reply address / profile
+  // link resolves to exactly one invite.
+  token     String   @unique
+  channel   String   @default("email")
+  sentAt    DateTime?
+  decidedAt DateTime?
+
+  // One invite per person per match; re-inviting reuses the row (new token).
+  @@unique([matchId, personId])
+  @@index([token])
 }
 
 // Transcript of the SMS introduction for a match: the per-side invite texts, the

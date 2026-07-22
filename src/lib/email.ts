@@ -18,19 +18,32 @@ function esc(s: string | null | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
-type SendArgs = { to: string; subject: string; html: string; text?: string };
+type SendArgs = {
+  to: string | string[];
+  subject: string;
+  html: string;
+  text?: string;
+  // Per-message overrides. replyTo lets the caller route replies to a
+  // token-bearing inbound address (the email double opt-in). headers lets the
+  // caller thread messages (Message-ID / References) so a follow-up lands in the
+  // same conversation as the invite.
+  replyTo?: string;
+  headers?: Record<string, string>;
+};
 
-export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<{ ok: boolean }> {
+export async function sendEmail({ to, subject, html, text, replyTo, headers }: SendArgs): Promise<{ ok: boolean }> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM || "Meet Cute <hello@meet-cute.app>";
   const isProd = process.env.NODE_ENV === "production";
+  const toList = Array.isArray(to) ? to : [to];
+  const toLabel = toList.join(", ");
   // Dev convenience: surface just the sign-in link to the server console so the
   // flow stays testable locally even when mail does not actually go out (no key,
   // or a send failure such as an unverified sender domain). Never in production.
   const logDevLink = () => {
     if (isProd) return;
     const link = (text || "").match(/https?:\/\/\S+/)?.[0] ?? "(no link)";
-    console.log(`[email:dev] to=${to} subject="${subject}" link=${link}`);
+    console.log(`[email:dev] to=${toLabel} subject="${subject}" link=${link}`);
   };
 
   if (!key) {
@@ -47,20 +60,21 @@ export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<
   }
 
   // Reply-To a real inbox (improves deliverability vs a bare noreply) and a
-  // List-Unsubscribe header, both of which lower spam scoring.
-  const replyTo = process.env.RESEND_REPLY_TO || "josh@shiftsupportnetwork.com";
+  // List-Unsubscribe header, both of which lower spam scoring. A caller-supplied
+  // replyTo (the token-bearing opt-in address) wins.
+  const replyToAddr = replyTo || process.env.RESEND_REPLY_TO || "josh@shiftsupportnetwork.com";
   try {
     const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from,
-        to,
+        to: toList,
         subject,
         html,
         text,
-        reply_to: replyTo,
-        headers: { "List-Unsubscribe": `<mailto:${replyTo}>` },
+        reply_to: replyToAddr,
+        headers: { "List-Unsubscribe": `<mailto:${replyToAddr}>`, ...(headers || {}) },
       }),
     });
     if (!res.ok) {
@@ -162,6 +176,73 @@ export function connectionEmail(args: {
     </div>
     <p style="font-size:15px;line-height:1.6;color:#382a20">${esc(note)}</p>
     <p style="font-size:12px;color:#8a817c">Warmly, Meet Cute. Reply to this email any time if you would like a hand.</p>
+  </div>`;
+  return { subject, html, text };
+}
+
+// First email of the double opt-in. Sent to ONE person when a match is made. It
+// names the other person, links to a token-gated page showing their profile with
+// Yes/Pass buttons, and invites a plain "Y"/"N" reply (the reply address carries
+// the same token, so the inbound webhook maps the reply back to this exact
+// invite). No contact info is shared yet: that only happens if BOTH say yes.
+export function matchInviteEmail(args: {
+  toName: string;
+  otherName: string;
+  otherHeadline?: string | null;
+  city?: string | null;
+  profileUrl: string;
+}): { subject: string; html: string; text: string } {
+  const first = (args.toName || "there").split(" ")[0];
+  const otherFirst = (args.otherName || "someone").split(" ")[0];
+  const subject = `You've been matched with ${otherFirst}`;
+  const headline = args.otherHeadline?.trim() ? args.otherHeadline.trim() : null;
+
+  const text =
+    `Hi ${first},\n\n` +
+    `We think you and ${otherFirst}${args.city ? ` in ${args.city}` : ""} could hit it off.\n\n` +
+    (headline ? `${otherFirst}: "${headline}"\n\n` : "") +
+    `See ${otherFirst}'s profile and decide:\n${args.profileUrl}\n\n` +
+    `Want the introduction? Just reply Y (yes) or N (no) to this email, or use the buttons on the page.\n\n` +
+    `If you both say yes, we'll connect you. If either passes, nothing happens and no one is told.\n\n` +
+    `Warmly,\nMeet Cute`;
+
+  const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#382a20">
+    <h1 style="font-size:22px;font-weight:500;color:#d76a45">Meet Cute</h1>
+    <p style="font-size:15px;line-height:1.6">Hi ${esc(first)}, we think you and <strong>${esc(otherFirst)}</strong>${args.city ? ` in ${esc(args.city)}` : ""} could hit it off.</p>
+    ${headline ? `<p style="margin:12px 0;padding:12px 16px;border-left:3px solid #d76a45;font-size:15px;font-style:italic;color:#5c4f45">&ldquo;${esc(headline)}&rdquo;</p>` : ""}
+    <p style="margin:20px 0">
+      <a href="${encodeURI(args.profileUrl)}" style="background:#d76a45;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">See ${esc(otherFirst)}&rsquo;s profile &amp; decide</a>
+    </p>
+    <p style="font-size:15px;line-height:1.6">Want the introduction? <strong>Reply Y</strong> for yes or <strong>N</strong> to pass, or use the buttons on the page.</p>
+    <p style="font-size:13px;line-height:1.6;color:#8a817c">If you both say yes, we&rsquo;ll connect you. If either passes, nothing happens and no one is told.</p>
+  </div>`;
+  return { subject, html, text };
+}
+
+// Second email of the double opt-in, sent to BOTH people at once (a single send
+// with both on the To line) the moment the match goes mutual. Because it is one
+// message to both, it is literally the same email thread: either can reply-all
+// and they are talking directly. No brokering of private numbers needed.
+export function matchThreadEmail(args: {
+  aName: string;
+  bName: string;
+  city?: string | null;
+}): { subject: string; html: string; text: string } {
+  const aFirst = (args.aName || "there").split(" ")[0];
+  const bFirst = (args.bName || "there").split(" ")[0];
+  const subject = `${aFirst} + ${bFirst}: you both said yes`;
+
+  const text =
+    `Hi ${aFirst} and ${bFirst},\n\n` +
+    `You both said yes to an introduction${args.city ? ` in ${args.city}` : ""}, so here you are on one thread.\n\n` +
+    `Just hit reply-all to say hello and find a time this week. A short first message goes a long way.\n\n` +
+    `Warmly,\nMeet Cute`;
+
+  const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#382a20">
+    <h1 style="font-size:22px;font-weight:500;color:#d76a45">Meet Cute</h1>
+    <p style="font-size:15px;line-height:1.6">Hi <strong>${esc(aFirst)}</strong> and <strong>${esc(bFirst)}</strong>: you both said yes to an introduction${args.city ? ` in ${esc(args.city)}` : ""}, so here you are on one thread.</p>
+    <p style="font-size:15px;line-height:1.6">Just hit <strong>reply-all</strong> to say hello and find a time this week. A short first message goes a long way.</p>
+    <p style="font-size:12px;color:#8a817c">Warmly, Meet Cute. Reply any time if you would like a hand.</p>
   </div>`;
   return { subject, html, text };
 }

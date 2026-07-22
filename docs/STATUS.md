@@ -2,6 +2,17 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
+Last updated: 2026-07-21 (email double opt-in on match)
+
+## 2026-07-21: EMAIL DOUBLE OPT-IN on match (branch feat/email-double-optin)
+- FEATURE (Joshua): when a match is made, each person gets an EMAIL with a link to the OTHER person's profile, opts in by replying Y/N (or tapping Yes/Pass on the page), an inbox webhook records it, and when BOTH say yes they get one SECOND email with both on the same thread (reply-all connects them directly). This makes the connect flow work with zero carrier/A2P setup (the whole SMS path is still blocked on TCR).
+- Flow: operator creates an intro -> `sendEmailInvites(matchId)` mints a `MatchInvite` (opaque base64url token) per side and emails each person `matchInviteEmail` (other's name/headline + link `/i/<token>` + "reply Y/N"). Decision arrives two ways, both -> `recordInviteDecision(token, y/n)`: (a) the token-gated page `/i/[token]` with Yes/Pass server-action buttons (`decideInvite`), works today no setup; (b) an email reply parsed by `/api/email/inbound` (Resend Inbound, svix-signed) that pulls the token from the `r+<token>@<domain>` Reply-To and reads Y/N off the first reply line. On mutual yes, `connectMatch` now sends ONE `matchThreadEmail` to BOTH (single send, both on To = same thread). First-yes parks at mutual_yes; either pass -> exit (exitReason declined_email). Idempotent per side.
+- New: prisma `MatchInvite` model (pushed to Neon prod meetcute schema, additive); `src/app/i/[token]/page.tsx` (public profile + opt-in, noindex); `src/app/api/invite/[token]/photo/[file]/route.ts` (token-gated approved-photo proxy, since the normal /api/photos needs a session); `src/app/api/email/inbound/route.ts` (inbound webhook, fails closed in prod when RESEND_WEBHOOK_SECRET set); email.ts `matchInviteEmail` + `matchThreadEmail` + `sendEmail` now takes `to: string|string[]` + `replyTo` + `headers`. `createIntroduction`/`resendIntro` relaxed to require email OR phone (was both-phones) and now fire email invites; SMS only sends when a phone is on file.
+- Verified: prisma generate + `npm run typecheck` clean; `npm run build` passes (all 3 new routes compile). End-to-end logic test on temp rows: 2 tokens minted, A-yes -> mutual_yes, B-yes -> connected + connectedAt, re-reply idempotent (ok:false), decidedAt stamped, pass -> exit/declined_email. Templates render clean (no em-dash/emoji). `/i/<token>` SSR returns HTTP 200 with the other person's name, headline, and Yes/Pass buttons (temp rows created + deleted). No real emails sent (test addresses were @example.test; a live RESEND key in shell env rejected them).
+- NOT DEPLOYED. Committed on branch feat/email-double-optin. To go live: `fly deploy`, then for the reply-by-email path set `RESEND_INBOUND_DOMAIN` + `RESEND_WEBHOOK_SECRET` Fly secrets and point a Resend Inbound domain webhook at `{APP_URL}/api/email/inbound`. The `/i/<token>` button path works the moment the deploy lands, no inbound setup needed. `NEXT_PUBLIC_APP_URL` should be the prod origin so invite links are absolute (defaults to https://hellomeetcute.com).
+
+## 2026-06-30 and earlier
+
 Last updated: 2026-06-30 (hero + mobile shipped live)
 
 

@@ -5,31 +5,110 @@
 // other's number) and the match moves to "connected". One "no" closes it.
 //
 // A Match in this flow moves: invited -> mutual_yes -> connected, or -> exit.
+import { randomBytes } from "crypto";
 import * as Sentry from "@sentry/nextjs";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { sendSMS, connectedSMS, createGroupConversation } from "./sms";
 import { composeGroupIntro } from "./intro-bot";
-import { sendEmail, connectionEmail } from "./email";
+import { sendEmail, matchInviteEmail, matchThreadEmail } from "./email";
 
-/** Email BOTH matched people the moment they connect, handing each the other's
- *  contact. Email is the baseline channel, so this fires whether or not either
- *  side opted in to SMS. Best-effort: a mail failure never breaks the connect. */
+// --- Email double opt-in -----------------------------------------------------
+//
+// The email path mirrors the SMS Y/N flow but works with zero carrier setup:
+// each matched person gets an email with a link to the other's profile (Yes/Pass
+// buttons) and can also reply "Y"/"N". Both converge on recordIntroDecision.
+
+/** Public origin for building invite links. Falls back to the production host. */
+function appBaseUrl(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com").replace(/\/$/, "");
+}
+
+/** Token-gated page that shows the OTHER person's profile with Yes/Pass buttons. */
+export function inviteProfileUrl(token: string): string {
+  return `${appBaseUrl()}/i/${token}`;
+}
+
+/** Reply-To address whose local part carries the invite token, so a plain "Y"/"N"
+ *  email reply maps back to the exact invite via the inbound webhook. Requires an
+ *  inbound domain routed to /api/email/inbound (Resend Inbound). Returns null when
+ *  unconfigured, in which case replies fall back to the profile-page buttons. */
+export function inviteReplyAddress(token: string): string | null {
+  const domain = process.env.RESEND_INBOUND_DOMAIN?.trim();
+  if (!domain) return null;
+  return `Meet Cute <r+${token}@${domain}>`;
+}
+
+/** A high-entropy, URL- and email-local-part-safe capability token. */
+function newInviteToken(): string {
+  return randomBytes(24).toString("base64url");
+}
+
+/** Mint (or refresh) a MatchInvite for each side of a match and email each person
+ *  the first opt-in message: a link to the other's profile plus a Y/N ask. Reuses
+ *  the per-(match,person) row on a re-invite, rotating the token. Best-effort per
+ *  recipient: one send failing never blocks the other or throws. Returns how many
+ *  invite emails were dispatched. */
+export async function sendEmailInvites(matchId: string): Promise<number> {
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      personA: { select: { id: true, name: true, email: true, headline: true, city: true } },
+      personB: { select: { id: true, name: true, email: true, headline: true, city: true } },
+    },
+  });
+  if (!match) return 0;
+  const city = match.personA.city || match.personB.city || null;
+
+  // recipient = the person deciding; other = the profile they see. Skip a side
+  // that has already decided so a re-invite only re-emails whoever is still
+  // pending (safe to call on both a fresh match and an operator resend).
+  const sides = [
+    { me: match.personA, other: match.personB, pending: match.aDecision === "pending" },
+    { me: match.personB, other: match.personA, pending: match.bDecision === "pending" },
+  ];
+
+  let sent = 0;
+  for (const { me, other, pending } of sides) {
+    if (!pending) continue; // already said yes/pass; don't re-ask
+    if (!me.email) continue; // no baseline channel for this person
+    const token = newInviteToken();
+    try {
+      await prisma.matchInvite.upsert({
+        where: { matchId_personId: { matchId, personId: me.id } },
+        create: { matchId, personId: me.id, token, channel: "email", sentAt: new Date() },
+        update: { token, channel: "email", sentAt: new Date(), decidedAt: null },
+      });
+    } catch (e) {
+      console.error(`[intro] could not mint invite for ${me.id} on match ${matchId}: ${(e as Error).message}`);
+      Sentry.captureException(e);
+      continue;
+    }
+    const m = matchInviteEmail({
+      toName: me.name,
+      otherName: other.name,
+      otherHeadline: other.headline,
+      city,
+      profileUrl: inviteProfileUrl(token),
+    });
+    const replyTo = inviteReplyAddress(token) ?? undefined;
+    const res = await sendEmail({ to: me.email, subject: m.subject, html: m.html, text: m.text, replyTo });
+    if (res.ok) sent += 1;
+  }
+  return sent;
+}
+
+/** Email BOTH matched people the moment they connect, as a SINGLE message with
+ *  both on the To line, so they land on one shared thread and can reply-all
+ *  directly. Best-effort: a mail failure never breaks the connect. */
 async function emailConnection(
-  a: { name: string; email: string | null; phone: string | null; city: string | null },
-  b: { name: string; email: string | null; phone: string | null; city: string | null },
+  a: { name: string; email: string | null; city: string | null },
+  b: { name: string; email: string | null; city: string | null },
 ): Promise<void> {
-  const city = a.city || b.city || null;
-  const jobs: Promise<unknown>[] = [];
-  if (a.email) {
-    const m = connectionEmail({ toName: a.name, otherName: b.name, otherEmail: b.email, otherPhone: b.phone, city });
-    jobs.push(sendEmail({ to: a.email, subject: m.subject, html: m.html, text: m.text }));
-  }
-  if (b.email) {
-    const m = connectionEmail({ toName: b.name, otherName: a.name, otherEmail: a.email, otherPhone: a.phone, city });
-    jobs.push(sendEmail({ to: b.email, subject: m.subject, html: m.html, text: m.text }));
-  }
-  await Promise.allSettled(jobs);
+  const to = [a.email, b.email].filter((e): e is string => !!e);
+  if (to.length < 2) return; // need both inboxes to open a shared thread
+  const m = matchThreadEmail({ aName: a.name, bName: b.name, city: a.city || b.city || null });
+  await sendEmail({ to, subject: m.subject, html: m.html, text: m.text });
 }
 
 /** Append a line to a match's introduction transcript (operator-console view).
@@ -90,33 +169,27 @@ type DecisionOutcome =
   | { ok: false; reason: "no_match" }
   | { ok: true; side: "a" | "b"; matchId: string; nowMutual: boolean; connected: boolean; otherName: string };
 
-/** Record one person's Y/N reply to their pending introduction and, if both have
- *  now said yes, connect them. Returns what happened so the caller (SMS webhook
- *  or operator UI) can respond appropriately. */
-export async function recordIntroDecision(personId: string, decision: IntroDecision): Promise<DecisionOutcome> {
-  // The introduction this reply belongs to: the newest one still awaiting this
-  // person's decision (invited or already-mutual-pending). A person is "A" or
-  // "B" on the match; their pending decision tells us which reply we're filling.
-  const match = await prisma.match.findFirst({
-    where: {
-      stage: { in: ["invited", "mutual_yes"] },
-      OR: [
-        { personAId: personId, aDecision: "pending" },
-        { personBId: personId, bDecision: "pending" },
-      ],
-    },
-    orderBy: { updatedAt: "desc" },
-    include: {
-      personA: { select: { id: true, name: true, phone: true } },
-      personB: { select: { id: true, name: true, phone: true } },
-    },
-  });
-
-  if (!match) return { ok: false, reason: "no_match" };
-
-  const side: "a" | "b" = match.personAId === personId ? "a" : "b";
-  const otherPerson = side === "a" ? match.personB : match.personA;
+/** The shared state transition for one Y/N reply, given the already-resolved
+ *  match, which side replied, and the channel it arrived on. Logs the reply,
+ *  moves the match (pass -> exit, first yes -> mutual_yes-pending, second yes ->
+ *  connect), and returns what happened. Callers differ only in how they FIND the
+ *  match+side (SMS: newest-pending by phone; email: exact by invite token). */
+async function applyIntroDecision(
+  match: {
+    id: string;
+    aDecision: string;
+    bDecision: string;
+    personA: { id: string; name: string };
+    personB: { id: string; name: string };
+  },
+  side: "a" | "b",
+  decision: IntroDecision,
+  channel: "sms" | "email",
+): Promise<DecisionOutcome> {
+  const personId = side === "a" ? match.personA.id : match.personB.id;
   const me = side === "a" ? match.personA : match.personB;
+  const otherPerson = side === "a" ? match.personB : match.personA;
+
   await logIntroMessage({
     matchId: match.id,
     body: decision === "yes" ? "Replied Y (yes to the intro)" : "Replied N (passed)",
@@ -132,7 +205,7 @@ export async function recordIntroDecision(personId: string, decision: IntroDecis
       data: {
         [side === "a" ? "aDecision" : "bDecision"]: "pass",
         stage: "exit",
-        exitReason: "declined_sms",
+        exitReason: channel === "email" ? "declined_email" : "declined_sms",
         lastActorId: personId,
       },
     });
@@ -141,10 +214,7 @@ export async function recordIntroDecision(personId: string, decision: IntroDecis
 
   const updated = await prisma.match.update({
     where: { id: match.id },
-    data: {
-      [side === "a" ? "aDecision" : "bDecision"]: "yes",
-      lastActorId: personId,
-    },
+    data: { [side === "a" ? "aDecision" : "bDecision"]: "yes", lastActorId: personId },
   });
 
   const nowMutual = updated.aDecision === "yes" && updated.bDecision === "yes";
@@ -156,6 +226,62 @@ export async function recordIntroDecision(personId: string, decision: IntroDecis
 
   const connected = await connectMatch(match.id);
   return { ok: true, side, matchId: match.id, nowMutual: true, connected, otherName: otherPerson.name };
+}
+
+/** Record one person's Y/N reply to their pending introduction (SMS path or
+ *  operator UI) and, if both have now said yes, connect them. Finds the newest
+ *  introduction still awaiting THIS person's decision. */
+export async function recordIntroDecision(personId: string, decision: IntroDecision): Promise<DecisionOutcome> {
+  const match = await prisma.match.findFirst({
+    where: {
+      stage: { in: ["invited", "mutual_yes"] },
+      OR: [
+        { personAId: personId, aDecision: "pending" },
+        { personBId: personId, bDecision: "pending" },
+      ],
+    },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      personA: { select: { id: true, name: true } },
+      personB: { select: { id: true, name: true } },
+    },
+  });
+  if (!match) return { ok: false, reason: "no_match" };
+  const side: "a" | "b" = match.personAId === personId ? "a" : "b";
+  return applyIntroDecision(match, side, decision, "sms");
+}
+
+/** Record a Y/N decision that arrived via an email invite token (a reply parsed
+ *  by the inbound webhook, or a Yes/Pass button on the token-gated profile page).
+ *  Unlike the SMS path this maps to an EXACT match+person, so it is correct even
+ *  when the person has several open invites. Idempotent per side: once that side
+ *  has already decided (or the match closed/connected) it returns no_match rather
+ *  than re-transitioning. */
+export async function recordInviteDecision(token: string, decision: IntroDecision): Promise<DecisionOutcome> {
+  const invite = await prisma.matchInvite.findUnique({ where: { token } });
+  if (!invite) return { ok: false, reason: "no_match" };
+
+  const match = await prisma.match.findUnique({
+    where: { id: invite.matchId },
+    include: {
+      personA: { select: { id: true, name: true } },
+      personB: { select: { id: true, name: true } },
+    },
+  });
+  if (!match) return { ok: false, reason: "no_match" };
+  if (!["invited", "mutual_yes"].includes(match.stage)) return { ok: false, reason: "no_match" };
+
+  const side: "a" | "b" = match.personAId === invite.personId ? "a" : "b";
+  // Only act while this side is still pending (idempotent against a double click
+  // or a reply that arrives after the button was used).
+  const myDecision = side === "a" ? match.aDecision : match.bDecision;
+  if (myDecision !== "pending") return { ok: false, reason: "no_match" };
+
+  const outcome = await applyIntroDecision(match, side, decision, "email");
+  await prisma.matchInvite
+    .update({ where: { id: invite.id }, data: { decidedAt: new Date() } })
+    .catch(() => {});
+  return outcome;
 }
 
 /** Both said yes: connect them and mark connected. Idempotent: re-running
@@ -246,7 +372,8 @@ export async function connectMatch(matchId: string): Promise<boolean> {
     data: { stage: "connected", connectedAt: new Date(), conversationSid },
   });
 
-  // Email both people their introduction (baseline channel, independent of SMS).
+  // Open the shared email thread: one message to both, so they land in the same
+  // conversation and reply-all directly (baseline channel, independent of SMS).
   // Best-effort and idempotent: connectedAt above guards re-runs from re-sending.
   try {
     await emailConnection(a, b);
