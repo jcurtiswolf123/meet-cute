@@ -25,7 +25,7 @@ import {
   feedbackRequestSMS,
   sendConversationMessage,
 } from "./sms";
-import { connectMatch, logIntroMessage, stalledWhere, expiredWhere } from "./introductions";
+import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInvites, recordInviteDecision } from "./introductions";
 import { rateLimit } from "./ratelimit";
 import { startThread, recordPick } from "./concierge";
 import { mutualFriends } from "./social";
@@ -913,11 +913,15 @@ export async function createIntroduction(formData: FormData) {
   if (aId === bId) throw new Error("Pick two different people.");
 
   const [a, b] = await Promise.all([
-    prisma.person.findUnique({ where: { id: aId }, select: { id: true, name: true, phone: true, instagram: true } }),
-    prisma.person.findUnique({ where: { id: bId }, select: { id: true, name: true, phone: true, instagram: true } }),
+    prisma.person.findUnique({ where: { id: aId }, select: { id: true, name: true, phone: true, email: true, instagram: true } }),
+    prisma.person.findUnique({ where: { id: bId }, select: { id: true, name: true, phone: true, email: true, instagram: true } }),
   ]);
   if (!a || !b) throw new Error("One of those people no longer exists.");
-  if (!a.phone || !b.phone) throw new Error("Both people need a phone number before you can text an intro.");
+  // Email is the baseline opt-in channel (double opt-in link + Y/N reply); SMS is
+  // sent in addition when a phone is on file. Require at least one channel each.
+  if ((!a.email && !a.phone) || (!b.email && !b.phone)) {
+    throw new Error("Both people need an email or a phone number before you can introduce them.");
+  }
 
   const existing = await prisma.match.findFirst({
     where: { OR: [{ personAId: aId, personBId: bId }, { personAId: bId, personBId: aId }] },
@@ -972,11 +976,11 @@ export async function createIntroduction(formData: FormData) {
   }
 
   // Each person sees the OTHER person's bullets + Instagram: A's invite describes
-  // B (aboutB, b.instagram).
-  await Promise.all([
-    sendSMS({ to: a.phone, body: introInviteSMS({ toName: a.name, otherName: b.name, about: aboutB, otherInstagram: b.instagram, blurb, operatorName: op.name }) }),
-    sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, about: aboutA, otherInstagram: a.instagram, blurb, operatorName: op.name }) }),
-  ]);
+  // B (aboutB, b.instagram). SMS only fires when a phone is on file.
+  const smsJobs: Promise<unknown>[] = [];
+  if (a.phone) smsJobs.push(sendSMS({ to: a.phone, body: introInviteSMS({ toName: a.name, otherName: b.name, about: aboutB, otherInstagram: b.instagram, blurb, operatorName: op.name }) }));
+  if (b.phone) smsJobs.push(sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, about: aboutA, otherInstagram: a.instagram, blurb, operatorName: op.name }) }));
+  await Promise.all(smsJobs);
 
   // Seed the transcript with the two invites so the operator console shows the
   // intro from its first message. Resolve the match id (created or reused above).
@@ -989,6 +993,8 @@ export async function createIntroduction(formData: FormData) {
       logIntroMessage({ matchId: intro.id, body: `Invited ${a.name.split(" ")[0]}: want an intro to ${b.name.split(" ")[0]}? (Y/N)`, author: "bot", kind: "invite" }),
       logIntroMessage({ matchId: intro.id, body: `Invited ${b.name.split(" ")[0]}: want an intro to ${a.name.split(" ")[0]}? (Y/N)`, author: "bot", kind: "invite" }),
     ]);
+    // Email double opt-in: link to the other's profile + Y/N reply. Best-effort.
+    await sendEmailInvites(intro.id).catch(() => {});
   }
 
   revalidatePath("/studio/matchmaking");
@@ -1020,10 +1026,23 @@ export async function resendIntro(formData: FormData) {
     jobs.push(sendSMS({ to: match.personB.phone, body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, otherInstagram: match.personA.instagram, blurb: match.rationale, operatorName: op.name }) }));
   }
   await Promise.all(jobs);
+  // Re-send the email double opt-in to whoever is still pending (rotates token).
+  await sendEmailInvites(matchId).catch(() => {});
   await prisma.match.update({ where: { id: matchId }, data: { notifiedAAt: now, notifiedBAt: now } });
   revalidatePath("/studio/matchmaking");
   revalidatePath("/studio/conversations");
   revalidatePath(`/studio/conversations/${matchId}`);
+}
+
+// Public (no auth): a matched person taps Yes/Pass on the token-gated invite page
+// (/i/[token]). Records the decision against the exact invite and revalidates the
+// page so it re-renders in its decided state. Unknown/stale tokens are a no-op.
+export async function decideInvite(formData: FormData) {
+  const token = String(formData.get("token") || "");
+  const raw = String(formData.get("decision") || "");
+  if (!token || (raw !== "yes" && raw !== "pass")) return;
+  await recordInviteDecision(token, raw as "yes" | "pass");
+  revalidatePath(`/i/${token}`);
 }
 
 // Operator: close an introduction (either side passed, or it fizzled).
