@@ -1,5 +1,8 @@
 # Meet Cute: Product Brief for Jessica
 
+Historical operator brief. Current operating instructions are in
+`docs/OPERATOR-GUIDE.md` and current release state is in `docs/STATUS.md`.
+
 **Live Demo**: https://meet-cute.fly.dev  
 **Status**: Tier 0 Production-Ready (Auth, Safety, Legal, Data Rights)  
 **Date**: June 15, 2026

@@ -1,84 +1,109 @@
 # Meet Cute Deployment Guide
 
-Production runs on Fly.io at `https://hellomeetcute.com`. The application uses Neon PostgreSQL and a standalone Next.js server image.
+Production runs on Fly.io at `https://hellomeetcute.com`. The application uses
+Neon PostgreSQL and a standalone Next.js Docker image.
 
-Launch status: HOLD as of 2026-07-23. Do not open public traffic until the blockers in `docs/LAUNCH-QA-2026-07-23.md` are resolved and reverified.
+Launch status: READY FOR DEPLOY as of 2026-07-23.
 
-## Required release inputs
+## Infrastructure
 
-Confirm these categories before a release:
+- Two always-on Fly machines in `sjc`
+- Rolling Fly releases gated by `/readyz`
+- Neon PostgreSQL, schema `meetcute`
+- Vercel Blob when configured, otherwise Postgres-backed photo bytes
+- Database delivery outbox processed by each app machine with fenced leases
+- Sentry for runtime errors and source maps
+- A scheduled GitHub watchdog for site, schema, delivery, and Sentry checks
 
-- Neon connection variables: `DATABASE_URL` and `DIRECT_URL`
-- Public origin: `NEXT_PUBLIC_SITE_URL`
-- Email provider variables and webhook signing secret
-- SMS provider variables and webhook verification material
-- Session and application secrets
-- Sentry runtime variables
-- Shared object storage credentials
+Kubernetes is not used. The current Fly and Docker topology provides rolling
+deployment, health gating, and two-machine availability without the extra
+operational surface of a Kubernetes control plane.
 
-Inspect secret names with `fly secrets list`. Never print secret values.
+## Required GitHub release inputs
 
-## Database changes
+The deploy workflow needs these GitHub Actions secrets:
 
-Schema changes are applied manually. The container does not change the database while starting.
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `FLY_API_TOKEN`
+- `SENTRY_AUTH_TOKEN` for source-map upload
 
-Before any schema command:
+The watchdog also uses:
 
-1. Confirm the selected database is the intended environment.
-2. Review the Prisma schema diff.
-3. Take or verify a recoverable database backup.
-4. Apply the schema with `npm run db:deploy`.
-5. Verify the affected reads and writes before deploying application code.
+- `WATCHDOG_ALERT_EMAIL`
+- `RESEND_API_KEY`
+- `SENTRY_AUTH_TOKEN`
+- Optional `OPENAI_API_KEY` for guarded autofix pull requests
 
-The project does not yet have an automated migration gate. Treat schema changes as a separate release step.
+Set the `WATCHDOG_URL` repository variable to
+`https://hellomeetcute.com`. Inspect names only when auditing configuration.
+Never print secret values.
 
-## Build and verify
+## Automated release path
+
+A push to `master` runs the deploy workflow:
+
+1. Install from the lockfile.
+2. Generate the Prisma client.
+3. Run type checking, lint, pure launch tests, and the production build.
+4. Apply checked-in migrations with `prisma migrate deploy`.
+5. Run database launch tests and the introduction race test.
+6. Build and deploy the Docker image to Fly.
+7. Require successful `/healthz`, `/readyz`, and home-page canary requests.
+
+Application machines do not modify the schema while starting. The migration
+step completes before the rolling release begins.
+
+## Local release verification
 
 ```bash
 npm ci
-npm run lint
+npm run db:deploy
 npm run typecheck
+npm run lint
+npm run test:launch
 npm run test:race
 npm run build
-npm audit --omit=dev --audit-level=high
+npm audit --audit-level=low
+docker build -t meet-cute:release .
 ```
 
-The race test uses the configured database and cleans up its isolated rows. Confirm the database target first.
+Run the image with the required environment variables inherited from a trusted
+local source. Do not pass the repository `.env` directly to Docker because
+quoted values are not parsed like Node environment files.
 
-For Sentry source maps, provide `SENTRY_AUTH_TOKEN` as a BuildKit secret with Fly's `--build-secret` option. The Dockerfile mounts it only for the build command. Do not pass it as a Docker build argument or environment layer.
+Verify:
 
-## Deploy
+- The runtime user is `node`.
+- `/healthz`, `/readyz`, and `/` return 200.
+- The image contains no `.env`, database dump, `.gstack`, or upload artifacts.
+
+## Database safety and rollback
+
+Before a schema release:
+
+1. Confirm both connection URLs target the intended database and the
+   `meetcute` schema.
+2. Review every migration.
+3. Verify a recent recoverable backup.
+4. Apply only additive or backward-compatible changes before application code.
+5. Confirm `/readyz` against the migrated schema.
+
+For an application regression, redeploy the previous known-good image or commit.
+For a database regression, stop the rollout and use a reviewed forward repair.
+Do not attempt an automatic destructive migration rollback. Restore from the
+verified backup only if a reviewed forward repair is unsafe.
+
+## Post-deploy canary
 
 ```bash
-fly deploy
-```
-
-The Docker image runs `.next/standalone/server.js`. Fly performs a rolling release across two machines and checks `/healthz`.
-
-## Post-deploy verification
-
-Verify all of the following before considering the release complete:
-
-```bash
-fly status
+fly status -a meet-cute
 curl -fsS https://hellomeetcute.com/healthz
+curl -fsS https://hellomeetcute.com/readyz
 curl -fsSI https://hellomeetcute.com/
 curl -fsSI https://hellomeetcute.com/apply
 ```
 
-Then use the authenticated browser QA flow to check:
-
-- Public application validation
-- Member sign-in, suggestion, profile, settings, and sign-out
-- Operator sign-in, roster, introduction composer, mobile drawer, and sign-out
-- Webhook rejection for unsigned requests
-- Sentry error capture in a non-production test route
-- Email and SMS provider delivery status
-
-## Launch blockers
-
-The current production topology has two machines and per-machine volumes. Local photo storage can return a missing file when the next request reaches the other machine. Configure shared object storage, or intentionally operate one machine until shared storage is available.
-
-Introduction delivery currently lacks durable queued work and per-channel retry state. A process failure can leave a match between database state and provider delivery. Fix that before public launch.
-
-The concierge worker is not scheduled, and its message path does not perform real booking, calendar, or reservation operations. Wire the workflow or disable the related actions and promises before launch.
+Then verify desktop and mobile browser behavior, no console errors, protected
+route authorization, webhook signature rejection, delivery failure visibility,
+and both Fly machines on the new release.

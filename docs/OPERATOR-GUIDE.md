@@ -1,65 +1,60 @@
-# Meet Cute: matchmaker guide
+# Meet Cute Matchmaker Guide
 
-For operators (matchmakers) running the roster. Last updated 2026-06-15.
+For operators running the roster. Last updated 2026-07-23.
 
 ## What Meet Cute is
 
-A premium, curated matchmaking service in NYC and SF. Members apply, we vet them,
-and we introduce one person at a time. When two people both say yes, a concierge
-bot books a real first date at a partner restaurant. You run all of this from the
-Studio.
+Meet Cute is a curated matchmaking service for NYC and SF. Members apply, an
+operator reviews them, and the operator introduces one person at a time. Both
+members opt in privately. After a mutual yes, the app opens a connection and
+the operator coordinates the first date manually.
 
-## Getting in
+## Sign in
 
-1. Go to https://meet-cute.fly.dev/login
-2. Enter your work email. We send a one-time sign-in link (no password). The link
-   lasts 15 minutes and works once.
-3. Operators land in the Studio. If asked for a studio passphrase, it is the
-   `STUDIO_DEMO_PASSWORD` Joshua shares with you separately.
+1. Go to `https://hellomeetcute.com/login`.
+2. Enter your operator email.
+3. Use the single-use magic link sent to that inbox.
 
-## The Studio, tab by tab
+Production has no demo picker or studio passphrase flow.
 
-- **Roster:** every member, searchable and filterable. Click anyone for their full
-  profile, history, notes, vouches, and social graph.
-- **Pipeline:** the match board, from "suggested" through "relationship." Drag a
-  match along as things progress, or let the concierge advance it automatically.
-- **Moderation:** the safety queue. Approve or reject member photos before they go
-  live, and triage any reports members file. Check this daily.
-- **Co-pilot:** your assistant (see below).
-- **Person view:** per-member history, notes you can log, one-click suggestions.
+## Studio sections
 
-## The co-pilot can now DO things, not just answer
+- Roster: search and review members, applicant status, profile, history, notes,
+  vouches, and social graph.
+- Pipeline: review each introduction and its current stage.
+- Moderation: approve or reject member photos and resolve safety reports.
+- Co-pilot: ask roster questions, create suggestions, add notes, create dinners,
+  invite attendees, approve photos, or close introductions.
+- Team: add or revoke operator access.
 
-Open the Co-pilot tab and type plain English. It still answers questions ("who
-have we not introduced in 60 days?", "summarize David", "find candidates for
-Maya"). It now also takes actions for you:
+The co-pilot does not reserve a venue or send a calendar invitation. A booking
+request returns a manual-coordination reminder.
 
-- **Suggest a match:** "suggest Maya and David" creates the pairing in the pipeline.
-- **Book the date:** "book the date for Maya" picks a partner restaurant, confirms
-  the soonest held table, sends both members a calendar invite and a morning-of
-  nudge, and moves the match to "date scheduled." No back-and-forth.
-- **Log a note:** "note on Maya: prefers the West Village, free Thursdays" saves it
-  to her file.
+## Delivery failures
 
-It tells you exactly what it did after each command, so you can confirm or undo.
+The Studio home page shows the total failed-delivery count and the ten most
+recent failures. Each row identifies the masked recipient, related person or
+match, attempts, time, failure type, and error.
 
-## The member experience (so you know what they see)
+Use Retry only after correcting the underlying address, consent, or provider
+issue. Retry rechecks current account, consent, block, match, and token state. If
+the work is no longer authorized, it is cancelled instead of sent.
 
-- One introduction at a time, with a written reason it is a fit. No swiping.
-- They tap yes or not-this-time. On a mutual yes, the concierge books the table.
-- They can report or block anyone, upload photos (which land in your Moderation
-  queue), download their data, or delete their account, all self-serve.
+## Member experience
 
-## Your daily rhythm
+- One curated introduction is visible at a time.
+- Members privately choose yes or pass.
+- On a mutual yes, authorized contact information is shared.
+- Member phone numbers are not disclosed to another member by the connection
+  delivery flow.
+- Photos remain private until approved.
+- Members can report, block, export their data, or delete their account.
 
-1. Clear the **Moderation** queue (photos + reports).
-2. Review new applicants in the **Roster**; promote the ones you want to active.
-3. Use the **Co-pilot** to find candidates and make a few suggestions.
-4. Book dates for any fresh mutual-yes matches.
-5. Log notes after member conversations so the file stays current.
+## Daily routine
 
-## Good to know
-
-- Members only match within their own city (NYC or SF). The co-pilot enforces this.
-- Everything you do is operator-gated and reversible.
-- Questions or anything broken: tell Joshua.
+1. Clear the photo and safety moderation queues.
+2. Review and approve appropriate new applicants.
+3. Check delivery failures and resolve their causes.
+4. Create and review curated introductions.
+5. Coordinate fresh mutual connections manually.
+6. Record relevant notes after member conversations.

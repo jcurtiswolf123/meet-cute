@@ -2,9 +2,35 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-23 (launch QA complete, verdict HOLD)
+Last updated: 2026-07-23 (launch remediation ready for deployment)
 
-## 2026-07-23: launch QA complete, verdict HOLD
+## 2026-07-23: launch blockers remediated, ready for deployment
+- Branch: `codex/launch-qa-2026-07-23`.
+- Photo uploads are machine-independent. Vercel Blob is preferred when
+  configured, with Postgres `PhotoAsset` storage as the shared fallback.
+- Introduction delivery now uses a durable `DeliveryJob` outbox with fenced
+  claims, provider identifiers, retry policy, stale-work recovery, current
+  consent and authorization checks, account-delete cascade, and operator-visible
+  failure handling.
+- Unsupported automatic booking and calendar behavior is disabled and removed
+  from active product claims. The dormant booking module and obsolete public
+  demo video were removed. Date coordination is manual.
+- Dinner capacity and attendee removal are serialized transactionally.
+- `/readyz` verifies the required production schema, Fly gates rolling releases
+  on readiness, and GitHub applies checked-in migrations before deployment.
+- Production cleanup removed seeded `.test` members, fake match rows, seeded
+  photo URLs, and test-named operator access. Obsolete Fly demo secret names are
+  scheduled for removal after the production guard deploys.
+- The launch, delivery, storage, capacity, and decision race suites pass.
+  Dependency audit and static analysis have no findings. The warning-free exact
+  Docker image runs as `node`, passes schema-aware readiness, contains no
+  restricted artifacts, and passes desktop and mobile browser smoke checks.
+  CI, deploy, and production canary evidence is still pending.
+- Legal pages are implemented but not represented as counsel-approved. Counsel
+  review remains external follow-up.
+- Current report: `docs/LAUNCH-QA-2026-07-23.md`.
+
+## 2026-07-23: initial launch QA, superseded HOLD verdict
 - QA branch: `codex/launch-qa-2026-07-23`. Fix commits through `1533dad`.
 - Production was checked but not changed. Fly version 99 remains live on two machines, both health checks passing.
 - Verified on the branch: clean install, lint, type checking, database-backed introduction race test, production build, zero-vulnerability production audit, zero-finding Semgrep scan, standalone non-root Docker runtime, responsive browser QA, and 100 accessibility on the local home and apply pages.
@@ -137,7 +163,7 @@ Last updated: 2026-06-30 (hero + mobile shipped live)
 ## Telnyx account CREATED 2026-07-16 (~17:20 UTC) — gate 2 partially done
 - Created via Telnyx's SANCTIONED agent-signup flow (POST /v2/bot_challenge -> solve -> /v2/bot_signup -> magic link read via josh@shiftsupportnetwork.com IMAP -> /v2/api_keys). The normal https://telnyx.com/sign-up page bot-blocks headless browsers ("your browser could not be authenticated"); the agent flow at https://telnyx.com/agent-signup.md is the intended path.
 - Account: josh@shiftsupportnetwork.com, org/user 8d1c9c83-478f-4a8f-9997-50bcce609033. Balance $0.00.
-- DONE (free): API key KEY019F6BF11A6414AFB8CC6333BDB0FD9C (verified live); messaging profile "Meet Cute" 40019f6b-f1c4-4a12-8b1d-4eacea980794 (inbound webhook -> hellomeetcute.com/api/sms/inbound, v2); webhook Ed25519 public key n9QkllAdcWNLa3g60KGa8xCvh7MpMx1OU5OKg+y01Kw= (32 bytes, validated against verifyTelnyxSignature). All secrets in ~/.gstack/credentials/telnyx-login.txt (chmod 600). Env values map: TELNYX_API_KEY=<key>, TELNYX_MESSAGING_PROFILE_ID=40019f6b-..., TELNYX_PUBLIC_KEY=n9Qk..., TELNYX_FROM=<the number, once bought>.
+- DONE (free): API key [revoked key removed] (verified live); messaging profile "Meet Cute" 40019f6b-f1c4-4a12-8b1d-4eacea980794 (inbound webhook -> hellomeetcute.com/api/sms/inbound, v2); webhook Ed25519 public key n9QkllAdcWNLa3g60KGa8xCvh7MpMx1OU5OKg+y01Kw= (32 bytes, validated against verifyTelnyxSignature). All secrets in ~/.gstack/credentials/telnyx-login.txt (chmod 600). Env values map: TELNYX_API_KEY=<key>, TELNYX_MESSAGING_PROFILE_ID=40019f6b-..., TELNYX_PUBLIC_KEY=n9Qk..., TELNYX_FROM=<the number, once bought>.
 - PROGRESS 2026-07-16 ~18:00 UTC: Joshua funded balance to $5.00 + account shows "Your Telnyx Account Has Been Upgraded". Number BOUGHT via API: **+13854860015** (active, assigned to Meet Cute messaging profile 40019f6b-...). Balance now $3.43. TELNYX_FROM=+13854860015 stored.
 - BLOCKED — ACCOUNT-LEVEL / VERIFICATION WALL: 10DLC endpoints (GET/POST https://api.telnyx.com/10dlc/brand and /10dlc/campaign) return error 10038 "Feature not permitted at this account level. Refer to https://telnyx.com/upgrade." Number purchase works but A2P 10DLC Brand+Campaign registration is gated behind a higher account level (business verification / KYC). This is the Level-2 wall. UNBLOCK = Joshua completes the account upgrade + business verification in the portal (telnyx.com/upgrade or Portal > account/verification), and add more funds (~$25 to cover Brand ~$4 one-time + Campaign ~$10/mo vetting; $5 is too thin). Then I finish via API: POST /10dlc/brand (Vanguard Labs LLC, EIN 99-2503371) -> POST /10dlc/campaign (use case) -> assign number to campaign -> set 5 Fly secrets + SMS_PROVIDER=telnyx -> merge telnyx-migration -> fly deploy -> live test send.
 - Everything up to the 10DLC wall is API-driven and done. All IDs/secrets in ~/.gstack/credentials/telnyx-login.txt + memory reference_telnyx_account.

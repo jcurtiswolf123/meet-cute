@@ -1,8 +1,11 @@
 # Meet Cute
 
-Meet Cute is a curated matchmaking app with a public application funnel, a member experience, and an operator studio.
+Meet Cute is a curated matchmaking app with a public application funnel, a
+member experience, and an operator studio.
 
-Launch status: HOLD as of 2026-07-23. The detailed verdict and open blockers are in [`docs/LAUNCH-QA-2026-07-23.md`](docs/LAUNCH-QA-2026-07-23.md).
+Launch status: READY FOR DEPLOY as of 2026-07-23. The release evidence and
+remaining external review item are in
+[`docs/LAUNCH-QA-2026-07-23.md`](docs/LAUNCH-QA-2026-07-23.md).
 
 ## Product surfaces
 
@@ -10,11 +13,14 @@ Launch status: HOLD as of 2026-07-23. The detailed verdict and open blockers are
 |---|---|---|
 | Public site | `/`, `/apply`, `/dinners`, `/coaching` | Explain the service and collect applications |
 | Member app | `/app` | Manage a profile, review curated introductions, and view connections |
-| Operator studio | `/studio` | Review the roster, create introductions, moderate content, and monitor operations |
+| Operator studio | `/studio` | Review the roster, create introductions, moderate content, and monitor delivery |
 | Email decisions | `/i/[token]` | Let invited members privately accept or pass |
-| Health check | `/healthz` | Report process liveness to Fly |
+| Liveness | `/healthz` | Confirm the Node process is accepting requests |
+| Readiness | `/readyz` | Confirm the process can query the required production schema |
 
-The concierge code currently writes in-app messages only. It is not scheduled in production and does not book venues, send calendar invitations, or confirm reservations.
+Meet Cute does not automatically book venues or send calendar invitations. When
+two members accept an introduction, the app shares authorized contact details
+and tells the operator to coordinate the date manually.
 
 ## Local development
 
@@ -24,7 +30,7 @@ Requirements:
 - A dedicated PostgreSQL database
 - A local `.env` based on `.env.example`
 
-Verify that `DATABASE_URL` and `DIRECT_URL` point to a disposable development database before running database commands.
+Use a disposable database with the `meetcute` schema for local work.
 
 ```bash
 npm ci
@@ -33,35 +39,43 @@ npm run db:seed
 npm run dev
 ```
 
-The app runs at `http://localhost:3009`. Demo login is available only in local development when explicitly enabled.
+The app runs at `http://localhost:3009`. Demo login is available only outside
+production when explicitly enabled.
 
-## Verification
+## Release verification
 
 ```bash
-npm run lint
 npm run typecheck
+npm run lint
+npm run test:launch
 npm run test:race
 npm run build
-npm audit --omit=dev --audit-level=high
+npm audit --audit-level=low
 ```
 
-`test:race` creates isolated QA rows in the configured database and removes them when it finishes. Do not run it against an unknown database target.
+The database-backed tests use isolated identifiers and remove their fixtures.
+Confirm the selected database before running them.
 
-## Stack
+## Production architecture
 
-- Next.js App Router and React
-- TypeScript and Tailwind CSS
-- Prisma with Neon PostgreSQL
-- Fly.io with two always-on machines
-- Resend for email
-- Twilio or Telnyx for SMS
-- Sentry for error monitoring
+- Next.js App Router, React, TypeScript, and Tailwind CSS
+- Neon PostgreSQL with schema `meetcute`
+- Fly.io with two always-on machines and rolling deployments
+- Vercel Blob when configured, otherwise shared Postgres photo storage
+- A database-backed delivery outbox for email and SMS
+- Resend for email, Twilio or Telnyx for SMS
+- Sentry and the scheduled watchdog for monitoring
 
-## Current operational limits
+The Fly volumes are retained only as legacy mounts. Production data and uploads
+do not rely on a machine-local filesystem.
 
-- Photo uploads need shared object storage before a two-machine production launch. The local filesystem fallback is not shared between Fly machines.
-- Introduction delivery needs durable queued work, provider message identifiers, retries, and visible per-channel failure state.
-- The concierge and operator booking actions must be wired to real delivery and booking operations, or disabled.
-- Event capacity is displayed but is not transactionally enforced.
+## Operational limits
 
-See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the Fly release procedure and [`docs/STATUS.md`](docs/STATUS.md) for the current source of truth.
+- Venue selection, reservation, and calendar coordination remain manual.
+- Photo moderation is performed by an operator.
+- The legal pages are implemented, but launch counsel review remains external
+  work and is not represented as legal approval.
+
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the release procedure,
+[`LAUNCH-CHECKLIST.md`](LAUNCH-CHECKLIST.md) for launch gates, and
+[`docs/STATUS.md`](docs/STATUS.md) for the dated source of truth.

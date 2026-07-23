@@ -2,6 +2,26 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-07-23 : Launch integrity architecture
+- Decision: Store photos in Vercel Blob when configured and otherwise in
+  Postgres. Never use a machine-local production fallback.
+- Decision: Deliver introductions through a database outbox with fenced claims,
+  authorization checks at send time, provider identifiers, bounded retries, and
+  visible failure state.
+- Decision: Never disclose one member's phone number to another through the
+  connection flow. Share only currently authorized contact data.
+- Decision: Represent venue booking and calendar coordination as manual until a
+  real integration exists. Remove dormant booking tools and public demos that
+  claim otherwise.
+- Why: Meet Cute runs on two Fly machines and handles sensitive dating data.
+  Media, consent, and delivery must remain consistent through restarts, retries,
+  deploys, blocks, opt-outs, and account deletion.
+- Alternatives rejected: local volume storage, direct provider calls inside
+  state transitions, blind retry of ambiguous SMS outcomes, phone disclosure
+  based only on service-message consent, and simulated booking confirmation.
+- Reversible?: The provider integrations can evolve behind the same storage and
+  outbox boundaries. Privacy and authorization checks are intentional invariants.
+
 ## 2026-06-29 : "Nightcap" visual identity (dark, candlelit)
 - Decision: Replace the cream + Fraunces-serif look with a dark, editorial supper-club identity. Near-black plum canvas, candlelight off-white text, one ember-amber accent (gold-foil CTAs) + garnet rose romantic accent. Bodoni Moda display serif, JetBrains Mono "concierge stamp" eyebrow labels, candlelit body vignette + warm hero glow.
 - Why: Joshua flagged the cream/serif palette as reading like generic "AI/Claude" aesthetic. Dark is the clearest signal it is NOT Claude, and a candlelit-bar mood fits where intros actually happen. Joshua picked this direction over a bold-light editorial and a charcoal/blush option.

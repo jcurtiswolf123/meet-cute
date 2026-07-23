@@ -1,79 +1,74 @@
-# Observability: Sentry + AI fixing
+# Meet Cute Observability
 
-Meet Cute ships with error tracking and two layers of AI-assisted fixing. Both
-are no-ops until configured, so the current build is unchanged until you turn
-them on with env vars.
+Last updated 2026-07-23.
 
-## 1. Sentry (error + performance tracking)
+## Runtime checks
 
-Wired in code already:
+- `/healthz` confirms that the Node process is alive.
+- `/readyz` confirms database connectivity and access to the required
+  `DeliveryJob` and `PhotoAsset` schema.
+- Fly checks `/readyz` every 15 seconds and promotes only ready machines.
+- The deploy workflow checks `/healthz`, `/readyz`, and the home page after a
+  rolling release.
 
-- `sentry.server.config.ts`, `sentry.edge.config.ts`, `src/instrumentation-client.ts`
-- `src/instrumentation.ts` loads the right config per runtime
-- `next.config.mjs` wraps the build with `withSentryConfig` only when a DSN is
-  present (source-map upload + a same-origin `/monitoring` tunnel that satisfies
-  the strict CSP)
-- `sendDefaultPii: false` everywhere (dating app: never auto-attach user
-  identifiers, IPs, or request bodies)
-- `Sentry.captureException` is called in the SMS webhooks
-  (`/api/sms/inbound`, `/api/sms/conversations`) and in the group-intro failure
-  path (`src/lib/introductions.ts`)
+## Sentry
 
-### Turn it on (production)
+Sentry is wired for server, edge, and browser errors. Automatic PII attachment is
+disabled. The production Docker build receives the source-map token through a
+BuildKit secret, so it is not stored in an image layer.
 
-Set these as Fly secrets (and as Docker build args / Fly build secrets so source
-maps upload at build time):
+Required runtime configuration:
 
-```
-SENTRY_DSN=...                 # server/edge DSN
-NEXT_PUBLIC_SENTRY_DSN=...      # browser DSN (same project is fine)
-SENTRY_ORG=...
-SENTRY_PROJECT=...
-SENTRY_AUTH_TOKEN=...           # build-time: source-map upload; also used by the watchdog
-# optional sampling (defaults 0.1)
-SENTRY_TRACES_SAMPLE_RATE=0.1
-NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.1
+```text
+SENTRY_DSN
+NEXT_PUBLIC_SENTRY_DSN
+SENTRY_ORG
+SENTRY_PROJECT
 ```
 
-```bash
-fly secrets set SENTRY_DSN=... NEXT_PUBLIC_SENTRY_DSN=... SENTRY_ORG=... SENTRY_PROJECT=... SENTRY_AUTH_TOKEN=...
+Source-map upload and watchdog issue inspection also require
+`SENTRY_AUTH_TOKEN`.
+
+## Delivery monitoring
+
+The database outbox records queued, processing, sent, failed, and cancelled
+delivery work. The Studio home page exposes the total failure backlog, useful
+context for the latest failures, and an eligibility-aware retry action.
+
+The watchdog checks:
+
+- Public site and readiness
+- Database access
+- Failed delivery work
+- Stale processing work
+- Unresolved Sentry issues
+- Type checking
+- Periodic production builds when run as a long-lived local process
+
+The GitHub watchdog runs every 15 minutes. Configure:
+
+```text
+WATCHDOG_URL=https://hellomeetcute.com
+WATCHDOG_ALERT_EMAIL
+RESEND_API_KEY
+DATABASE_URL
+DIRECT_URL
+SENTRY_AUTH_TOKEN
 ```
 
-## 2. AI fixing
+Optional AI autofix requires an AI provider key. It may open a verified pull
+request for a typecheck regression. It never merges or deploys automatically.
+The scheduled GitHub pass sets `WATCHDOG_SKIP_BUILD=1` because the deploy
+workflow already owns the full production-build gate.
 
-Two complementary loops:
+## Launch monitoring
 
-### a) Sentry Seer (runtime errors -> AI fix PRs)
+During a release:
 
-Seer is Sentry's built-in AI agent. It reads a runtime issue with its stack
-trace, proposes a root cause, and (with the GitHub integration connected) can
-open a fix PR. This is the right tool for live runtime errors. Enable it in the
-Sentry UI:
-
-1. Settings -> Integrations -> connect the GitHub repo for this project.
-2. Settings -> Seer / Automation -> enable automatic issue scans and "create
-   pull requests" (or keep it to root-cause suggestions if you want a human to
-   trigger the PR).
-3. Issues then get a "Solve with Seer" action; auto-PRs land on a branch for
-   review. It never merges on its own.
-
-### b) Watchdog (build/typecheck regressions -> AI fix PRs)
-
-`npm run watchdog` (see `scripts/watchdog.ts`) runs continuously: it checks the
-live site, the DB, typecheck, periodic build, and now also pulls recent
-unresolved Sentry issues into its status + alerts (when `SENTRY_AUTH_TOKEN` +
-`SENTRY_ORG` + `SENTRY_PROJECT` are set).
-
-When `WATCHDOG_AUTOFIX=1` and an AI key is present
-(`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`), a **typecheck** regression triggers a
-guarded AI fix: it asks for a minimal patch, applies it on a throwaway
-`watchdog/fix-*` branch, re-runs typecheck to verify, and opens a PR with `gh`.
-It never edits the working branch and never touches prod.
-
-```bash
-WATCHDOG_AUTOFIX=1 ANTHROPIC_API_KEY=... npm run watchdog
-```
-
-Division of labor: **Seer** handles runtime errors (it has the stack trace and
-can verify against the issue); the **watchdog** handles build/typecheck health
-(it can verify a fix by recompiling). Together they cover both failure classes.
+1. Watch the GitHub migration, test, and deploy jobs.
+2. Confirm both Fly machines report ready on the new release.
+3. Check Sentry for new production issues.
+4. Check the Studio delivery-failure panel and stale-work watchdog result.
+5. Review Fly logs for repeated readiness, provider, or database errors.
+6. Roll back application code if authentication, private media, or delivery
+   behaves inconsistently.

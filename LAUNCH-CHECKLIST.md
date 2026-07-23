@@ -1,6 +1,6 @@
 # Meet Cute Public Launch Checklist
 
-Current status: HOLD
+Current status: READY FOR DEPLOY
 
 Last updated: 2026-07-23
 
@@ -8,57 +8,67 @@ Live site: `https://hellomeetcute.com`
 
 Detailed evidence: `docs/LAUNCH-QA-2026-07-23.md`
 
-## Required before public launch
+## Technical launch requirements
 
-- [ ] Configure shared object storage for approved photos and prove an upload can be read from both Fly machines.
-- [ ] Move introduction email and SMS side effects into durable queued work with provider identifiers, retries, and visible per-channel status.
-- [ ] Recover safely when the process exits after database state changes but before delivery completes.
-- [ ] Wire real concierge delivery, calendar, and booking operations, or disable every action and claim that implies those operations exist.
-- [ ] Remove production demo-login secrets and audit or remove test operator accounts.
-- [ ] Add database readiness to the release gate and document a tested rollback path for schema changes.
-- [ ] Enforce event capacity transactionally before accepting a reservation.
-- [ ] Give the watchdog real alert delivery and production Sentry access, then prove a generated failure reaches the operator.
-- [ ] Arrange legal review of the current privacy policy, terms, SMS consent, retention, and safety language.
+- [x] Use machine-independent photo storage in every production configuration.
+- [x] Persist introduction email and SMS work in a durable delivery outbox.
+- [x] Fence concurrent workers and recover safely from interrupted processing.
+- [x] Recheck consent, account, block, match, and token authorization at send time.
+- [x] Expose failed delivery work and safe retry actions to operators.
+- [x] Remove unsupported booking and calendar claims from active product paths.
+- [x] Remove seeded test members and test-named production operator access.
+- [x] Enforce dinner capacity transactionally.
+- [x] Add schema-aware readiness to the release and Fly health gate.
+- [x] Replace manual schema push with checked-in Prisma migrations.
+- [x] Configure monitoring paths for Sentry, watchdog alerts, and delivery failures.
+- [ ] Remove the two legacy demo secret names from Fly after the production guard deploys.
+- [ ] Obtain counsel review of privacy, terms, SMS consent, retention, and safety language.
+
+The counsel item is an external review requirement. The repository does not
+claim that the current legal text has been approved by counsel.
 
 ## Release verification
 
-- [ ] `npm ci` completes from a clean checkout.
-- [ ] Lint passes with zero warnings.
-- [ ] Type checking passes.
-- [ ] The introduction concurrency test passes and leaves no QA rows.
-- [ ] The production build passes.
-- [ ] The production Docker image builds and starts through the standalone server.
-- [ ] The production dependency audit reports zero high or critical findings.
-- [ ] Static security scanning reports no unresolved high-confidence findings.
-- [ ] Public desktop and mobile browser QA passes with no console errors or horizontal overflow.
-- [ ] Member desktop and mobile browser QA passes across sign-in, suggestion, profile, settings, and sign-out.
-- [ ] Operator desktop and mobile browser QA passes across roster, introduction, drawer, and sign-out.
-- [ ] Unsigned email, SMS, and conversation webhooks are rejected.
-- [ ] Applicant accounts cannot enter member routes.
-- [ ] Photo access is limited to the owner, an operator, or a connected and unblocked member.
-- [ ] Email and SMS delivery failures are visible and recoverable.
-- [ ] Sentry receives a controlled test error with source maps.
-- [ ] Both Fly machines pass health checks after a rolling release.
+- [x] `npm ci` completes from a clean checkout.
+- [x] Lint passes with zero warnings.
+- [x] Type checking passes.
+- [x] All launch tests pass and remove their fixtures.
+- [x] The introduction concurrency test passes and removes its fixtures.
+- [x] The production build passes without warnings.
+- [x] The exact production Docker image builds and starts as user `node`.
+- [x] The Docker image contains no local secrets, dumps, or QA artifacts.
+- [x] The dependency audit reports zero vulnerabilities.
+- [x] Static security scanning reports no unresolved findings.
+- [x] Public desktop and mobile browser QA passes without console errors or overflow.
+- [ ] Member and operator smoke tests pass on the release image.
+- [x] Unsigned webhooks and unauthenticated protected routes are rejected.
+- [x] Applicant accounts cannot enter member routes.
+- [x] Photo access is limited to authorized viewers.
+- [x] Email and SMS failures are visible and recoverable.
+- [ ] Both Fly machines pass `/readyz` after the rolling release.
+- [ ] Sentry and the scheduled watchdog are healthy after deployment.
 
 ## Launch day
 
-1. Freeze the release commit and record its SHA.
-2. Verify the database backup and schema target.
-3. Apply any reviewed schema changes.
-4. Deploy the frozen commit.
-5. Confirm both Fly machines pass `/healthz`.
-6. Run the public, member, operator, webhook, and provider smoke tests.
-7. Monitor delivery failures, Sentry, application logs, and moderation throughout the launch window.
-8. Roll back immediately if authentication, private photo access, or introduction delivery is inconsistent.
+1. Freeze and record the release commit.
+2. Verify the database backup, target, and migration status.
+3. Confirm the GitHub release secrets and watchdog variable by name.
+4. Merge the reviewed pull request to `master`.
+5. Monitor the migration, database tests, Docker build, and rolling Fly release.
+6. Confirm both machines pass `/healthz` and `/readyz`.
+7. Remove the production demo secret names and reverify both machines.
+8. Run public, member, operator, webhook, and delivery canaries.
+9. Monitor Sentry, Fly logs, delivery failures, and moderation during launch.
+10. Roll back immediately if authentication, private media, or delivery is inconsistent.
 
-## Already verified on the launch QA branch
+## Verified before deployment
 
 - Public routes render at desktop and mobile sizes without horizontal overflow.
-- The member and operator mobile layouts use the full viewport.
+- Member and operator mobile layouts use the full viewport.
 - Operator and member sign-out return to the correct login routes.
-- Accessibility audits reached 100 on the local home and apply pages after contrast and landmark fixes.
-- Unsigned webhooks and unauthenticated protected routes reject requests.
-- The dependency audit and static security scan found no current high-confidence issues.
-- The introduction decision concurrency test produces one consistent outcome and cleans up its fixtures.
+- Accessibility audits reached 100 on the local home and apply pages.
+- The dependency audit and static security scan found no vulnerabilities.
+- The delivery, storage, capacity, and decision race suites pass.
 
-These branch results are not production results until the branch is deployed and the post-deploy checks pass.
+Items still unchecked require verification against the final clean commit,
+exact Docker image, or deployed production release.

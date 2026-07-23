@@ -1,5 +1,9 @@
 # Custom domain: meetcutehq.com
 
+Historical domain exploration. Production is canonical at
+`https://hellomeetcute.com`. Do not change the production origin based on the
+steps below without a new reviewed domain migration.
+
 Goal: serve the app at `https://meetcutehq.com` (and `www`) on Fly.
 
 ## Status
