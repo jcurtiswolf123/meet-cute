@@ -8,7 +8,7 @@ Premium matchmaking with public applications, a member app, and an operator stud
 
 ## What this is
 - Purpose: Operate a curated matchmaking service from application through introduction.
-- Status: READY FOR DEPLOY as of 2026-07-23. See `docs/STATUS.md` and `docs/LAUNCH-QA-2026-07-23.md`.
+- Status: LIVE as of 2026-07-23. See `docs/STATUS.md` and `docs/LAUNCH-QA-2026-07-23.md`.
 - Owner: Joshua Wolf
 
 ## Stack and key paths

@@ -1,6 +1,6 @@
 # Meet Cute Public Launch Checklist
 
-Current status: READY FOR DEPLOY
+Current status: LAUNCHED
 
 Last updated: 2026-07-23
 
@@ -21,7 +21,7 @@ Detailed evidence: `docs/LAUNCH-QA-2026-07-23.md`
 - [x] Add schema-aware readiness to the release and Fly health gate.
 - [x] Replace manual schema push with checked-in Prisma migrations.
 - [x] Configure monitoring paths for Sentry, watchdog alerts, and delivery failures.
-- [ ] Remove the two legacy demo secret names from Fly after the production guard deploys.
+- [x] Remove the two legacy demo secret names from Fly after the production guard deploys.
 - [ ] Obtain counsel review of privacy, terms, SMS consent, retention, and safety language.
 
 The counsel item is an external review requirement. The repository does not
@@ -40,13 +40,13 @@ claim that the current legal text has been approved by counsel.
 - [x] The dependency audit reports zero vulnerabilities.
 - [x] Static security scanning reports no unresolved findings.
 - [x] Public desktop and mobile browser QA passes without console errors or overflow.
-- [ ] Member and operator smoke tests pass on the release image.
+- [x] Member and operator smoke tests pass on the release image.
 - [x] Unsigned webhooks and unauthenticated protected routes are rejected.
 - [x] Applicant accounts cannot enter member routes.
 - [x] Photo access is limited to authorized viewers.
 - [x] Email and SMS failures are visible and recoverable.
-- [ ] Both Fly machines pass `/readyz` after the rolling release.
-- [ ] Sentry and the scheduled watchdog are healthy after deployment.
+- [x] Both Fly machines pass `/readyz` after the production release.
+- [x] Sentry and the scheduled watchdog are healthy after deployment.
 
 ## Launch day
 
@@ -70,5 +70,6 @@ claim that the current legal text has been approved by counsel.
 - The dependency audit and static security scan found no vulnerabilities.
 - The delivery, storage, capacity, and decision race suites pass.
 
-Items still unchecked require verification against the final clean commit,
-exact Docker image, or deployed production release.
+The remaining unchecked counsel item is external review. The final clean commit,
+Docker image, deployed release, production canary, Sentry access, and watchdog
+have all been verified.
