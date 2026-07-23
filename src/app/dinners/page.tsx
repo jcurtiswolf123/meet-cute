@@ -16,7 +16,7 @@ export default async function Dinners() {
   return (
     <>
       <SiteHeader />
-      <main className="container-mc min-h-screen py-12">
+      <main id="main-content" className="container-mc min-h-screen py-12">
       <div className="max-w-[58ch]">
         <p className="label mb-3">Meet Cute Dinners</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Twelve people, one long table.</h1>

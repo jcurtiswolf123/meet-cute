@@ -14,14 +14,14 @@ export default {
         paper: "#f4e8d7", // raised section band (soft sand)
         panel: "#fffdf8", // cards / surfaces (warm white)
         ink: "#382a20", // soft espresso brown (primary text)
-        muted: "#7d6f62", // warm taupe (secondary text)
+        muted: "#716358", // warm taupe (secondary text)
         line: "#ecdcc7", // warm hairline / borders
         // Terracotta: the single dominant accent (warm clay). Primary CTAs use it
         // with cream text for a friendly, hand-warmed read.
-        ember: { DEFAULT: "#d76a45", soft: "#e79b78", deep: "#b64d2c" },
+        ember: { DEFAULT: "#a94529", soft: "#e79b78", deep: "#87351e" },
         // Warm rose: romantic secondary accent (the heart, hairlines, hovers).
-        claret: { DEFAULT: "#cf6a71", dark: "#b24e58", soft: "#e6989d" },
-        sage: "#7f8d67",
+        claret: { DEFAULT: "#a54752", dark: "#87303d", soft: "#e6989d" },
+        sage: "#5f6c4b",
         // Espresso: warm deep brown, used for text-on-light-photo and rich edges.
         espresso: { DEFAULT: "#2c2019", deep: "#241a13" },
         champagne: { DEFAULT: "#eec48a", soft: "#f6ddb6" },

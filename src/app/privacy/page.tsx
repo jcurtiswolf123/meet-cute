@@ -14,7 +14,7 @@ export default function Privacy() {
 
         <p className="label mt-8 mb-3">Privacy</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-muted">Last updated: 2026-07-16</p>
+        <p className="mt-3 text-sm text-muted">Last updated: 2026-07-23</p>
 
         <p className="mt-6 text-sm leading-relaxed text-muted">
           Meet Cute is a curated, invitation-only matchmaking service. To introduce you to people
@@ -35,7 +35,7 @@ export default function Privacy() {
           <p>We collect the following categories of personal information:</p>
           <List
             items={[
-              "Account data: your name, email address, password (stored as a secure hash, never in plain text), and the city you join under.",
+              "Account data: your name, email address, city, and passwordless sign-in records. We use short-lived magic links and revocable session tokens, and store only cryptographic hashes of those tokens.",
               "Profile data: the details you add to your profile, including the things you are looking for in a partner, relationship goals, lifestyle notes, and any free-text you choose to share with us.",
               "Photos: images you upload to your profile. Photos can reveal your appearance and, in some cases, locations or other people, so treat them as sensitive.",
               "Age and birthdate: your date of birth or age, which we use to confirm you are at least 18 and to make age-appropriate introductions.",
@@ -100,10 +100,11 @@ export default function Privacy() {
 
         <Section title="6. SMS, text messaging, and your mobile information">
           <p>
-            Meet Cute sends text messages (SMS/MMS) as part of the service, such as introduction
-            invites you can accept or decline, connection details once both people say yes, scheduling
-            notes, and account notices. You provide your mobile number and agree to receive these
-            messages when you apply or join, and you can opt out at any time.
+            Meet Cute sends text messages (SMS/MMS) only when you separately choose the optional text
+            message consent on the application. These messages can include introduction invites you
+            can accept or decline, connection details once both people say yes, scheduling notes, and
+            account notices. A mobile number or text message consent is not required to join, and you
+            can withdraw consent at any time.
           </p>
           <p className="font-medium text-ink">
             No mobile information (including your phone number and SMS opt-in or consent) will be
@@ -146,10 +147,10 @@ export default function Privacy() {
         <Section title="9. Security">
           <p>
             We protect your data with administrative, technical, and physical safeguards, including
-            encryption in transit, hashed passwords, access controls, and limits on who on our team
-            can view member data. No system is perfectly secure, so we cannot guarantee absolute
-            security, but we work to protect your information and to notify you and the relevant
-            authorities if a breach affecting your data occurs, as required by law.
+            encryption in transit, hashed magic-link and session tokens, access controls, and limits
+            on who on our team can view member data. No system is perfectly secure, so we cannot
+            guarantee absolute security, but we work to protect your information and to notify you
+            and the relevant authorities if a breach affecting your data occurs, as required by law.
           </p>
         </Section>
 

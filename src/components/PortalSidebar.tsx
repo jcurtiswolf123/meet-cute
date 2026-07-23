@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui";
 import { logout } from "@/lib/actions";
 
@@ -35,6 +35,8 @@ export function PortalSidebar({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
 
   // Restore the collapsed preference after mount (avoids hydration mismatch).
   useEffect(() => {
@@ -47,6 +49,53 @@ export function PortalSidebar({
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const pageMain = document.querySelector("main");
+    const openButton = openButtonRef.current;
+    const priorOverflow = document.body.style.overflow;
+    pageMain?.setAttribute("inert", "");
+    document.body.style.overflow = "hidden";
+
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusable = () =>
+      Array.from(drawerRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? []);
+    focusable()[0]?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      pageMain?.removeAttribute("inert");
+      document.body.style.overflow = priorOverflow;
+      openButton?.focus();
+    };
+  }, [mobileOpen]);
   const toggleCollapse = () => {
     setCollapsed((c) => {
       const next = !c;
@@ -90,9 +139,12 @@ export function PortalSidebar({
       {/* Mobile top bar. */}
       <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-paper/80 px-4 py-2.5 backdrop-blur md:hidden">
         <button
+          ref={openButtonRef}
           onClick={() => setMobileOpen(true)}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-ink transition hover:bg-cream"
           aria-label="Open menu"
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-navigation"
         >
           <Icon name="menu" />
         </button>
@@ -108,7 +160,14 @@ export function PortalSidebar({
             onClick={() => setMobileOpen(false)}
             aria-hidden
           />
-          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col border-r border-line bg-paper shadow-card">
+          <aside
+            ref={drawerRef}
+            id="mobile-navigation"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${workspace} navigation`}
+            className="absolute left-0 top-0 flex h-full w-64 flex-col border-r border-line bg-paper shadow-card"
+          >
             <SidebarInner
               workspace={workspace}
               subtitle={subtitle}

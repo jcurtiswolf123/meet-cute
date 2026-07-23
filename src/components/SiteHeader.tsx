@@ -18,11 +18,17 @@ export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
           : "border-b border-line bg-cream/80 backdrop-blur"
       }
     >
+      <a
+        href="#main-content"
+        className="sr-only z-[60] rounded-md bg-panel px-4 py-2 text-ink focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
+      >
+        Skip to main content
+      </a>
       <div className="container-mc flex items-center justify-between gap-4 py-5">
         <div className="shrink-0 whitespace-nowrap">
           <Logo />
         </div>
-        <nav className="flex items-center gap-5 text-sm sm:gap-7">
+        <nav aria-label="Primary navigation" className="flex items-center gap-5 text-sm sm:gap-7">
           <Link href="/dinners" className="hidden -my-2 py-2 text-muted transition-colors hover:text-ink sm:inline">
             Dinners
           </Link>
