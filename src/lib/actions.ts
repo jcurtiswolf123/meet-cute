@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { timingSafeEqual } from "crypto";
+import { randomBytes, timingSafeEqual } from "crypto";
 import { prisma } from "./prisma";
 import {
   setSession,
@@ -17,21 +17,29 @@ import {
 } from "./auth";
 import { sendEmail, magicLinkEmail } from "./email";
 import {
-  sendSMS,
   normalizePhone,
   normalizeInstagram,
   normalizeLinkedin,
   introInviteSMS,
   feedbackRequestSMS,
-  sendConversationMessage,
 } from "./sms";
 import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInvites, recordInviteDecision } from "./introductions";
 import { rateLimit } from "./ratelimit";
-import { startThread, recordPick } from "./concierge";
 import { mutualFriends } from "./social";
 import { deleteUpload } from "./uploads";
-import { createEventRecord, inviteToEvent } from "./events";
+import {
+  createEventRecord,
+  inviteToEvent,
+  removeDinnerAttendee,
+  setDinnerAttendeeStatus,
+} from "./events";
 import { allowMemberDemoLogin, allowOperatorDemoLogin } from "./demo-login";
+import {
+  makeDeliveryKey,
+  queueConversationDelivery,
+  queueSmsDelivery,
+  retryFailedDeliveryJob,
+} from "./delivery";
 
 // A normalized phone is only usable for the SMS intro flow if it carries a full
 // subscriber number. normalizePhone is deliberately lenient (it will return
@@ -42,6 +50,14 @@ function isTextablePhone(normalized: string | null | undefined): boolean {
   if (!normalized) return false;
   const digits = normalized.replace(/\D/g, "");
   return digits.length >= 10 && digits.length <= 15;
+}
+
+function newDeliveryNonce(): string {
+  return randomBytes(12).toString("hex");
+}
+
+function deliveryWindow(): string {
+  return String(Math.floor(Date.now() / (5 * 60_000)));
 }
 
 // Request a magic-link sign-in. Always returns the same "check your email"
@@ -200,18 +216,11 @@ export async function decideMatch(matchId: string, decision: "yes" | "pass") {
     await prisma.match.update({ where: { id: matchId }, data: { stage: "exit", exitReason: "passed" } });
   } else if (updated.aDecision === "yes" && updated.bDecision === "yes") {
     await prisma.match.update({ where: { id: matchId }, data: { stage: "mutual_yes" } });
-    await startThread(matchId);
+    await connectMatch(matchId);
   }
   revalidatePath("/app");
   revalidatePath("/app/matches");
   revalidatePath("/studio/pipeline");
-}
-
-export async function pickSlot(threadId: string, slotIso: string) {
-  const me = await getSessionPersonId();
-  if (!me) throw new Error("not logged in");
-  await recordPick(threadId, me, slotIso);
-  revalidatePath("/app/matches");
 }
 
 export async function addVouch(subjectId: string, note: string) {
@@ -318,20 +327,38 @@ export async function blockPerson(formData: FormData) {
   if (!me) throw new Error("not logged in");
   const blockedId = String(formData.get("subjectId") || "");
   if (!blockedId || blockedId === me) throw new Error("invalid block");
-  await prisma.block.upsert({
-    where: { blockerId_blockedId: { blockerId: me, blockedId } },
-    create: { blockerId: me, blockedId },
-    update: {},
-  });
-  // Pull any live match between them out of circulation.
-  await prisma.match.updateMany({
-    where: {
-      OR: [
-        { personAId: me, personBId: blockedId },
-        { personAId: blockedId, personBId: me },
-      ],
-    },
-    data: { stage: "exit", exitReason: "blocked" },
+  await prisma.$transaction(async (tx) => {
+    await tx.block.upsert({
+      where: { blockerId_blockedId: { blockerId: me, blockedId } },
+      create: { blockerId: me, blockedId },
+      update: {},
+    });
+    const matches = await tx.match.findMany({
+      where: {
+        OR: [
+          { personAId: me, personBId: blockedId },
+          { personAId: blockedId, personBId: me },
+        ],
+      },
+      select: { id: true },
+    });
+    const matchIds = matches.map((match) => match.id);
+    await tx.match.updateMany({
+      where: { id: { in: matchIds } },
+      data: { stage: "exit", exitReason: "blocked" },
+    });
+    await tx.deliveryJob.updateMany({
+      where: {
+        matchId: { in: matchIds },
+        status: { in: ["pending", "processing", "failed"] },
+      },
+      data: {
+        status: "cancelled",
+        lockedAt: null,
+        leaseToken: null,
+        lastError: "Cancelled because a block now exists between the members.",
+      },
+    });
   });
   revalidatePath("/app");
   revalidatePath("/app/matches");
@@ -718,21 +745,16 @@ export async function setMyRsvp(formData: FormData) {
   if (!status) throw new Error("invalid RSVP");
   const att = await prisma.dinnerAttendee.findUnique({ where: { id: attendeeId } });
   if (!att || att.personId !== me) throw new Error("not your invitation");
-  await prisma.dinnerAttendee.update({ where: { id: attendeeId }, data: { status } });
+  await setDinnerAttendeeStatus(attendeeId, status);
   revalidatePath("/app/events");
 }
-
-const ATTENDEE_STATUS = ["invited", "confirmed", "declined", "attended", "noshow"];
 
 export async function setAttendeeStatus(formData: FormData) {
   const op = await requireOperator();
   if (!op) throw new Error("operators only");
   const id = String(formData.get("attendeeId") || "");
   const status = String(formData.get("status") || "");
-  const att = await prisma.dinnerAttendee.update({
-    where: { id },
-    data: { status: ATTENDEE_STATUS.includes(status) ? status : "invited" },
-  });
+  const att = await setDinnerAttendeeStatus(id, status);
   revalidatePath(`/studio/events/${att.dinnerId}`);
 }
 
@@ -740,10 +762,8 @@ export async function removeAttendee(formData: FormData) {
   const op = await requireOperator();
   if (!op) throw new Error("operators only");
   const id = String(formData.get("attendeeId") || "");
-  const att = await prisma.dinnerAttendee.findUnique({ where: { id } });
-  if (!att) return;
-  await prisma.dinnerAttendee.delete({ where: { id } });
-  revalidatePath(`/studio/events/${att.dinnerId}`);
+  const dinnerId = await removeDinnerAttendee(id);
+  if (dinnerId) revalidatePath(`/studio/events/${dinnerId}`);
 }
 
 const EVENT_STATUS = ["planned", "open", "full", "done"];
@@ -759,6 +779,15 @@ export async function setEventStatus(formData: FormData) {
   });
   revalidatePath("/studio/events");
   revalidatePath(`/studio/events/${id}`);
+}
+
+export async function retryDeliveryJob(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const id = String(formData.get("deliveryJobId") || "");
+  if (!id) throw new Error("missing delivery job");
+  await retryFailedDeliveryJob(id);
+  revalidatePath("/studio");
 }
 
 // Operator: log a note on a person or match.
@@ -952,69 +981,96 @@ export async function createIntroduction(formData: FormData) {
   });
   if (blocked) throw new Error("Cannot connect: a block exists between these two.");
 
-  const now = new Date();
+  const nonce = newDeliveryNonce();
   // Reuse the existing row when re-introducing a pair that previously closed or
   // connected: the (personAId, personBId) unique constraint means a blind create
   // would crash (P2002) or, in reverse order, create a duplicate the webhook
   // would then attach replies to nondeterministically. Reset it to a fresh invite.
-  if (existing) {
-    const aIsExistingA = existing.personAId === aId;
-    await prisma.match.update({
-      where: { id: existing.id },
-      data: {
-        createdById: op.id,
-        stage: "invited",
-        aDecision: "pending",
-        bDecision: "pending",
-        connectedAt: null,
-        exitReason: null,
-        lastActorId: null,
-        rationale: blurb,
-        // Keep about-bullets aligned with the existing row's A/B orientation.
-        aboutPersonA: aIsExistingA ? aboutA : aboutB,
-        aboutPersonB: aIsExistingA ? aboutB : aboutA,
-        notifiedAAt: now,
-        notifiedBAt: now,
-      },
-    });
-  } else {
-    await prisma.match.create({
-      data: {
-        personAId: aId,
-        personBId: bId,
-        createdById: op.id,
-        stage: "invited",
-        rationale: blurb,
-        aboutPersonA: aboutA,
-        aboutPersonB: aboutB,
-        notifiedAAt: now,
-        notifiedBAt: now,
-      },
-    });
-  }
+  const intro = await prisma.$transaction(async (tx) => {
+    let row: { id: string; personAId: string };
+    if (existing) {
+      const aIsExistingA = existing.personAId === aId;
+      await tx.deliveryJob.deleteMany({ where: { matchId: existing.id } });
+      row = await tx.match.update({
+        where: { id: existing.id },
+        data: {
+          createdById: op.id,
+          stage: "invited",
+          aDecision: "pending",
+          bDecision: "pending",
+          connectedAt: null,
+          conversationSid: null,
+          exitReason: null,
+          lastActorId: null,
+          rationale: blurb,
+          aboutPersonA: aIsExistingA ? aboutA : aboutB,
+          aboutPersonB: aIsExistingA ? aboutB : aboutA,
+          notifiedAAt: null,
+          notifiedBAt: null,
+        },
+        select: { id: true, personAId: true },
+      });
+    } else {
+      row = await tx.match.create({
+        data: {
+          personAId: aId,
+          personBId: bId,
+          createdById: op.id,
+          stage: "invited",
+          rationale: blurb,
+          aboutPersonA: aboutA,
+          aboutPersonB: aboutB,
+        },
+        select: { id: true, personAId: true },
+      });
+    }
 
-  // Each person sees the OTHER person's bullets + Instagram: A's invite describes
-  // B (aboutB, b.instagram). SMS only fires when a phone is on file.
-  const smsJobs: Promise<unknown>[] = [];
-  if (a.phone && a.smsConsentAt) smsJobs.push(sendSMS({ to: a.phone, body: introInviteSMS({ toName: a.name, otherName: b.name, about: aboutB, otherInstagram: b.instagram, blurb, operatorName: op.name }) }));
-  if (b.phone && b.smsConsentAt) smsJobs.push(sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, about: aboutA, otherInstagram: a.instagram, blurb, operatorName: op.name }) }));
-  await Promise.all(smsJobs);
-
-  // Seed the transcript with the two invites so the operator console shows the
-  // intro from its first message. Resolve the match id (created or reused above).
-  const intro = await prisma.match.findFirst({
-    where: { OR: [{ personAId: aId, personBId: bId }, { personAId: bId, personBId: aId }] },
-    select: { id: true },
+    if (a.phone && a.smsConsentAt) {
+      const side = row.personAId === a.id ? "a" : "b";
+      await queueSmsDelivery({
+        kind: `intro_invite_${side}_sms`,
+        to: a.phone,
+        body: introInviteSMS({
+          toName: a.name,
+          otherName: b.name,
+          about: aboutB,
+          otherInstagram: b.instagram,
+          blurb,
+          operatorName: op.name,
+        }),
+        idempotencyKey: makeDeliveryKey("intro-invite", row.id, a.id, nonce, "sms"),
+        matchId: row.id,
+        personId: a.id,
+        db: tx,
+      });
+    }
+    if (b.phone && b.smsConsentAt) {
+      const side = row.personAId === b.id ? "a" : "b";
+      await queueSmsDelivery({
+        kind: `intro_invite_${side}_sms`,
+        to: b.phone,
+        body: introInviteSMS({
+          toName: b.name,
+          otherName: a.name,
+          about: aboutA,
+          otherInstagram: a.instagram,
+          blurb,
+          operatorName: op.name,
+        }),
+        idempotencyKey: makeDeliveryKey("intro-invite", row.id, b.id, nonce, "sms"),
+        matchId: row.id,
+        personId: b.id,
+        db: tx,
+      });
+    }
+    await sendEmailInvites(row.id, { db: tx, throwOnError: true });
+    return row;
   });
-  if (intro) {
-    await Promise.all([
-      logIntroMessage({ matchId: intro.id, body: `Invited ${a.name.split(" ")[0]}: want an intro to ${b.name.split(" ")[0]}? (Y/N)`, author: "bot", kind: "invite" }),
-      logIntroMessage({ matchId: intro.id, body: `Invited ${b.name.split(" ")[0]}: want an intro to ${a.name.split(" ")[0]}? (Y/N)`, author: "bot", kind: "invite" }),
-    ]);
-    // Email double opt-in: link to the other's profile + Y/N reply. Best-effort.
-    await sendEmailInvites(intro.id).catch(() => {});
-  }
 
+  await Promise.all([
+    logIntroMessage({ matchId: intro.id, body: `Queued an invite for ${a.name.split(" ")[0]} to meet ${b.name.split(" ")[0]}.`, author: "bot", kind: "invite" }),
+    logIntroMessage({ matchId: intro.id, body: `Queued an invite for ${b.name.split(" ")[0]} to meet ${a.name.split(" ")[0]}.`, author: "bot", kind: "invite" }),
+  ]);
   revalidatePath("/studio/matchmaking");
   revalidatePath("/studio/conversations");
 }
@@ -1033,20 +1089,33 @@ export async function resendIntro(formData: FormData) {
   });
   if (!match) throw new Error("No such introduction.");
 
-  const now = new Date();
   const jobs: Promise<unknown>[] = [];
+  const window = deliveryWindow();
   // Reuse the about bullets stored when the intro was created: A sees B (aboutB,
   // personB.instagram).
   if (match.aDecision === "pending" && match.personA.phone && match.personA.smsConsentAt) {
-    jobs.push(sendSMS({ to: match.personA.phone, body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, otherInstagram: match.personB.instagram, blurb: match.rationale, operatorName: op.name }) }));
+    jobs.push(queueSmsDelivery({
+      kind: "intro_invite_a_sms",
+      to: match.personA.phone,
+      body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, otherInstagram: match.personB.instagram, blurb: match.rationale, operatorName: op.name }),
+      idempotencyKey: makeDeliveryKey("intro-resend", matchId, match.personAId, window, "sms"),
+      matchId,
+      personId: match.personAId,
+    }));
   }
   if (match.bDecision === "pending" && match.personB.phone && match.personB.smsConsentAt) {
-    jobs.push(sendSMS({ to: match.personB.phone, body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, otherInstagram: match.personA.instagram, blurb: match.rationale, operatorName: op.name }) }));
+    jobs.push(queueSmsDelivery({
+      kind: "intro_invite_b_sms",
+      to: match.personB.phone,
+      body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, otherInstagram: match.personA.instagram, blurb: match.rationale, operatorName: op.name }),
+      idempotencyKey: makeDeliveryKey("intro-resend", matchId, match.personBId, window, "sms"),
+      matchId,
+      personId: match.personBId,
+    }));
   }
   await Promise.all(jobs);
   // Re-send the email double opt-in to whoever is still pending (rotates token).
-  await sendEmailInvites(matchId).catch(() => {});
-  await prisma.match.update({ where: { id: matchId }, data: { notifiedAAt: now, notifiedBAt: now } });
+  await sendEmailInvites(matchId);
   revalidatePath("/studio/matchmaking");
   revalidatePath("/studio/conversations");
   revalidatePath(`/studio/conversations/${matchId}`);
@@ -1068,10 +1137,24 @@ export async function closeIntroduction(formData: FormData) {
   const op = await requireOperator();
   if (!op) throw new Error("operators only");
   const matchId = String(formData.get("matchId") || "");
-  await prisma.match.update({
-    where: { id: matchId },
-    data: { stage: "exit", exitReason: "operator_closed" },
-  });
+  await prisma.$transaction([
+    prisma.match.update({
+      where: { id: matchId },
+      data: { stage: "exit", exitReason: "operator_closed" },
+    }),
+    prisma.deliveryJob.updateMany({
+      where: {
+        matchId,
+        status: { in: ["pending", "processing", "failed"] },
+      },
+      data: {
+        status: "cancelled",
+        lockedAt: null,
+        leaseToken: null,
+        lastError: "Cancelled because the introduction was closed.",
+      },
+    }),
+  ]);
   revalidatePath("/studio/matchmaking");
   revalidatePath("/studio/conversations");
   revalidatePath(`/studio/conversations/${matchId}`);
@@ -1087,28 +1170,43 @@ export async function bulkResendStalled() {
   const stalled = await prisma.match.findMany({
     where: stalledWhere(),
     include: {
-      personA: { select: { name: true, phone: true, instagram: true } },
-      personB: { select: { name: true, phone: true, instagram: true } },
+      personA: { select: { id: true, name: true, phone: true, instagram: true, smsConsentAt: true } },
+      personB: { select: { id: true, name: true, phone: true, instagram: true, smsConsentAt: true } },
     },
     orderBy: { notifiedAAt: "asc" },
     take: 50,
   });
 
-  const now = new Date();
+  const window = deliveryWindow();
   let resent = 0;
   for (const match of stalled) {
     const jobs: Promise<unknown>[] = [];
-    if (match.aDecision === "pending" && match.personA.phone) {
-      jobs.push(sendSMS({ to: match.personA.phone, body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, otherInstagram: match.personB.instagram, blurb: match.rationale, operatorName: op.name }) }));
+    if (match.aDecision === "pending" && match.personA.phone && match.personA.smsConsentAt) {
+      jobs.push(queueSmsDelivery({
+        kind: "intro_invite_a_sms",
+        to: match.personA.phone,
+        body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, otherInstagram: match.personB.instagram, blurb: match.rationale, operatorName: op.name }),
+        idempotencyKey: makeDeliveryKey("intro-bulk-resend", match.id, match.personA.id, window, "sms"),
+        matchId: match.id,
+        personId: match.personA.id,
+      }));
     }
-    if (match.bDecision === "pending" && match.personB.phone) {
-      jobs.push(sendSMS({ to: match.personB.phone, body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, otherInstagram: match.personA.instagram, blurb: match.rationale, operatorName: op.name }) }));
+    if (match.bDecision === "pending" && match.personB.phone && match.personB.smsConsentAt) {
+      jobs.push(queueSmsDelivery({
+        kind: "intro_invite_b_sms",
+        to: match.personB.phone,
+        body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, otherInstagram: match.personA.instagram, blurb: match.rationale, operatorName: op.name }),
+        idempotencyKey: makeDeliveryKey("intro-bulk-resend", match.id, match.personB.id, window, "sms"),
+        matchId: match.id,
+        personId: match.personB.id,
+      }));
     }
-    if (jobs.length === 0) continue;
     await Promise.all(jobs);
-    await prisma.match.update({ where: { id: match.id }, data: { notifiedAAt: now, notifiedBAt: now } });
-    await logIntroMessage({ matchId: match.id, body: "Resent the intro invite (bulk nudge to whoever hadn't replied).", author: "operator", kind: "operator" });
-    resent += 1;
+    const emails = await sendEmailInvites(match.id);
+    if (jobs.length > 0 || emails > 0) {
+      await logIntroMessage({ matchId: match.id, body: "Queued another intro invitation for each person still waiting to decide.", author: "operator", kind: "operator" });
+      resent += 1;
+    }
   }
 
   revalidatePath("/studio/conversations");
@@ -1122,10 +1220,29 @@ export async function bulkCloseExpired() {
   const op = await requireOperator();
   if (!op) throw new Error("operators only");
 
-  const res = await prisma.match.updateMany({
+  const matches = await prisma.match.findMany({
     where: expiredWhere(),
-    data: { stage: "exit", exitReason: "expired" },
+    select: { id: true },
   });
+  const matchIds = matches.map((match) => match.id);
+  const [, res] = await prisma.$transaction([
+    prisma.deliveryJob.updateMany({
+      where: {
+        matchId: { in: matchIds },
+        status: { in: ["pending", "processing", "failed"] },
+      },
+      data: {
+        status: "cancelled",
+        lockedAt: null,
+        leaseToken: null,
+        lastError: "Cancelled because the introduction expired.",
+      },
+    }),
+    prisma.match.updateMany({
+      where: { id: { in: matchIds } },
+      data: { stage: "exit", exitReason: "expired" },
+    }),
+  ]);
 
   revalidatePath("/studio/conversations");
   revalidatePath("/studio/matchmaking");
@@ -1161,11 +1278,26 @@ export async function askForFeedback(formData: FormData) {
   if (!match) throw new Error("No such introduction.");
 
   const jobs: Promise<unknown>[] = [];
+  const window = deliveryWindow();
   if (match.personA.phone && match.personA.smsConsentAt) {
-    jobs.push(sendSMS({ to: match.personA.phone, body: feedbackRequestSMS({ toName: match.personA.name, otherName: match.personB.name, operatorName: op.name }) }));
+    jobs.push(queueSmsDelivery({
+      kind: "feedback_request",
+      to: match.personA.phone,
+      body: feedbackRequestSMS({ toName: match.personA.name, otherName: match.personB.name, operatorName: op.name }),
+      idempotencyKey: makeDeliveryKey("feedback", matchId, match.personAId, window),
+      matchId,
+      personId: match.personAId,
+    }));
   }
   if (match.personB.phone && match.personB.smsConsentAt) {
-    jobs.push(sendSMS({ to: match.personB.phone, body: feedbackRequestSMS({ toName: match.personB.name, otherName: match.personA.name, operatorName: op.name }) }));
+    jobs.push(queueSmsDelivery({
+      kind: "feedback_request",
+      to: match.personB.phone,
+      body: feedbackRequestSMS({ toName: match.personB.name, otherName: match.personA.name, operatorName: op.name }),
+      idempotencyKey: makeDeliveryKey("feedback", matchId, match.personBId, window),
+      matchId,
+      personId: match.personBId,
+    }));
   }
   await Promise.all(jobs);
   await prisma.match.update({
@@ -1208,16 +1340,42 @@ export async function messageGroup(formData: FormData) {
   });
   if (!match) throw new Error("No such introduction.");
 
-  let delivered = false;
+  const nonce = newDeliveryNonce();
+  let queued = false;
   if (match.conversationSid && match.personA.smsConsentAt && match.personB.smsConsentAt) {
-    const res = await sendConversationMessage({ conversationSid: match.conversationSid, body: message });
-    delivered = res.ok;
+    await queueConversationDelivery({
+      kind: "operator_group_message",
+      conversationSid: match.conversationSid,
+      body: message,
+      idempotencyKey: makeDeliveryKey("operator-group", matchId, nonce),
+      matchId,
+    });
+    queued = true;
   }
-  if (!delivered) {
+  if (!queued) {
     // No live group thread (or send failed): text each side directly.
     const jobs: Promise<unknown>[] = [];
-    if (match.personA.phone && match.personA.smsConsentAt) jobs.push(sendSMS({ to: match.personA.phone, body: message }));
-    if (match.personB.phone && match.personB.smsConsentAt) jobs.push(sendSMS({ to: match.personB.phone, body: message }));
+    if (match.personA.phone && match.personA.smsConsentAt) {
+      jobs.push(queueSmsDelivery({
+        kind: "operator_group_message",
+        to: match.personA.phone,
+        body: message,
+        idempotencyKey: makeDeliveryKey("operator-group", matchId, match.personAId, nonce),
+        matchId,
+        personId: match.personAId,
+      }));
+    }
+    if (match.personB.phone && match.personB.smsConsentAt) {
+      jobs.push(queueSmsDelivery({
+        kind: "operator_group_message",
+        to: match.personB.phone,
+        body: message,
+        idempotencyKey: makeDeliveryKey("operator-group", matchId, match.personBId, nonce),
+        matchId,
+        personId: match.personBId,
+      }));
+    }
+    if (jobs.length === 0) throw new Error("Neither person has an authorized text channel.");
     await Promise.all(jobs);
   }
 
@@ -1243,9 +1401,14 @@ export async function messagePerson(formData: FormData) {
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { phone: true, smsConsentAt: true } });
   if (!person?.phone) throw new Error("That person has no phone number on file.");
   if (!person.smsConsentAt) throw new Error("That person has not consented to text messages.");
-  const result = await sendSMS({ to: person.phone, body: message });
-  if (!result.ok) throw new Error("The text could not be delivered.");
+  await queueSmsDelivery({
+    kind: "operator_direct_message",
+    to: person.phone,
+    body: message,
+    idempotencyKey: makeDeliveryKey("operator-direct", op.id, personId, newDeliveryNonce()),
+    personId,
+  });
   // Log it so the thread is auditable from the person's record.
-  await prisma.note.create({ data: { subjectId: personId, authorId: op.id, body: `[SMS sent] ${message}`, kind: "general" } });
+  await prisma.note.create({ data: { subjectId: personId, authorId: op.id, body: `[SMS queued] ${message}`, kind: "general" } });
   revalidatePath("/studio/matchmaking");
 }

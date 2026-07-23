@@ -8,8 +8,13 @@
     "start": "next start -p 3009",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "test:race": "node --env-file=.env --import tsx scripts/test-introduction-race.ts",
-    "db:deploy": "prisma db push",
+    "test:launch:pure": "node --env-file-if-exists=.env --import tsx scripts/test-launch-pure.ts",
+    "test:launch:capacity": "node --env-file-if-exists=.env --import tsx scripts/test-dinner-capacity.ts",
+    "test:launch:delivery": "node --env-file-if-exists=.env --import tsx scripts/test-delivery-outbox.ts",
+    "test:launch:storage": "node --env-file-if-exists=.env --import tsx scripts/test-photo-storage.ts",
+    "test:launch": "npm run test:launch:pure && npm run test:launch:capacity && npm run test:launch:delivery && npm run test:launch:storage",
+    "test:race": "node --env-file-if-exists=.env --import tsx scripts/test-introduction-race.ts",
+    "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "ops": "tsx scripts/operators.ts",
     "test:fixture": "tsx scripts/test-fixture.ts",
@@ -17,10 +22,7 @@
     "watchdog": "tsx scripts/watchdog.ts",
     "db:seed": "tsx scripts/seed.ts",
     "embed": "tsx scripts/embed.ts",
-    "concierge:tick": "tsx scripts/concierge-tick.ts",
-    "demo:bot": "tsx scripts/demo-bot.ts",
-    "demo:setup": "tsx scripts/demo-setup.ts",
-    "demo:video": "tsx scripts/make-demo-video.ts"
+    "demo:setup": "tsx scripts/demo-setup.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

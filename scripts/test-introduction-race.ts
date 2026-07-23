@@ -1,8 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { strict as assert } from "node:assert";
-import { prisma } from "../src/lib/prisma";
+import type { PrismaClient } from "@prisma/client";
 
-async function createPerson(suffix: string, label: string) {
+async function createPerson(prisma: PrismaClient, suffix: string, label: string) {
   return prisma.person.create({
     data: {
       name: `Race QA ${label}`,
@@ -14,6 +14,8 @@ async function createPerson(suffix: string, label: string) {
 }
 
 async function main() {
+  if (process.env.DIRECT_URL) process.env.DATABASE_URL = process.env.DIRECT_URL;
+  const { prisma } = await import("../src/lib/prisma");
   // Keep this verification isolated from real delivery providers. The test
   // creates only temporary example.test rows and removes them in finally.
   process.env.RESEND_API_KEY = "";
@@ -21,14 +23,17 @@ async function main() {
   process.env.TWILIO_AUTH_TOKEN = "";
   process.env.TWILIO_FROM = "";
 
-  const { recordInviteDecision } = await import("../src/lib/introductions");
+  const [{ recordInviteDecision }, { drainDeliveryJobs }] = await Promise.all([
+    import("../src/lib/introductions"),
+    import("../src/lib/delivery"),
+  ]);
   const suffix = `${Date.now()}-${randomBytes(4).toString("hex")}`;
   const personIds: string[] = [];
   const matchIds: string[] = [];
 
   try {
-    const passA = await createPerson(suffix, "pass-a");
-    const passB = await createPerson(suffix, "pass-b");
+    const passA = await createPerson(prisma, suffix, "pass-a");
+    const passB = await createPerson(prisma, suffix, "pass-b");
     personIds.push(passA.id, passB.id);
 
     const passMatch = await prisma.match.create({
@@ -52,14 +57,21 @@ async function main() {
     ]);
     const passState = await prisma.match.findUniqueOrThrow({ where: { id: passMatch.id } });
     assert.equal(passOutcomes.filter((outcome) => outcome.ok).length, 1);
-    assert.ok(
-      (passState.stage === "connected" && passState.aDecision === "yes") ||
-        (passState.stage === "exit" && passState.aDecision === "pass"),
-      "Concurrent yes and pass must leave one internally consistent outcome",
-    );
+    if (passState.stage === "connecting") {
+      await drainDeliveryJobs({
+        matchId: passMatch.id,
+        send: async () => ({ ok: true, providerMessageId: "race-test" }),
+      });
+      const finalPassState = await prisma.match.findUniqueOrThrow({ where: { id: passMatch.id } });
+      assert.equal(finalPassState.stage, "connected");
+      assert.equal(finalPassState.aDecision, "yes");
+    } else {
+      assert.equal(passState.stage, "exit");
+      assert.equal(passState.aDecision, "pass");
+    }
 
-    const mutualA = await createPerson(suffix, "mutual-a");
-    const mutualB = await createPerson(suffix, "mutual-b");
+    const mutualA = await createPerson(prisma, suffix, "mutual-a");
+    const mutualB = await createPerson(prisma, suffix, "mutual-b");
     personIds.push(mutualA.id, mutualB.id);
 
     const mutualMatch = await prisma.match.create({
@@ -85,6 +97,10 @@ async function main() {
       recordInviteDecision(tokenA, "yes"),
       recordInviteDecision(tokenB, "yes"),
     ]);
+    await drainDeliveryJobs({
+      matchId: mutualMatch.id,
+      send: async () => ({ ok: true, providerMessageId: "race-test" }),
+    });
     const mutualState = await prisma.match.findUniqueOrThrow({ where: { id: mutualMatch.id } });
     const handoffCount = await prisma.introMessage.count({
       where: { matchId: mutualMatch.id, kind: { in: ["group_open", "system"] } },
@@ -102,6 +118,7 @@ async function main() {
     if (personIds.length) {
       await prisma.person.deleteMany({ where: { id: { in: personIds } } });
     }
+    await prisma.$disconnect();
   }
 }
 
@@ -109,5 +126,4 @@ main()
   .catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+  });

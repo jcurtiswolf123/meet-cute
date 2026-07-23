@@ -39,7 +39,6 @@ const DO_STARTERS = [
   "Match Maya and Alex",
   "Invite Maya and Alex to the next NYC dinner",
   "Create a NYC dinner at Via Carota on 2026-07-12 7pm",
-  "Book the date for Maya",
   "Approve Maya's photos",
 ];
 
@@ -106,7 +105,7 @@ export default function CopilotChat() {
       </div>
       <p className="mt-1 text-sm text-muted">
         Your command line for the platform. Ask about the roster, or tell it to match people, invite
-        members to events, book dates, and more. Typed commands run for real.
+        members to events, create dinners, log notes, and more. Typed commands run for real.
       </p>
 
       <div className="mt-4 flex-1 space-y-3 overflow-y-auto rounded-xl2 border border-line bg-panel p-4">

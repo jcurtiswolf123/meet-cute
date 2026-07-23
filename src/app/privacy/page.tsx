@@ -43,7 +43,7 @@ export default function Privacy() {
               "Dating preferences: the attributes, interests, and dealbreakers you tell us about, which our matchmakers and systems use to suggest introductions.",
               "Vouches from friends: when someone you know vouches for you, we collect what they submit about you, and we collect the references you provide for others. Tell the people you list that you are sharing them with us.",
               "Usage data: how you interact with the service, including pages viewed, introductions you accept or pass on, messages and scheduling activity, device and browser type, and approximate location derived from your IP address.",
-              "Communications: messages you send to our team, your matchmaker, or support, and records of bookings the concierge arranges for you.",
+              "Communications: messages you send to our team, your matchmaker, or support, including scheduling details you choose to discuss with us.",
             ]}
           />
           <p>
@@ -57,7 +57,7 @@ export default function Privacy() {
           <List
             items={[
               "Matchmaking: to build your profile, suggest introductions, and let our human matchmakers curate matches for you. This is the core of the service.",
-              "Concierge booking: to arrange dates, reservations, and logistics on your behalf when you ask us to.",
+              "Matchmaking support: to coordinate introductions and provide human help with date logistics when you ask us to.",
               "Safety and trust: to verify accounts, review vouches, screen for fake or abusive profiles, investigate reports, and keep members safe.",
               "Service operation: to run, maintain, secure, and improve the product, and to provide customer support.",
               "Communications: to send you introductions, scheduling details, account notices, and, where permitted, occasional updates about the service. You can opt out of non-essential messages.",
@@ -74,7 +74,7 @@ export default function Privacy() {
           </p>
           <List
             items={[
-              "Contract: to provide the matchmaking and concierge service you signed up for.",
+              "Contract: to provide the matchmaking service and related support you signed up for.",
               "Consent: for optional features and any sensitive data you choose to share, such as certain profile details and photos. You can withdraw consent at any time.",
               "Legitimate interests: to keep the service safe, prevent fraud and abuse, and improve the product, balanced against your rights.",
               "Legal obligation: to meet our legal and regulatory duties.",
@@ -211,8 +211,8 @@ export default function Privacy() {
         <Section title="15. Contact us">
           <p>
             Questions about your privacy or this policy? Email us at{" "}
-            <a href="mailto:privacy@meetcute.com" className="text-claret underline">
-              privacy@meetcute.com
+            <a href="mailto:josh@shiftsupportnetwork.com" className="text-claret underline">
+              josh@shiftsupportnetwork.com
             </a>
             . We read every message.
           </p>

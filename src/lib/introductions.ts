@@ -2,16 +2,20 @@
 //
 // Mental model: the matchmaker picks two people and sends each a "want an intro?"
 // text. Each replies Y/N. When BOTH say yes, we connect them (text each the
-// other's number) and the match moves to "connected". One "no" closes it.
+// other's currently authorized email when available) and the match moves to
+// "connected". One "no" closes it.
 //
 // A Match in this flow moves: invited -> mutual_yes -> connected, or -> exit.
 import { randomBytes } from "crypto";
 import * as Sentry from "@sentry/nextjs";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-import { sendSMS, connectedSMS, createGroupConversation } from "./sms";
-import { composeGroupIntro } from "./intro-bot";
-import { sendEmail, matchInviteEmail, matchThreadEmail } from "./email";
+import { matchInviteEmail } from "./email";
+import {
+  makeDeliveryKey,
+  queueConnectionDeliveries,
+  queueEmailDelivery,
+} from "./delivery";
 
 // --- Email double opt-in -----------------------------------------------------
 
@@ -50,71 +54,103 @@ function newInviteToken(): string {
   return randomBytes(24).toString("base64url");
 }
 
-/** Mint (or refresh) a MatchInvite for each side of a match and email each person
- *  the first opt-in message: a link to the other's profile plus a Y/N ask. Reuses
- *  the per-(match,person) row on a re-invite, rotating the token. Best-effort per
- *  recipient: one send failing never blocks the other or throws. Returns how many
- *  invite emails were dispatched. */
-export async function sendEmailInvites(matchId: string): Promise<number> {
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    include: {
-      personA: { select: { id: true, name: true, email: true, headline: true, city: true } },
-      personB: { select: { id: true, name: true, email: true, headline: true, city: true } },
-    },
-  });
-  if (!match) return 0;
-  const city = match.personA.city || match.personB.city || null;
-
-  // recipient = the person deciding; other = the profile they see. Skip a side
-  // that has already decided so a re-invite only re-emails whoever is still
-  // pending (safe to call on both a fresh match and an operator resend).
-  const sides = [
-    { me: match.personA, other: match.personB, pending: match.aDecision === "pending" },
-    { me: match.personB, other: match.personA, pending: match.bDecision === "pending" },
-  ];
-
-  let sent = 0;
-  for (const { me, other, pending } of sides) {
-    if (!pending) continue; // already said yes/pass; don't re-ask
-    if (!me.email) continue; // no baseline channel for this person
-    const token = newInviteToken();
-    try {
-      await prisma.matchInvite.upsert({
-        where: { matchId_personId: { matchId, personId: me.id } },
-        create: { matchId, personId: me.id, token, channel: "email", sentAt: new Date() },
-        update: { token, channel: "email", sentAt: new Date(), decidedAt: null },
-      });
-    } catch (e) {
-      console.error(`[intro] could not mint invite for ${me.id} on match ${matchId}: ${(e as Error).message}`);
-      Sentry.captureException(e);
-      continue;
-    }
-    const m = matchInviteEmail({
-      toName: me.name,
-      otherName: other.name,
-      otherHeadline: other.headline,
-      city,
-      profileUrl: inviteProfileUrl(token),
+/** Mint or refresh each side's MatchInvite and atomically queue the email.
+ *  A provider failure is retried by the delivery worker, and sentAt is only
+ *  written after the provider accepts the message. */
+export async function sendEmailInvites(
+  matchId: string,
+  options: { db?: Prisma.TransactionClient; throwOnError?: boolean } = {},
+): Promise<number> {
+  const queueWith = async (db: Prisma.TransactionClient): Promise<number> => {
+    const match = await db.match.findUnique({
+      where: { id: matchId },
+      include: {
+        personA: { select: { id: true, name: true, email: true, headline: true, city: true } },
+        personB: { select: { id: true, name: true, email: true, headline: true, city: true } },
+      },
     });
-    const replyTo = inviteReplyAddress(token) ?? undefined;
-    const res = await sendEmail({ to: me.email, subject: m.subject, html: m.html, text: m.text, replyTo });
-    if (res.ok) sent += 1;
-  }
-  return sent;
-}
+    if (!match) return 0;
+    const city = match.personA.city || match.personB.city || null;
+    const sides = [
+      { me: match.personA, other: match.personB, pending: match.aDecision === "pending" },
+      { me: match.personB, other: match.personA, pending: match.bDecision === "pending" },
+    ];
 
-/** Email BOTH matched people the moment they connect, as a SINGLE message with
- *  both on the To line, so they land on one shared thread and can reply-all
- *  directly. Best-effort: a mail failure never breaks the connect. */
-async function emailConnection(
-  a: { name: string; email: string | null; city: string | null },
-  b: { name: string; email: string | null; city: string | null },
-): Promise<void> {
-  const to = [a.email, b.email].filter((e): e is string => !!e);
-  if (to.length < 2) return; // need both inboxes to open a shared thread
-  const m = matchThreadEmail({ aName: a.name, bName: b.name, city: a.city || b.city || null });
-  await sendEmail({ to, subject: m.subject, html: m.html, text: m.text });
+    let queued = 0;
+    for (const [index, { me, other, pending }] of sides.entries()) {
+      if (!pending || !me.email) continue;
+      const token = newInviteToken();
+      const rotatedAt = new Date();
+      const existing = await db.matchInvite.findUnique({
+        where: { matchId_personId: { matchId, personId: me.id } },
+        select: { id: true },
+      });
+      if (existing) {
+        await db.deliveryJob.updateMany({
+          where: { inviteId: existing.id, status: { in: ["pending", "failed"] } },
+          data: {
+            status: "cancelled",
+            lastError: "Superseded by a newer invitation.",
+            lockedAt: null,
+            leaseToken: null,
+          },
+        });
+      }
+      const invite = await db.matchInvite.upsert({
+        where: { matchId_personId: { matchId, personId: me.id } },
+        create: {
+          matchId,
+          personId: me.id,
+          token,
+          channel: "email",
+          sentAt: null,
+          createdAt: rotatedAt,
+        },
+        update: {
+          token,
+          channel: "email",
+          sentAt: null,
+          decidedAt: null,
+          createdAt: rotatedAt,
+        },
+      });
+      const message = matchInviteEmail({
+        toName: me.name,
+        otherName: other.name,
+        otherHeadline: other.headline,
+        city,
+        profileUrl: inviteProfileUrl(token),
+      });
+      await queueEmailDelivery({
+        kind: `intro_invite_${index === 0 ? "a" : "b"}_email`,
+        to: me.email,
+        subject: message.subject,
+        html: message.html,
+        text: message.text,
+        replyTo: inviteReplyAddress(token) ?? undefined,
+        idempotencyKey: makeDeliveryKey("intro-invite", matchId, me.id, token, "email"),
+        matchId,
+        personId: me.id,
+        inviteId: invite.id,
+        inviteToken: token,
+        db,
+      });
+      queued += 1;
+    }
+    return queued;
+  };
+
+  try {
+    if (options.db) return await queueWith(options.db);
+    return await prisma.$transaction((tx) => queueWith(tx));
+  } catch (error) {
+    console.error(
+      `[intro] could not queue email invites for match ${matchId}: ${(error as Error).message}`,
+    );
+    Sentry.captureException(error);
+    if (options.throwOnError) throw error;
+    return 0;
+  }
 }
 
 /** Append a line to a match's introduction transcript (operator-console view).
@@ -216,13 +252,34 @@ async function applyIntroDecision(
   // Claim this side's pending decision in one database statement. Exactly one
   // concurrent request can win, and no yes path can proceed after a pass closes
   // the introduction.
-  const claimed = await prisma.match.updateMany({
-    where: {
-      id: match.id,
-      stage: { in: ["invited", "mutual_yes"] },
-      ...pendingSide,
-    },
-    data: decisionData,
+  const claimed = await prisma.$transaction(async (tx) => {
+    const result = await tx.match.updateMany({
+      where: {
+        id: match.id,
+        stage: { in: ["invited", "mutual_yes"] },
+        ...pendingSide,
+      },
+      data: decisionData,
+    });
+    if (result.count !== 1) return result;
+    await tx.deliveryJob.updateMany({
+      where: {
+        matchId: match.id,
+        kind: { startsWith: "intro_invite_" },
+        ...(decision === "pass" ? {} : { personId }),
+        status: { in: ["pending", "processing", "failed"] },
+      },
+      data: {
+        status: "cancelled",
+        lockedAt: null,
+        leaseToken: null,
+        lastError:
+          decision === "pass"
+            ? "Cancelled because the introduction was declined."
+            : "Cancelled because this recipient already decided.",
+      },
+    });
+    return result;
   });
   if (claimed.count !== 1) return { ok: false, reason: "no_match" };
 
@@ -295,7 +352,7 @@ export async function recordIntroDecision(personId: string, decision: IntroDecis
  *  than re-transitioning. */
 export async function recordInviteDecision(token: string, decision: IntroDecision): Promise<DecisionOutcome> {
   const invite = await prisma.matchInvite.findUnique({ where: { token } });
-  if (!invite) return { ok: false, reason: "no_match" };
+  if (!invite || inviteIsExpired(invite.createdAt)) return { ok: false, reason: "no_match" };
 
   const match = await prisma.match.findUnique({
     where: { id: invite.matchId },
@@ -320,19 +377,11 @@ export async function recordInviteDecision(token: string, decision: IntroDecisio
   return outcome;
 }
 
-/** Both said yes: connect them and mark connected. Idempotent: re-running
- *  won't double-send once connectedAt is set.
- *
- *  Preferred path: open a real 3-way group MMS thread (operator + both
- *  applicants) masked behind our single Twilio number, so they can talk in one
- *  place with the matchmaker present. If the operator has no cell on file, or
- *  the group-MMS call fails for any reason (e.g. Group MMS not enabled on the
- *  account, a non-+1 number, a carrier rejection), we fall back to brokering
- *  each side the other's number. Either way the match is marked connected and
- *  this function never throws. */
+/** Both said yes: claim the transition and queue each authorized handoff.
+ *  The worker marks the match connected after each person receives one
+ *  authorized channel. Re-running repairs an interrupted connecting match
+ *  without creating duplicate jobs. */
 export async function connectMatch(matchId: string): Promise<boolean> {
-  // Claim the mutual transition before any external side effect. This prevents
-  // concurrent yes replies from creating duplicate group threads or messages.
   const claimed = await prisma.match.updateMany({
     where: {
       id: matchId,
@@ -348,104 +397,18 @@ export async function connectMatch(matchId: string): Promise<boolean> {
       where: { id: matchId },
       select: { stage: true, connectedAt: true },
     });
-    return !!state && (state.stage === "connecting" || !!state.connectedAt);
+    if (!state) return false;
+    if (state.connectedAt) return true;
+    if (state.stage !== "connecting") return false;
   }
 
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    include: {
-      personA: { select: { name: true, phone: true, email: true, city: true, smsConsentAt: true } },
-      personB: { select: { name: true, phone: true, email: true, city: true, smsConsentAt: true } },
-    },
-  });
-  if (!match) return false;
-
-  const a = match.personA;
-  const b = match.personB;
-
-  // The operator who created the intro joins the group from their own cell.
-  let operatorPhone: string | null = null;
-  let operatorName = "your matchmaker";
-  if (match.createdById) {
-    const op = await prisma.person.findUnique({
-      where: { id: match.createdById },
-      select: { name: true, phone: true },
-    });
-    operatorPhone = op?.phone ?? null;
-    if (op?.name) operatorName = op.name;
-  }
-
-  // The bot's group opener: introduces both, shares a line about each, and
-  // suggests a concrete first step. Composed once and reused for the group
-  // message (and logged to the transcript) so what the operator sees matches
-  // what went out.
-  const opener = await composeGroupIntro({
-    operatorName,
-    aName: a.name,
-    bName: b.name,
-    aboutA: match.aboutPersonA,
-    aboutB: match.aboutPersonB,
-    city: a.city || b.city,
-  });
-
-  let grouped = false;
-  let conversationSid: string | null = null;
-  if (operatorPhone && a.phone && b.phone && a.smsConsentAt && b.smsConsentAt) {
-    try {
-      const res = await createGroupConversation({
-        participants: [operatorPhone, a.phone, b.phone],
-        operatorAddress: process.env.TWILIO_FROM ?? null,
-        body: opener,
-        friendlyName: `mc-intro-${matchId}`,
-      });
-      grouped = res.ok;
-      if (res.ok) {
-        conversationSid = res.conversationSid;
-      } else {
-        console.error(`[intro] group MMS failed for match ${matchId} (${res.reason}); falling back to broker`);
-        Sentry.captureMessage(`group MMS failed for match ${matchId}: ${res.reason}`, "warning");
-      }
-    } catch (e) {
-      console.error(`[intro] group MMS threw for match ${matchId}: ${(e as Error).message}; falling back to broker`);
-      Sentry.captureException(e);
-    }
-  }
-
-  // Fallback (operator has no cell, or the group thread couldn't be created):
-  // text each person the other's number, the original broker behavior.
-  if (!grouped) {
-    if (a.phone && a.smsConsentAt) {
-      await sendSMS({ to: a.phone, body: connectedSMS({ toName: a.name, otherName: b.name, otherPhone: b.phone || "(no number on file)" }) });
-    }
-    if (b.phone && b.smsConsentAt) {
-      await sendSMS({ to: b.phone, body: connectedSMS({ toName: b.name, otherName: a.name, otherPhone: a.phone || "(no number on file)" }) });
-    }
-  }
-
-  const connected = await prisma.match.updateMany({
-    where: { id: matchId, stage: "connecting", aDecision: "yes", bDecision: "yes" },
-    data: { stage: "connected", connectedAt: new Date(), conversationSid },
-  });
-  if (connected.count !== 1) return false;
-
-  // Open the shared email thread: one message to both, so they land in the same
-  // conversation and reply-all directly (baseline channel, independent of SMS).
-  // Best-effort and idempotent: connectedAt above guards re-runs from re-sending.
   try {
-    await emailConnection(a, b);
-  } catch (e) {
-    console.error(`[intro] connection email failed for match ${matchId}: ${(e as Error).message}`);
-    Sentry.captureException(e);
+    return (await queueConnectionDeliveries(matchId)) > 0;
+  } catch (error) {
+    console.error(
+      `[intro] could not queue connection delivery for match ${matchId}: ${(error as Error).message}`,
+    );
+    Sentry.captureException(error);
+    return false;
   }
-
-  // Record the bot's opener on the transcript so the operator console shows it
-  // (group_open when a real group thread opened, otherwise the brokered handoff).
-  await logIntroMessage({
-    matchId,
-    body: grouped ? opener : `Connected ${a.name.split(" ")[0]} and ${b.name.split(" ")[0]} by sharing numbers (no group thread).`,
-    direction: "out",
-    author: "bot",
-    kind: grouped ? "group_open" : "system",
-  });
-  return true;
 }

@@ -27,7 +27,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ file: s
     return new NextResponse("Not found", { status: 404 });
   }
 
-  const photo = await prisma.photo.findUnique({ where: { id } });
+  const photo = await prisma.photo.findUnique({
+    where: { id },
+    include: { asset: { select: { bytes: true } } },
+  });
   if (!photo) return new NextResponse("Not found", { status: 404 });
 
   const isOwner = photo.personId === me.id;
@@ -40,7 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ file: s
 
   let bytes: Buffer;
   try {
-    bytes = await readUpload(id, ext, photo.storageUrl);
+    bytes = await readUpload(id, ext, photo.storageUrl, photo.asset?.bytes);
   } catch {
     return new NextResponse("Not found", { status: 404 });
   }

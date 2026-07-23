@@ -2,7 +2,8 @@
 // actions and the co-pilot command layer so the behavior is identical whether
 // an operator clicks a button or types "invite Maya and Alex to the next dinner".
 import { prisma } from "./prisma";
-import { sendEmail, eventInviteEmail } from "./email";
+import { eventInviteEmail } from "./email";
+import { makeDeliveryKey, queueEmailDelivery } from "./delivery";
 
 export type NewEvent = {
   city: string; // "NYC" | "SF"
@@ -35,6 +36,107 @@ export async function createEventRecord(e: NewEvent) {
       notes: e.notes?.slice(0, 2000) || null,
       status: "open",
     },
+  });
+}
+
+const ATTENDEE_STATUSES = new Set(["invited", "confirmed", "declined", "attended", "noshow"]);
+const CAPACITY_STATUSES = ["confirmed", "attended"];
+
+/** Change one RSVP while holding a database lock on the dinner row.
+ *  Concurrent confirmations serialize at this point, so capacity cannot be
+ *  exceeded even when two people take the last seat at the same time. */
+export async function setDinnerAttendeeStatus(attendeeId: string, requestedStatus: string) {
+  const status = ATTENDEE_STATUSES.has(requestedStatus) ? requestedStatus : "invited";
+  const target = await prisma.dinnerAttendee.findUnique({
+    where: { id: attendeeId },
+    select: { dinnerId: true },
+  });
+  if (!target) throw new Error("Invitation not found.");
+
+  return prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${target.dinnerId}, 0))::text`;
+      const attendee = await tx.dinnerAttendee.findUnique({
+        where: { id: attendeeId },
+        select: { id: true, dinnerId: true, status: true },
+      });
+      if (!attendee) throw new Error("Invitation not found.");
+
+      const dinner = await tx.dinner.findUnique({
+        where: { id: attendee.dinnerId },
+        select: { capacity: true, status: true },
+      });
+      if (!dinner) throw new Error("Event not found.");
+
+      const confirmed = await tx.dinnerAttendee.count({
+        where: {
+          dinnerId: attendee.dinnerId,
+          status: { in: CAPACITY_STATUSES },
+        },
+      });
+      const wasCounted = CAPACITY_STATUSES.includes(attendee.status);
+      const willCount = CAPACITY_STATUSES.includes(status);
+      if (willCount && !wasCounted && confirmed >= dinner.capacity) {
+        throw new Error("This event is full.");
+      }
+
+      const updated = await tx.dinnerAttendee.update({
+        where: { id: attendee.id },
+        data: { status },
+      });
+      const nextConfirmed = confirmed + (willCount ? 1 : 0) - (wasCounted ? 1 : 0);
+      const nextDinnerStatus =
+        dinner.status === "done"
+          ? "done"
+          : nextConfirmed >= dinner.capacity
+            ? "full"
+            : dinner.status === "full"
+              ? "open"
+              : dinner.status;
+      if (nextDinnerStatus !== dinner.status) {
+        await tx.dinner.update({
+          where: { id: attendee.dinnerId },
+          data: { status: nextDinnerStatus },
+        });
+      }
+      return updated;
+  });
+}
+
+/** Remove one attendee under the same dinner lock used by RSVP changes.
+ *  Recounts capacity so a previously full dinner reopens immediately. */
+export async function removeDinnerAttendee(attendeeId: string): Promise<string | null> {
+  const target = await prisma.dinnerAttendee.findUnique({
+    where: { id: attendeeId },
+    select: { dinnerId: true },
+  });
+  if (!target) return null;
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${target.dinnerId}, 0))::text`;
+    const attendee = await tx.dinnerAttendee.findUnique({
+      where: { id: attendeeId },
+      select: { dinnerId: true },
+    });
+    if (!attendee) return null;
+    await tx.dinnerAttendee.delete({ where: { id: attendeeId } });
+    const dinner = await tx.dinner.findUnique({
+      where: { id: attendee.dinnerId },
+      select: { capacity: true, status: true },
+    });
+    if (dinner && dinner.status !== "done") {
+      const confirmed = await tx.dinnerAttendee.count({
+        where: { dinnerId: attendee.dinnerId, status: { in: CAPACITY_STATUSES } },
+      });
+      const nextStatus =
+        confirmed >= dinner.capacity ? "full" : dinner.status === "full" ? "open" : dinner.status;
+      if (nextStatus !== dinner.status) {
+        await tx.dinner.update({
+          where: { id: attendee.dinnerId },
+          data: { status: nextStatus },
+        });
+      }
+    }
+    return attendee.dinnerId;
   });
 }
 
@@ -83,8 +185,16 @@ export async function inviteToEvent(
           name: p.name, theme: dinner.theme || "Meet Cute Dinner", city: dinner.city,
           venue: dinner.venue, when, link,
         });
-        const r = await sendEmail({ to: p.email, subject, html, text });
-        if (r.ok) emailed += 1;
+        await queueEmailDelivery({
+          kind: "event_invite",
+          to: p.email,
+          subject,
+          html,
+          text,
+          idempotencyKey: makeDeliveryKey("event-invite", dinnerId, p.id),
+          personId: p.id,
+        });
+        emailed += 1;
       } catch {
         /* best-effort */
       }

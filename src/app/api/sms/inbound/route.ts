@@ -210,14 +210,44 @@ async function applyOptOut(from: string): Promise<void> {
     where: { id: { in: ids } },
     data: { smsConsentAt: null },
   });
+  await prisma.deliveryJob.updateMany({
+    where: {
+      personId: { in: ids },
+      channel: "sms",
+      status: { in: ["pending", "processing", "failed"] },
+    },
+    data: {
+      status: "cancelled",
+      lockedAt: null,
+      leaseToken: null,
+      lastError: "Cancelled because the recipient opted out of text messages.",
+    },
+  });
 
   // Close any open intros awaiting these people so we stop chasing a reply.
-  await prisma.match.updateMany({
+  const openMatches = await prisma.match.findMany({
     where: {
       stage: { in: ["invited", "mutual_yes"] },
       OR: [{ personAId: { in: ids } }, { personBId: { in: ids } }],
     },
+    select: { id: true },
+  });
+  const matchIds = openMatches.map((match) => match.id);
+  await prisma.match.updateMany({
+    where: { id: { in: matchIds } },
     data: { stage: "exit", exitReason: "opted_out_sms" },
+  });
+  await prisma.deliveryJob.updateMany({
+    where: {
+      matchId: { in: matchIds },
+      status: { in: ["pending", "processing", "failed"] },
+    },
+    data: {
+      status: "cancelled",
+      lockedAt: null,
+      leaseToken: null,
+      lastError: "Cancelled because a participant opted out of text messages.",
+    },
   });
 
   // Leave an operator-visible record of the opt-out.

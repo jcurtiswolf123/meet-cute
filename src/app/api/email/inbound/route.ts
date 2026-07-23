@@ -93,6 +93,7 @@ async function fetchReceivedText(emailId: string): Promise<string> {
   if (!key || !emailId) throw new Error("received email fetch is not configured");
   try {
     const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+      signal: AbortSignal.timeout(12_000),
       headers: {
         Authorization: `Bearer ${key}`,
         Accept: "application/json",

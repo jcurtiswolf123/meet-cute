@@ -36,12 +36,15 @@ jobs:
         run: npm run watchdog
         env:
           WATCHDOG_ONCE: "1"
-          WATCHDOG_BUILD_EVERY: "999" # skip the heavy build in CI
+          WATCHDOG_SKIP_BUILD: "1"
           WATCHDOG_AUTOFIX: "1"
-          WATCHDOG_URL: ${{ vars.WATCHDOG_URL || 'https://meet-cute.fly.dev' }}
+          WATCHDOG_URL: ${{ vars.WATCHDOG_URL || 'https://hellomeetcute.com' }}
           WATCHDOG_ALERT_EMAIL: ${{ secrets.WATCHDOG_ALERT_EMAIL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: "riiva"
+          SENTRY_PROJECT: "meet-cute"
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # gh pr create

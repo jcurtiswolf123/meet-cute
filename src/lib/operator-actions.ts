@@ -9,10 +9,13 @@
 // happened. Anything that is not a clear command falls through to the normal
 // RAG answer.
 import { prisma } from "./prisma";
-import { autoBook } from "./concierge";
 import { findEvent, inviteToEvent, createEventRecord, formatWhen } from "./events";
 
 export type ActionResult = { handled: boolean; text?: string };
+
+export function bookingUnavailableMessage(): string {
+  return "Booking is not automated. Coordinate the reservation and calendar details directly, then record the confirmed plan in the match notes.";
+}
 
 // Find up to `max` active roster members named in the text, in order of mention.
 async function peopleInText(text: string, max = 2) {
@@ -100,7 +103,7 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
         "Here is what needs you:",
         `- ${pendingPhotos} photo${pendingPhotos === 1 ? "" : "s"} to moderate`,
         `- ${openReports} open report${openReports === 1 ? "" : "s"}`,
-        `- ${mutualReady} mutual-yes match${mutualReady === 1 ? "" : "es"} ready to book (say "book the date for <name>")`,
+        `- ${mutualReady} mutual-yes match${mutualReady === 1 ? "" : "es"} ready for operator coordination`,
         `- ${stale} of ${actives} active singles have no suggestion in 60+ days`,
       ].join("\n"),
     };
@@ -120,23 +123,7 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
 
   // --- book / confirm a date --------------------------------------------
   if (wantsBook) {
-    const people = await peopleInText(q, 2);
-    if (!people.length) {
-      return { handled: true, text: "Who should I book for? Name the member, for example: book the date for Maya." };
-    }
-    const match = await activeMatchFor(people[0].id);
-    if (!match) {
-      return { handled: true, text: `No active match for ${people[0].name} to book. Suggest a match first.` };
-    }
-    try {
-      const r = await autoBook(match.id);
-      return {
-        handled: true,
-        text: `Booked: ${r.a} and ${r.b} at ${r.venue}, ${r.time}. Calendar invites and a morning-of nudge are set. The pipeline is now at date scheduled.`,
-      };
-    } catch (e) {
-      return { handled: true, text: `Could not book that date: ${(e as Error).message}.` };
-    }
+    return { handled: true, text: bookingUnavailableMessage() };
   }
 
   // --- invite members to an event ----------------------------------------
@@ -220,7 +207,7 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
     });
     return {
       handled: true,
-      text: `Suggested ${a.name} and ${b.name}. It is in the pipeline at "suggested." Say "book the date for ${a.name.split(" ")[0]}" once they both opt in, or I can book it now.`,
+      text: `Suggested ${a.name} and ${b.name}. It is in the pipeline at "suggested." Once they both opt in, coordinate the date directly and record the confirmed plan in their notes.`,
     };
   }
 

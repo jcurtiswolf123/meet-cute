@@ -29,9 +29,22 @@ type SendArgs = {
   // same conversation as the invite.
   replyTo?: string;
   headers?: Record<string, string>;
+  idempotencyKey?: string;
 };
 
-export async function sendEmail({ to, subject, html, text, replyTo, headers }: SendArgs): Promise<{ ok: boolean }> {
+export type EmailSendResult =
+  | { ok: true; providerMessageId?: string }
+  | { ok: false; retryable: boolean; error: string };
+
+export async function sendEmail({
+  to,
+  subject,
+  html,
+  text,
+  replyTo,
+  headers,
+  idempotencyKey,
+}: SendArgs): Promise<EmailSendResult> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM || "Meet Cute <hello@meet-cute.app>";
   const isProd = process.env.NODE_ENV === "production";
@@ -52,11 +65,11 @@ export async function sendEmail({ to, subject, html, text, replyTo, headers }: S
     // log the token-bearing link.
     if (process.env.NODE_ENV === "production") {
       console.error("[email] RESEND_API_KEY is not set; refusing to send in production");
-      return { ok: false };
+      return { ok: false, retryable: false, error: "RESEND_API_KEY is not configured" };
     }
     // Dev only: surface just the sign-in link so the flow can be tested locally.
     logDevLink();
-    return { ok: true };
+    return { ok: true, providerMessageId: "dev" };
   }
 
   // Reply-To a real inbox (improves deliverability vs a bare noreply) and a
@@ -66,7 +79,12 @@ export async function sendEmail({ to, subject, html, text, replyTo, headers }: S
   try {
     const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(12_000),
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+      },
       body: JSON.stringify({
         from,
         to: toList,
@@ -81,13 +99,21 @@ export async function sendEmail({ to, subject, html, text, replyTo, headers }: S
       const body = await res.text().catch(() => "");
       console.error(`[email] Resend ${res.status}: ${body.slice(0, 300)}`);
       logDevLink();
-      return { ok: false };
+      return {
+        ok: false,
+        retryable: res.status === 429 || res.status >= 500,
+        error: `Resend returned ${res.status}`,
+      };
     }
-    return { ok: true };
+    const body = (await res.json().catch(() => ({}))) as { id?: unknown };
+    return {
+      ok: true,
+      ...(typeof body.id === "string" ? { providerMessageId: body.id } : {}),
+    };
   } catch (e) {
     console.error(`[email] send failed: ${(e as Error).message}`);
     logDevLink();
-    return { ok: false };
+    return { ok: false, retryable: true, error: (e as Error).message };
   }
 }
 
@@ -127,7 +153,6 @@ export function connectionEmail(args: {
   toName: string;
   otherName: string;
   otherEmail?: string | null;
-  otherPhone?: string | null;
   city?: string | null;
   note?: string | null;
 }): { subject: string; html: string; text: string } {
@@ -137,7 +162,6 @@ export function connectionEmail(args: {
 
   const reach: string[] = [];
   if (args.otherEmail) reach.push(`Email: ${args.otherEmail}`);
-  if (args.otherPhone) reach.push(`Text: ${args.otherPhone}`);
   const reachText = reach.length ? reach.join("\n") : "Just reply to this email and we will pass it along.";
 
   const note = args.note?.trim()
@@ -158,10 +182,6 @@ export function connectionEmail(args: {
   if (args.otherEmail)
     reachRows.push(
       `<p style="margin:2px 0;font-size:14px;color:#382a20"><span style="color:#7d6f62">Email</span> ${esc(args.otherEmail)}</p>`,
-    );
-  if (args.otherPhone)
-    reachRows.push(
-      `<p style="margin:2px 0;font-size:14px;color:#382a20"><span style="color:#7d6f62">Text</span> ${esc(args.otherPhone)}</p>`,
     );
   const reachHtml = reachRows.length
     ? reachRows.join("")

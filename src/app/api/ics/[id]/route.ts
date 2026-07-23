@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSessionPersonId } from "@/lib/auth";
-import { icsForThread } from "@/lib/concierge";
+import { buildIcs } from "@/lib/ics";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,11 +13,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (me !== t.match.personAId && me !== t.match.personBId) return new Response("Forbidden", { status: 403 });
 
   const other = t.match.personAId === me ? t.match.personB : t.match.personA;
-  const ics = icsForThread({
-    confirmedSlot: t.confirmedSlot,
-    id: t.id,
-    venueName: t.venue?.name ?? "Meet Cute",
-    withName: other.name.split(" ")[0],
+  const ics = buildIcs({
+    start: t.confirmedSlot,
+    title: `Meet Cute date with ${other.name.split(" ")[0]}`,
+    location: t.venue?.name ?? "Meet Cute",
+    description: "Ask for the Meet Cute table.",
+    uid: t.id,
   });
   return new Response(ics, {
     headers: {

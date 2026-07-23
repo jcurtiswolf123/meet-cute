@@ -3,9 +3,9 @@ primary_region = "sjc"
 
 [build]
 
-# Schema changes are applied manually with `npx prisma db push` against Neon
-# (rare). No release_command, so deploys never block on a DB round-trip from the
-# ephemeral release machine.
+# Schema changes are applied by the GitHub deploy job before the rolling Fly
+# release. No release_command is used, so Fly does not run a second schema
+# operation from an ephemeral machine.
 
 # Sentry build-time config so plain `fly deploy` always wires error tracking:
 # the public DSN is inlined into the client bundle and withSentryConfig activates.
@@ -46,15 +46,14 @@ primary_region = "sjc"
   # one machine serving while the other is replaced (zero downtime).
   min_machines_running = 2
 
-  # Liveness health check. Fly gates a release on this: a machine that does not
-  # return 200 from /healthz is not rolled into service, so a broken build cannot
-  # replace a healthy one.
+  # Readiness check. Fly only promotes a machine after both Node and Neon answer,
+  # so an image with an incompatible schema cannot replace a healthy version.
   [[http_service.checks]]
     interval = "15s"
     timeout = "3s"
     grace_period = "10s"
     method = "GET"
-    path = "/healthz"
+    path = "/readyz"
 
 [[vm]]
   size = "shared-cpu-1x"

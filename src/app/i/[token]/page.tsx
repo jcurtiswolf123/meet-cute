@@ -30,7 +30,9 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       personB: { select: { id: true, name: true } },
     },
   });
-  if (!match || !["invited", "mutual_yes"].includes(match.stage)) notFound();
+  if (!match || !["invited", "mutual_yes", "connecting", "connected"].includes(match.stage)) {
+    notFound();
+  }
 
   // The recipient is invite.personId; they are looking at the OTHER person.
   const iAmA = match.personAId === invite.personId;
@@ -127,13 +129,12 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       <section className="mt-10 border-t border-line/60 pt-6">
         {connected ? (
           <p className="text-sm leading-relaxed">
-            You&rsquo;re connected. Check your inbox: {otherFirst} and you are on one email thread now. Just
-            reply-all to say hello.
+            You&rsquo;re connected. Check your inbox for {otherFirst}&rsquo;s contact details and say hello.
           </p>
         ) : myDecision === "yes" ? (
           <p className="text-sm leading-relaxed">
-            You said <strong>yes</strong>. If {otherFirst} says yes too, we&rsquo;ll put you both on one email
-            thread. Nothing to do for now.
+            You said <strong>yes</strong>. If {otherFirst} says yes too, we&rsquo;ll email you both the
+            connection details. Nothing to do for now.
           </p>
         ) : myDecision === "pass" || match.stage === "exit" ? (
           <p className="text-sm leading-relaxed text-muted">

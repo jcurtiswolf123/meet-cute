@@ -40,14 +40,17 @@ export async function GET(
   }
   const otherId = match.personAId === invite.personId ? match.personBId : match.personAId;
 
-  const photo = await prisma.photo.findUnique({ where: { id } });
+  const photo = await prisma.photo.findUnique({
+    where: { id },
+    include: { asset: { select: { bytes: true } } },
+  });
   if (!photo || photo.personId !== otherId || photo.status !== "approved") {
     return new NextResponse("Not found", { status: 404 });
   }
 
   let bytes: Buffer;
   try {
-    bytes = await readUpload(id, ext, photo.storageUrl);
+    bytes = await readUpload(id, ext, photo.storageUrl, photo.asset?.bytes);
   } catch {
     return new NextResponse("Not found", { status: 404 });
   }
