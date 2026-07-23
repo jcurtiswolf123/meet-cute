@@ -165,9 +165,10 @@ export async function loginAs(personId: string, formData?: FormData) {
   redirect(p.isOperator ? "/studio" : "/app");
 }
 
-export async function logout() {
+export async function logout(formData?: FormData) {
+  const returnTo = formData?.get("returnTo") === "/studio/login" ? "/studio/login" : "/login";
   await clearSession();
-  redirect("/login");
+  redirect(returnTo);
 }
 
 // A member opts in or passes on their current suggestion.

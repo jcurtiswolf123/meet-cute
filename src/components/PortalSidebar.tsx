@@ -71,6 +71,7 @@ export function PortalSidebar({
       avatarUrl={avatarUrl}
       collapsed={collapsed}
       isActive={isActive}
+      logoutTo={homeHref.startsWith("/studio") ? "/studio/login" : "/login"}
       onToggleCollapse={toggleCollapse}
     />
   );
@@ -116,6 +117,7 @@ export function PortalSidebar({
               avatarUrl={avatarUrl}
               collapsed={false}
               isActive={isActive}
+              logoutTo={homeHref.startsWith("/studio") ? "/studio/login" : "/login"}
               onClose={() => setMobileOpen(false)}
             />
           </aside>
@@ -133,6 +135,7 @@ function SidebarInner({
   avatarUrl,
   collapsed,
   isActive,
+  logoutTo,
   onToggleCollapse,
   onClose,
 }: {
@@ -143,6 +146,7 @@ function SidebarInner({
   avatarUrl?: string | null;
   collapsed: boolean;
   isActive: (href: string) => boolean;
+  logoutTo: "/login" | "/studio/login";
   onToggleCollapse?: () => void;
   onClose?: () => void;
 }) {
@@ -240,6 +244,7 @@ function SidebarInner({
         action={logout}
         className="border-t border-line p-2"
       >
+        <input type="hidden" name="returnTo" value={logoutTo} />
         <button
           className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted transition hover:bg-cream hover:text-ink ${
             collapsed ? "justify-center" : ""

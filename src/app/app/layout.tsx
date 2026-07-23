@@ -28,7 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (me.status === "exited") redirect("/login");
 
   return (
-    <div className="flex min-h-screen bg-cream">
+    <div className="flex min-h-screen flex-col bg-cream md:flex-row">
       <PortalSidebar
         workspace="Meet Cute"
         sections={MEMBER_SECTIONS}
