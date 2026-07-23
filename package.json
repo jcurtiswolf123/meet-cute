@@ -8,6 +8,7 @@
     "start": "next start -p 3009",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "test:race": "node --env-file=.env --import tsx scripts/test-introduction-race.ts",
     "db:deploy": "prisma db push",
     "db:push": "prisma db push",
     "ops": "tsx scripts/operators.ts",
@@ -15,7 +16,6 @@
     "login-link": "tsx scripts/login-link.ts",
     "watchdog": "tsx scripts/watchdog.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "db:reset": "rm -f prisma/dev.db && prisma db push && tsx scripts/seed.ts",
     "embed": "tsx scripts/embed.ts",
     "concierge:tick": "tsx scripts/concierge-tick.ts",
     "demo:bot": "tsx scripts/demo-bot.ts",
@@ -34,7 +34,6 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "sharp": "^0.35.3",
-    "sonner": "^2.0.7",
     "zod": "^3.24.1"
   },
   "devDependencies": {

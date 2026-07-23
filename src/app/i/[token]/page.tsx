@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { decideInvite } from "@/lib/actions";
+import { STORED_EXT } from "@/lib/uploads";
+import { inviteIsExpired } from "@/lib/introductions";
 import { Avatar } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +21,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
   const invite = await prisma.matchInvite.findUnique({ where: { token } });
   if (!invite) notFound();
+  if (inviteIsExpired(invite.createdAt)) notFound();
 
   const match = await prisma.match.findUnique({
     where: { id: invite.matchId },
@@ -27,7 +30,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       personB: { select: { id: true, name: true } },
     },
   });
-  if (!match) notFound();
+  if (!match || !["invited", "mutual_yes"].includes(match.stage)) notFound();
 
   // The recipient is invite.personId; they are looking at the OTHER person.
   const iAmA = match.personAId === invite.personId;
@@ -47,7 +50,9 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
   // Serve the other person's approved photos through the token-gated proxy (the
   // normal /api/photos route requires a session, which this page does not have).
-  const photoUrl = other.photos[0] ? `/api/invite/${token}/photo/${other.photos[0].id}` : null;
+  const photoUrl = other.photos[0]
+    ? `/api/invite/${token}/photo/${other.photos[0].id}.${STORED_EXT}`
+    : null;
 
   const connected = match.stage === "connected";
 

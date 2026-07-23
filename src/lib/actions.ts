@@ -113,7 +113,6 @@ export async function requestOperatorMagicLink(formData: FormData) {
   const ipOk = (await rateLimit(`magic:ip:${ip}`, 10, 60 * 60 * 1000)).ok;
   const emailOk = validEmail && (await rateLimit(`magic:email:${email}`, 3, 15 * 60 * 1000)).ok;
 
-  let sent = false;
   if (base && validEmail && ipOk && emailOk) {
     const person = await prisma.person.findUnique({ where: { email }, select: { isOperator: true } });
     if (person?.isOperator) {
@@ -122,13 +121,12 @@ export async function requestOperatorMagicLink(formData: FormData) {
       const { subject, html, text } = magicLinkEmail(link);
       await sendEmail({ to: email, subject, html, text });
       void purgeExpiredAuth();
-      sent = true;
     }
   } else if (!base) {
     console.error("[auth] NEXT_PUBLIC_APP_URL must be set in production to send magic links");
   }
 
-  redirect(sent ? "/studio/login?sent=1" : "/studio/login?error=not-operator");
+  redirect("/studio/login?sent=1");
 }
 
 // Demo login. Local dev: any seeded user. Production: operators only, passphrase-gated.
@@ -349,6 +347,10 @@ export async function unblockPerson(formData: FormData) {
 
 /** Ids the given person can never be shown (blocks in either direction). */
 export async function blockedIdsFor(personId: string): Promise<string[]> {
+  const actor = await getCurrentPerson();
+  if (!actor || (actor.id !== personId && !actor.isOperator)) {
+    throw new Error("not authorized");
+  }
   const rows = await prisma.block.findMany({
     where: { OR: [{ blockerId: personId }, { blockedId: personId }] },
     select: { blockerId: true, blockedId: true },
@@ -383,8 +385,7 @@ export async function completeApplication(
   // One short line on what they want; the fast signup intentionally drops the
   // long free-form profile fields (headline/bio/deal-breakers).
   const lookingFor = String(formData.get("lookingFor") || "").trim().slice(0, 280);
-  const emailRaw = String(formData.get("email") || "");
-  const email = normalizeEmail(emailRaw);
+  const email = me.email ?? "";
   const phoneRaw = String(formData.get("phone") || "");
   const phone = normalizePhone(phoneRaw);
   const linkedinRaw = String(formData.get("linkedin") || "");
@@ -404,7 +405,7 @@ export async function completeApplication(
   const values = {
     first,
     last,
-    email: emailRaw,
+    email,
     city,
     lookingFor,
     phone: phoneRaw,
@@ -441,14 +442,6 @@ export async function completeApplication(
   if (!voucherName) fieldErrors.voucherName = "Name someone in the community who can vouch for you.";
   if (!voucherContact) fieldErrors.voucherContact = "Add their email or phone so we can reach them.";
 
-  // If they changed their email, make sure it is not already another member's.
-  if (email && email !== me!.email) {
-    const taken = await prisma.person.findUnique({ where: { email }, select: { id: true } });
-    if (taken && taken.id !== me!.id) {
-      fieldErrors.email = "That email is already tied to another account.";
-    }
-  }
-
   if (Object.keys(fieldErrors).length > 0) {
     return { fieldErrors, values };
   }
@@ -462,7 +455,6 @@ export async function completeApplication(
     // clicked a magic link and never finished.
     data: {
       name,
-      email: email || me!.email,
       city,
       lookingFor,
       phone,
@@ -511,7 +503,7 @@ export async function deleteAccount() {
   // can free the backing Blob objects (the DB cascade only drops the records).
   const myPhotos = await prisma.photo.findMany({
     where: { personId: me },
-    select: { storageUrl: true },
+    select: { id: true, storageUrl: true },
   });
 
   await prisma.$transaction([
@@ -537,7 +529,7 @@ export async function deleteAccount() {
   ]);
 
   // Free the photo objects from the store after the rows are gone.
-  await Promise.all(myPhotos.map((p) => deleteUpload(p.storageUrl)));
+  await Promise.all(myPhotos.map((p) => deleteUpload(p.storageUrl, p.id)));
 
   await clearSession();
   redirect("/?deleted=1");
@@ -582,7 +574,7 @@ export async function deletePhoto(formData: FormData) {
   if (!photo || photo.personId !== me) throw new Error("not your photo");
   await prisma.photo.delete({ where: { id } });
   // Free the backing object (Blob is billed); best-effort, never blocks delete.
-  await deleteUpload(photo.storageUrl);
+  await deleteUpload(photo.storageUrl, photo.id);
   revalidatePath("/app/profile");
 }
 
@@ -840,8 +832,8 @@ export async function createSuggestion(aId: string, bId: string, rationale: stri
 // a phone (no profile, no login). The operator picks two people, sends each a
 // "want an intro?" text, both reply Y, and the system connects them.
 
-// Operator: quick-add a person to match. Name + phone is enough; everything else
-// is optional. Created active so they show up immediately in the console.
+// Operator: quick-add a person who expressly asked to be matched. Email is the
+// baseline channel. Texting requires a separate confirmation of SMS consent.
 export async function quickAddPerson(formData: FormData) {
   const op = await requireOperator();
   if (!op) throw new Error("operators only");
@@ -854,16 +846,32 @@ export async function quickAddPerson(formData: FormData) {
   const blurb = String(formData.get("blurb") || "").trim().slice(0, 1000);
   const linkedin = normalizeLinkedin(String(formData.get("linkedin") || ""));
   const instagram = normalizeInstagram(String(formData.get("instagram") || ""));
+  const matchingConsent = formData.get("matchingConsent") === "on";
+  const smsConsent = formData.get("smsConsent") === "on";
 
   if (!name) throw new Error("Add a name.");
-  if (!isTextablePhone(phone)) throw new Error("Add a valid mobile number (at least 10 digits).");
+  if (!matchingConsent) throw new Error("Confirm that this person asked to be added for matchmaking.");
+  if (!emailRaw.includes("@") && !isTextablePhone(phone)) {
+    throw new Error("Add an email or a valid mobile number.");
+  }
+  if (smsConsent && !isTextablePhone(phone)) {
+    throw new Error("Add a valid mobile number before confirming text consent.");
+  }
+  if (!emailRaw.includes("@") && !smsConsent) {
+    throw new Error("A phone-only person must expressly consent to text introductions.");
+  }
 
   // De-dupe on the EXACT normalized number, and never match a privileged account
   // (operator/ambassador/coach): a matchee sharing a number with the operator
   // must not overwrite that operator's record. Substring matching is avoided so a
   // new add can't hijack an unrelated person whose number merely shares 10 digits.
   const existing = await prisma.person.findFirst({
-    where: { phone, isOperator: false, isAmbassador: false, isCoach: false },
+    where: {
+      ...(phone ? { phone } : { email: emailRaw }),
+      isOperator: false,
+      isAmbassador: false,
+      isCoach: false,
+    },
   });
   if (existing) {
     // Genuine same-person re-add: fill in details without clobbering existing
@@ -877,6 +885,9 @@ export async function quickAddPerson(formData: FormData) {
         bio: blurb || existing.bio,
         linkedin: linkedin ?? existing.linkedin,
         instagram: instagram ?? existing.instagram,
+        openToMatch: true,
+        optedInAt: existing.optedInAt ?? new Date(),
+        ...(smsConsent ? { smsConsentAt: new Date() } : {}),
         ...(emailRaw.includes("@") ? { email: emailRaw } : {}),
       },
     });
@@ -891,6 +902,9 @@ export async function quickAddPerson(formData: FormData) {
         linkedin,
         instagram,
         status: "active",
+        openToMatch: true,
+        optedInAt: new Date(),
+        smsConsentAt: smsConsent ? new Date() : null,
       },
     });
   }
@@ -914,14 +928,17 @@ export async function createIntroduction(formData: FormData) {
   if (aId === bId) throw new Error("Pick two different people.");
 
   const [a, b] = await Promise.all([
-    prisma.person.findUnique({ where: { id: aId }, select: { id: true, name: true, phone: true, email: true, instagram: true } }),
-    prisma.person.findUnique({ where: { id: bId }, select: { id: true, name: true, phone: true, email: true, instagram: true } }),
+    prisma.person.findUnique({ where: { id: aId }, select: { id: true, name: true, phone: true, email: true, instagram: true, smsConsentAt: true, openToMatch: true, status: true } }),
+    prisma.person.findUnique({ where: { id: bId }, select: { id: true, name: true, phone: true, email: true, instagram: true, smsConsentAt: true, openToMatch: true, status: true } }),
   ]);
   if (!a || !b) throw new Error("One of those people no longer exists.");
+  if (a.status !== "active" || b.status !== "active" || !a.openToMatch || !b.openToMatch) {
+    throw new Error("Both people must be approved and ready to match.");
+  }
   // Email is the baseline opt-in channel (double opt-in link + Y/N reply); SMS is
-  // sent in addition when a phone is on file. Require at least one channel each.
-  if ((!a.email && !a.phone) || (!b.email && !b.phone)) {
-    throw new Error("Both people need an email or a phone number before you can introduce them.");
+  // sent only with separate SMS consent. Require one authorized channel each.
+  if ((!a.email && !(a.phone && a.smsConsentAt)) || (!b.email && !(b.phone && b.smsConsentAt))) {
+    throw new Error("Both people need an email or explicit text consent before you can introduce them.");
   }
 
   const existing = await prisma.match.findFirst({
@@ -979,8 +996,8 @@ export async function createIntroduction(formData: FormData) {
   // Each person sees the OTHER person's bullets + Instagram: A's invite describes
   // B (aboutB, b.instagram). SMS only fires when a phone is on file.
   const smsJobs: Promise<unknown>[] = [];
-  if (a.phone) smsJobs.push(sendSMS({ to: a.phone, body: introInviteSMS({ toName: a.name, otherName: b.name, about: aboutB, otherInstagram: b.instagram, blurb, operatorName: op.name }) }));
-  if (b.phone) smsJobs.push(sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, about: aboutA, otherInstagram: a.instagram, blurb, operatorName: op.name }) }));
+  if (a.phone && a.smsConsentAt) smsJobs.push(sendSMS({ to: a.phone, body: introInviteSMS({ toName: a.name, otherName: b.name, about: aboutB, otherInstagram: b.instagram, blurb, operatorName: op.name }) }));
+  if (b.phone && b.smsConsentAt) smsJobs.push(sendSMS({ to: b.phone, body: introInviteSMS({ toName: b.name, otherName: a.name, about: aboutA, otherInstagram: a.instagram, blurb, operatorName: op.name }) }));
   await Promise.all(smsJobs);
 
   // Seed the transcript with the two invites so the operator console shows the
@@ -1010,8 +1027,8 @@ export async function resendIntro(formData: FormData) {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
-      personA: { select: { name: true, phone: true, instagram: true } },
-      personB: { select: { name: true, phone: true, instagram: true } },
+      personA: { select: { name: true, phone: true, instagram: true, smsConsentAt: true } },
+      personB: { select: { name: true, phone: true, instagram: true, smsConsentAt: true } },
     },
   });
   if (!match) throw new Error("No such introduction.");
@@ -1020,10 +1037,10 @@ export async function resendIntro(formData: FormData) {
   const jobs: Promise<unknown>[] = [];
   // Reuse the about bullets stored when the intro was created: A sees B (aboutB,
   // personB.instagram).
-  if (match.aDecision === "pending" && match.personA.phone) {
+  if (match.aDecision === "pending" && match.personA.phone && match.personA.smsConsentAt) {
     jobs.push(sendSMS({ to: match.personA.phone, body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, otherInstagram: match.personB.instagram, blurb: match.rationale, operatorName: op.name }) }));
   }
-  if (match.bDecision === "pending" && match.personB.phone) {
+  if (match.bDecision === "pending" && match.personB.phone && match.personB.smsConsentAt) {
     jobs.push(sendSMS({ to: match.personB.phone, body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, otherInstagram: match.personA.instagram, blurb: match.rationale, operatorName: op.name }) }));
   }
   await Promise.all(jobs);
@@ -1137,17 +1154,17 @@ export async function askForFeedback(formData: FormData) {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
-      personA: { select: { name: true, phone: true } },
-      personB: { select: { name: true, phone: true } },
+      personA: { select: { name: true, phone: true, smsConsentAt: true } },
+      personB: { select: { name: true, phone: true, smsConsentAt: true } },
     },
   });
   if (!match) throw new Error("No such introduction.");
 
   const jobs: Promise<unknown>[] = [];
-  if (match.personA.phone) {
+  if (match.personA.phone && match.personA.smsConsentAt) {
     jobs.push(sendSMS({ to: match.personA.phone, body: feedbackRequestSMS({ toName: match.personA.name, otherName: match.personB.name, operatorName: op.name }) }));
   }
-  if (match.personB.phone) {
+  if (match.personB.phone && match.personB.smsConsentAt) {
     jobs.push(sendSMS({ to: match.personB.phone, body: feedbackRequestSMS({ toName: match.personB.name, otherName: match.personA.name, operatorName: op.name }) }));
   }
   await Promise.all(jobs);
@@ -1185,22 +1202,22 @@ export async function messageGroup(formData: FormData) {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
-      personA: { select: { name: true, phone: true } },
-      personB: { select: { name: true, phone: true } },
+      personA: { select: { name: true, phone: true, smsConsentAt: true } },
+      personB: { select: { name: true, phone: true, smsConsentAt: true } },
     },
   });
   if (!match) throw new Error("No such introduction.");
 
   let delivered = false;
-  if (match.conversationSid) {
+  if (match.conversationSid && match.personA.smsConsentAt && match.personB.smsConsentAt) {
     const res = await sendConversationMessage({ conversationSid: match.conversationSid, body: message });
     delivered = res.ok;
   }
   if (!delivered) {
     // No live group thread (or send failed): text each side directly.
     const jobs: Promise<unknown>[] = [];
-    if (match.personA.phone) jobs.push(sendSMS({ to: match.personA.phone, body: message }));
-    if (match.personB.phone) jobs.push(sendSMS({ to: match.personB.phone, body: message }));
+    if (match.personA.phone && match.personA.smsConsentAt) jobs.push(sendSMS({ to: match.personA.phone, body: message }));
+    if (match.personB.phone && match.personB.smsConsentAt) jobs.push(sendSMS({ to: match.personB.phone, body: message }));
     await Promise.all(jobs);
   }
 
@@ -1223,9 +1240,11 @@ export async function messagePerson(formData: FormData) {
   const personId = String(formData.get("personId") || "");
   const message = String(formData.get("message") || "").trim().slice(0, 480);
   if (!message) throw new Error("Write a message first.");
-  const person = await prisma.person.findUnique({ where: { id: personId }, select: { phone: true } });
+  const person = await prisma.person.findUnique({ where: { id: personId }, select: { phone: true, smsConsentAt: true } });
   if (!person?.phone) throw new Error("That person has no phone number on file.");
-  await sendSMS({ to: person.phone, body: message });
+  if (!person.smsConsentAt) throw new Error("That person has not consented to text messages.");
+  const result = await sendSMS({ to: person.phone, body: message });
+  if (!result.ok) throw new Error("The text could not be delivered.");
   // Log it so the thread is auditable from the person's record.
   await prisma.note.create({ data: { subjectId: personId, authorId: op.id, body: `[SMS sent] ${message}`, kind: "general" } });
   revalidatePath("/studio/matchmaking");

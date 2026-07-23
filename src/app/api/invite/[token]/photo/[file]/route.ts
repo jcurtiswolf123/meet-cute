@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { readUpload, contentTypeForExt } from "@/lib/uploads";
+import { inviteIsExpired } from "@/lib/introductions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,9 @@ export async function GET(
 
   const invite = await prisma.matchInvite.findUnique({ where: { token } });
   if (!invite) return new NextResponse("Not found", { status: 404 });
+  if (inviteIsExpired(invite.createdAt)) {
+    return new NextResponse("Not found", { status: 404 });
+  }
 
   const dot = file.lastIndexOf(".");
   if (dot < 0) return new NextResponse("Not found", { status: 404 });
@@ -29,9 +33,11 @@ export async function GET(
   // Resolve which person the token-holder is allowed to see (the OTHER side).
   const match = await prisma.match.findUnique({
     where: { id: invite.matchId },
-    select: { personAId: true, personBId: true },
+    select: { personAId: true, personBId: true, stage: true },
   });
-  if (!match) return new NextResponse("Not found", { status: 404 });
+  if (!match || !["invited", "mutual_yes"].includes(match.stage)) {
+    return new NextResponse("Not found", { status: 404 });
+  }
   const otherId = match.personAId === invite.personId ? match.personBId : match.personAId;
 
   const photo = await prisma.photo.findUnique({ where: { id } });

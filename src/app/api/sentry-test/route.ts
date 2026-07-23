@@ -8,6 +8,9 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 export function GET(req: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return new NextResponse("Not found", { status: 404 });
+  }
   const { searchParams } = new URL(req.url);
   if (searchParams.get("sentrytest") === "1") {
     throw new Error("Sentry test error from meet-cute");

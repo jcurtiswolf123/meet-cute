@@ -14,6 +14,12 @@ import { composeGroupIntro } from "./intro-bot";
 import { sendEmail, matchInviteEmail, matchThreadEmail } from "./email";
 
 // --- Email double opt-in -----------------------------------------------------
+
+const INVITE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+
+export function inviteIsExpired(createdAt: Date, now: number = Date.now()): boolean {
+  return createdAt.getTime() < now - INVITE_MAX_AGE_MS;
+}
 //
 // The email path mirrors the SMS Y/N flow but works with zero carrier setup:
 // each matched person gets an email with a link to the other's profile (Yes/Pass
@@ -190,6 +196,36 @@ async function applyIntroDecision(
   const me = side === "a" ? match.personA : match.personB;
   const otherPerson = side === "a" ? match.personB : match.personA;
 
+  const pendingSide =
+    side === "a"
+      ? ({ aDecision: "pending" } satisfies Prisma.MatchWhereInput)
+      : ({ bDecision: "pending" } satisfies Prisma.MatchWhereInput);
+  const decisionData: Prisma.MatchUpdateManyMutationInput =
+    decision === "pass"
+      ? {
+          ...(side === "a" ? { aDecision: "pass" } : { bDecision: "pass" }),
+          stage: "exit",
+          exitReason: channel === "email" ? "declined_email" : "declined_sms",
+          lastActorId: personId,
+        }
+      : {
+          ...(side === "a" ? { aDecision: "yes" } : { bDecision: "yes" }),
+          lastActorId: personId,
+        };
+
+  // Claim this side's pending decision in one database statement. Exactly one
+  // concurrent request can win, and no yes path can proceed after a pass closes
+  // the introduction.
+  const claimed = await prisma.match.updateMany({
+    where: {
+      id: match.id,
+      stage: { in: ["invited", "mutual_yes"] },
+      ...pendingSide,
+    },
+    data: decisionData,
+  });
+  if (claimed.count !== 1) return { ok: false, reason: "no_match" };
+
   await logIntroMessage({
     matchId: match.id,
     body: decision === "yes" ? "Replied Y (yes to the intro)" : "Replied N (passed)",
@@ -200,27 +236,27 @@ async function applyIntroDecision(
   });
 
   if (decision === "pass") {
-    await prisma.match.update({
-      where: { id: match.id },
-      data: {
-        [side === "a" ? "aDecision" : "bDecision"]: "pass",
-        stage: "exit",
-        exitReason: channel === "email" ? "declined_email" : "declined_sms",
-        lastActorId: personId,
-      },
-    });
     return { ok: true, side, matchId: match.id, nowMutual: false, connected: false, otherName: otherPerson.name };
   }
 
-  const updated = await prisma.match.update({
+  const updated = await prisma.match.findUnique({
     where: { id: match.id },
-    data: { [side === "a" ? "aDecision" : "bDecision"]: "yes", lastActorId: personId },
+    select: { aDecision: true, bDecision: true, stage: true },
   });
+  if (!updated || updated.stage === "exit") return { ok: false, reason: "no_match" };
 
   const nowMutual = updated.aDecision === "yes" && updated.bDecision === "yes";
   if (!nowMutual) {
     // First yes: park at mutual_yes-pending so we still know it's awaiting the other.
-    await prisma.match.update({ where: { id: match.id }, data: { stage: "mutual_yes" } });
+    await prisma.match.updateMany({
+      where: {
+        id: match.id,
+        stage: "invited",
+        aDecision: { not: "pass" },
+        bDecision: { not: "pass" },
+      },
+      data: { stage: "mutual_yes" },
+    });
     return { ok: true, side, matchId: match.id, nowMutual: false, connected: false, otherName: otherPerson.name };
   }
 
@@ -295,15 +331,34 @@ export async function recordInviteDecision(token: string, decision: IntroDecisio
  *  each side the other's number. Either way the match is marked connected and
  *  this function never throws. */
 export async function connectMatch(matchId: string): Promise<boolean> {
+  // Claim the mutual transition before any external side effect. This prevents
+  // concurrent yes replies from creating duplicate group threads or messages.
+  const claimed = await prisma.match.updateMany({
+    where: {
+      id: matchId,
+      stage: { in: ["invited", "mutual_yes"] },
+      connectedAt: null,
+      aDecision: "yes",
+      bDecision: "yes",
+    },
+    data: { stage: "connecting" },
+  });
+  if (claimed.count !== 1) {
+    const state = await prisma.match.findUnique({
+      where: { id: matchId },
+      select: { stage: true, connectedAt: true },
+    });
+    return !!state && (state.stage === "connecting" || !!state.connectedAt);
+  }
+
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
-      personA: { select: { name: true, phone: true, email: true, city: true } },
-      personB: { select: { name: true, phone: true, email: true, city: true } },
+      personA: { select: { name: true, phone: true, email: true, city: true, smsConsentAt: true } },
+      personB: { select: { name: true, phone: true, email: true, city: true, smsConsentAt: true } },
     },
   });
   if (!match) return false;
-  if (match.connectedAt) return true; // already connected
 
   const a = match.personA;
   const b = match.personB;
@@ -335,7 +390,7 @@ export async function connectMatch(matchId: string): Promise<boolean> {
 
   let grouped = false;
   let conversationSid: string | null = null;
-  if (operatorPhone && a.phone && b.phone) {
+  if (operatorPhone && a.phone && b.phone && a.smsConsentAt && b.smsConsentAt) {
     try {
       const res = await createGroupConversation({
         participants: [operatorPhone, a.phone, b.phone],
@@ -359,18 +414,19 @@ export async function connectMatch(matchId: string): Promise<boolean> {
   // Fallback (operator has no cell, or the group thread couldn't be created):
   // text each person the other's number, the original broker behavior.
   if (!grouped) {
-    if (a.phone) {
+    if (a.phone && a.smsConsentAt) {
       await sendSMS({ to: a.phone, body: connectedSMS({ toName: a.name, otherName: b.name, otherPhone: b.phone || "(no number on file)" }) });
     }
-    if (b.phone) {
+    if (b.phone && b.smsConsentAt) {
       await sendSMS({ to: b.phone, body: connectedSMS({ toName: b.name, otherName: a.name, otherPhone: a.phone || "(no number on file)" }) });
     }
   }
 
-  await prisma.match.update({
-    where: { id: matchId },
+  const connected = await prisma.match.updateMany({
+    where: { id: matchId, stage: "connecting", aDecision: "yes", bDecision: "yes" },
     data: { stage: "connected", connectedAt: new Date(), conversationSid },
   });
+  if (connected.count !== 1) return false;
 
   // Open the shared email thread: one message to both, so they land in the same
   // conversation and reply-all directly (baseline channel, independent of SMS).

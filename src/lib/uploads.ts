@@ -10,7 +10,7 @@
 // Either way photos are still served through the auth-gated /api/photos route,
 // never linked to directly, so pending (unmoderated) images stay private until
 // an operator approves them.
-import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile, unlink } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import sharp from "sharp";
 import { put, del } from "@vercel/blob";
@@ -97,9 +97,21 @@ export async function readUpload(id: string, ext: string, storageUrl?: string | 
 /** Best-effort delete from the backing store (called when a member removes a
  *  photo). Local-disk files are left for the OS/volume lifecycle; Blob objects
  *  are billed, so we delete them. */
-export async function deleteUpload(storageUrl?: string | null): Promise<void> {
+export async function deleteUpload(
+  storageUrl?: string | null,
+  id?: string,
+  ext: string = STORED_EXT,
+): Promise<void> {
   if (storageUrl && blobEnabled()) {
     await del(storageUrl, { token: process.env.BLOB_READ_WRITE_TOKEN }).catch(() => {});
+    return;
+  }
+  if (id) {
+    const base = resolve(UPLOAD_DIR);
+    const full = resolve(base, `${id}.${ext}`);
+    if (full !== base && full.startsWith(base + sep)) {
+      await unlink(full).catch(() => {});
+    }
   }
 }
 

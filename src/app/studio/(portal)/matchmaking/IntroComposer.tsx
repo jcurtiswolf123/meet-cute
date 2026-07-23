@@ -3,7 +3,16 @@
 import { useId, useMemo, useState } from "react";
 import { createIntroduction } from "@/lib/actions";
 
-type Person = { id: string; name: string; phone: string | null; city: string; instagram: string | null; blurb?: string };
+type Person = {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  canText: boolean;
+  city: string;
+  instagram: string | null;
+  blurb?: string;
+};
 
 function first(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
@@ -68,17 +77,18 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
     }
   }
 
-  const missingPhone =
-    (a && !a.phone ? a.name : null) || (b && !b.phone ? b.name : null);
+  const missingChannel =
+    (a && !a.email && !(a.phone && a.canText) ? a.name : null) ||
+    (b && !b.email && !(b.phone && b.canText) ? b.name : null);
   const sameTwice = aId && bId && aId === bId;
-  const ready = a && b && !missingPhone && !sameTwice;
+  const ready = a && b && !missingChannel && !sameTwice;
 
   return (
     <div className="card-feature p-5">
       <h2 className="font-display text-lg font-medium">New introduction</h2>
       <p className="mt-1 text-sm text-muted">
-        Pick two people, add a few bullets about each, and text them both. They reply Y to opt in;
-        when both say yes, you all land in one group thread together.
+        Pick two approved people who are ready to match. Everyone gets an email invite when available.
+        A text is added only for people who separately opted in to SMS.
       </p>
 
       <form
@@ -162,29 +172,37 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
             <div className="space-y-2">
               {a && b && (
                 <p className="text-sm leading-relaxed">
-                  <span className="font-medium">To {first(a.name)}:</span>{" "}
-                  {previewText(a.name, b.name, aboutB, b.instagram, blurb, operatorName)}
+                  <span className="font-medium">
+                    To {first(a.name)} via {[a.email ? "email" : null, a.phone && a.canText ? "SMS" : null].filter(Boolean).join(" and ")}:
+                  </span>{" "}
+                  {a.phone && a.canText
+                    ? previewText(a.name, b.name, aboutB, b.instagram, blurb, operatorName)
+                    : `Email invite with ${first(b.name)}'s profile and Yes or Pass choices.`}
                 </p>
               )}
               {a && b && (
                 <p className="text-sm leading-relaxed">
-                  <span className="font-medium">To {first(b.name)}:</span>{" "}
-                  {previewText(b.name, a.name, aboutA, a.instagram, blurb, operatorName)}
+                  <span className="font-medium">
+                    To {first(b.name)} via {[b.email ? "email" : null, b.phone && b.canText ? "SMS" : null].filter(Boolean).join(" and ")}:
+                  </span>{" "}
+                  {b.phone && b.canText
+                    ? previewText(b.name, a.name, aboutA, a.instagram, blurb, operatorName)
+                    : `Email invite with ${first(a.name)}'s profile and Yes or Pass choices.`}
                 </p>
               )}
             </div>
           </div>
         )}
 
-        {missingPhone && (
+        {missingChannel && (
           <p className="sm:col-span-2 text-sm text-claret">
-            {missingPhone} has no phone number on file. Add one before texting an intro.
+            {missingChannel} has no authorized delivery channel. Add an email or record explicit text consent.
           </p>
         )}
 
         <div className="sm:col-span-2">
           <button type="submit" disabled={!ready} className="btn-primary">
-            Send intro texts
+            Send introductions
           </button>
           <span className="ml-3 text-xs text-muted">or press Cmd/Ctrl + Enter</span>
         </div>

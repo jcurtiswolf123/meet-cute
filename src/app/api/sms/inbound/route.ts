@@ -90,7 +90,10 @@ export async function POST(req: NextRequest) {
     // Carrier-required keyword replies take precedence over intro Y/N parsing and
     // must work for any inbound number, matched to a person or not.
     if (isHelpKeyword(body)) return await reply(HELP_REPLY);
-    if (isStartKeyword(body)) return await reply(OPT_IN_REPLY);
+    if (isStartKeyword(body)) {
+      await applyOptIn(from);
+      return await reply(OPT_IN_REPLY);
+    }
     if (isStopKeyword(body)) {
       await applyOptOut(from);
       return await reply(OPT_OUT_REPLY);
@@ -176,11 +179,12 @@ export async function POST(req: NextRequest) {
 
     return await reply("Thanks! I don't have an open introduction for you right now, but I'll be in touch when I do.");
   } catch (e) {
-    // Log the error to Sentry for monitoring
     Sentry.captureException(e);
     console.error(`[sms/inbound] error: ${(e as Error).message}`);
-    // Still return a valid TwiML response so Twilio doesn't retry
-    return twiml();
+    return new Response("temporary failure", {
+      status: 503,
+      headers: { "Retry-After": "30" },
+    });
   }
 }
 
@@ -202,6 +206,10 @@ async function applyOptOut(from: string): Promise<void> {
   });
   if (people.length === 0) return;
   const ids = people.map((p) => p.id);
+  await prisma.person.updateMany({
+    where: { id: { in: ids } },
+    data: { smsConsentAt: null },
+  });
 
   // Close any open intros awaiting these people so we stop chasing a reply.
   await prisma.match.updateMany({
@@ -218,4 +226,13 @@ async function applyOptOut(from: string): Promise<void> {
     .catch(() => {
       /* note is advisory; never fail the webhook over it */
     });
+}
+
+async function applyOptIn(from: string): Promise<void> {
+  const normalized = normalizePhone(from);
+  if (!normalized) return;
+  await prisma.person.updateMany({
+    where: { phone: normalized },
+    data: { smsConsentAt: new Date() },
+  });
 }

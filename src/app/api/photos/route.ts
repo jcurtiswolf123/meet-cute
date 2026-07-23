@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { getSessionPersonId } from "@/lib/auth";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
-import { extFor, writeUpload, normalizeImage, MAX_BYTES, STORED_EXT } from "@/lib/uploads";
+import { deleteUpload, extFor, writeUpload, normalizeImage, MAX_BYTES, STORED_EXT } from "@/lib/uploads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,12 +52,22 @@ export async function POST(req: Request) {
   }
 
   const count = await prisma.photo.count({ where: { personId: me } });
-  const photo = await prisma.photo.create({
-    data: { personId: me, url: "", order: count, status: "pending" },
-  });
-  const storageUrl = await writeUpload(photo.id, STORED_EXT, buf);
-  const url = `/api/photos/${photo.id}.${STORED_EXT}`;
-  await prisma.photo.update({ where: { id: photo.id }, data: { url, storageUrl } });
+  const id = randomBytes(16).toString("hex");
+  let storageUrl: string | null;
+  try {
+    storageUrl = await writeUpload(id, STORED_EXT, buf);
+  } catch {
+    return NextResponse.json({ error: "Upload storage is unavailable." }, { status: 503 });
+  }
+  const url = `/api/photos/${id}.${STORED_EXT}`;
+  try {
+    await prisma.photo.create({
+      data: { id, personId: me, url, storageUrl, order: count, status: "pending" },
+    });
+  } catch {
+    await deleteUpload(storageUrl, id);
+    return NextResponse.json({ error: "The upload could not be saved." }, { status: 500 });
+  }
 
-  return NextResponse.json({ ok: true, id: photo.id, url, status: "pending" });
+  return NextResponse.json({ ok: true, id, url, status: "pending" });
 }

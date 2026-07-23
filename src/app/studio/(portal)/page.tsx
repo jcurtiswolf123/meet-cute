@@ -137,14 +137,19 @@ export default async function Roster({
       )}
 
       <form className="mt-6 flex flex-wrap items-center gap-2" action="/studio">
-        <input name="q" defaultValue={sp.q} placeholder="Search name, headline, what they want..." className="field max-w-xs" />
-        <Select name="city" value={sp.city} options={[["", "All cities"], ["NYC", "NYC"], ["SF", "SF"]]} />
-        <Select name="gender" value={sp.gender} options={[["", "Any"], ["woman", "Women"], ["man", "Men"]]} />
-        <Select name="sort" value={sp.sort} options={[["name", "A-Z"], ["vouches", "Most vouched"], ["stale", "Stalest"]]} />
+        <input name="q" aria-label="Search directory" defaultValue={sp.q} placeholder="Search name, headline, what they want..." className="field max-w-xs" />
+        <Select label="Filter by city" name="city" value={sp.city} options={[["", "All cities"], ["NYC", "NYC"], ["SF", "SF"]]} />
+        <Select label="Filter by gender" name="gender" value={sp.gender} options={[["", "Any"], ["woman", "Women"], ["man", "Men"]]} />
+        <Select label="Sort directory" name="sort" value={sp.sort} options={[["name", "A-Z"], ["vouches", "Most vouched"], ["stale", "Stalest"]]} />
         <button className="btn-ghost">Filter</button>
       </form>
 
-      <div className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-panel shadow-card">
+      <div
+        className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-panel shadow-card"
+        role="region"
+        aria-label="Member directory table"
+        tabIndex={0}
+      >
         <table className="roster min-w-[640px]">
           <thead>
             <tr>
@@ -180,9 +185,9 @@ export default async function Roster({
   );
 }
 
-function Select({ name, value, options }: { name: string; value?: string; options: [string, string][] }) {
+function Select({ label, name, value, options }: { label: string; name: string; value?: string; options: [string, string][] }) {
   return (
-    <select name={name} defaultValue={value} className="field max-w-[10rem]">
+    <select aria-label={label} name={name} defaultValue={value} className="field max-w-[10rem]">
       {options.map(([v, l]) => (
         <option key={v} value={v}>{l}</option>
       ))}

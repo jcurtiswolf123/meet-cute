@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentPerson } from "@/lib/auth";
 import { readUpload, contentTypeForExt } from "@/lib/uploads";
+import { isConnectedTo } from "@/lib/social";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ file: s
 
   const isOwner = photo.personId === me.id;
   if (photo.status !== "approved" && !isOwner && !me.isOperator) {
+    return new NextResponse("Not found", { status: 404 });
+  }
+  if (!isOwner && !me.isOperator && !(await isConnectedTo(me.id, photo.personId))) {
     return new NextResponse("Not found", { status: 404 });
   }
 

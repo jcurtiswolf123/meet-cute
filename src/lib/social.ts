@@ -55,7 +55,7 @@ export async function mutualFriends(aId: string, bId: string) {
 // mutual yes or connected. This is the ONLY set whose profiles a member may view
 // (see the member visibility rule: application + own profile + connected
 // profiles only). Excludes anyone in a block relationship, in either direction.
-const CONNECTED_STAGES = ["mutual_yes", "connected"];
+const CONNECTED_STAGES = ["connected"];
 
 export async function connectedPersonIds(meId: string): Promise<string[]> {
   const [matches, blocks] = await Promise.all([

@@ -118,6 +118,10 @@ export async function consumeLoginToken(rawToken: string): Promise<string | null
   if (!rawToken) return null;
   const row = await prisma.loginToken.findUnique({ where: { tokenHash: hash(rawToken) } });
   if (!row || row.consumedAt || row.expiresAt.getTime() < Date.now()) return null;
-  await prisma.loginToken.update({ where: { id: row.id }, data: { consumedAt: new Date() } });
+  const consumed = await prisma.loginToken.updateMany({
+    where: { id: row.id, consumedAt: null, expiresAt: { gt: new Date() } },
+    data: { consumedAt: new Date() },
+  });
+  if (consumed.count !== 1) return null;
   return row.email;
 }
