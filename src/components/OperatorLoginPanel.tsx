@@ -34,7 +34,7 @@ export function OperatorLoginPanel({
           {notOperator && (
             <p className="text-sm text-claret">
               That email is not registered for studio access. Use your operator email, or ask
-              another operator to add you from Team.
+              a super admin to add you from Team.
             </p>
           )}
           {expired && (

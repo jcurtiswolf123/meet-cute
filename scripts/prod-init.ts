@@ -28,6 +28,7 @@ const VENUES = [
       email: "jesswolflord@gmail.com",
       city: "NYC",
       isOperator: true,
+      isSuperAdmin: true,
       status: "active",
       headline: "Matchmaker",
     },
