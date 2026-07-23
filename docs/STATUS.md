@@ -2,7 +2,34 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-23 (public launch deployed and verified)
+Last updated: 2026-07-23 (super-admin release deployed and verified)
+
+## 2026-07-23: super-admin release deployed and verified
+- PR `#12` merged as `57d3c9a`. GitHub run `30053909219` passed
+  isolated PostgreSQL migrations, type checking, lint, all launch suites, the
+  introduction concurrency test, the production build, and the operator portal
+  browser suite.
+- Production is on Fly version 107 with image
+  `deployment-01KY8NSJ1YBY007FAB5434ZQ1F`. Machines `080d0d2f0ee538` and
+  `781e467f052dd8` are started in `sjc`, both readiness checks pass, and both
+  original volumes remain attached.
+- Fly built and pushed the correct image but its rolling update hit the
+  organization's two-machine cap. A controlled one-machine-at-a-time rotation
+  released the image without taking both machines down together.
+- `jesswolflord@gmail.com` is verified active with `isOperator=true` and
+  `isSuperAdmin=true`. The migration cleared her prior sessions and unused
+  login tokens so the role change requires a fresh login.
+- Authenticated production QA verified that Jess sees the Team provisioning
+  form and super-admin badge. An ordinary operator sees no provisioning or
+  revocation controls and retains full matchmaking access. Mobile QA at 390 px
+  had no horizontal overflow and both browser consoles were clean.
+- Authentication remains individual email magic links. Members have `/app`
+  profiles, operators use `/studio`, and only super admins manage operator
+  access.
+- Twilio live status: the Standard brand is `APPROVED` and
+  `VETTED_VERIFIED`. The A2P campaign remains `FAILED` with error `30882` for
+  the Terms and Conditions URL and error `30908` for the Privacy Policy URL.
+  No resubmission was performed during this release.
 
 ## 2026-07-23: public launch deployed and verified
 - Release commits: `cde712e` for launch readiness and `d5975fc` for the
