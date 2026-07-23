@@ -11,8 +11,8 @@ primary_region = "sjc"
 # the public DSN is inlined into the client bundle and withSentryConfig activates.
 # The DSN is PUBLIC by design (it already ships in client JS), so it is safe here.
 # SENTRY_AUTH_TOKEN is deliberately NOT committed (it is a real secret). Source-map
-# upload is skipped unless you pass it at deploy time:
-#   fly deploy --build-arg SENTRY_AUTH_TOKEN="$(cat ~/.gstack/credentials/sentry-auth-token.txt)"
+# upload is skipped unless you provide a BuildKit secret at deploy time:
+#   fly deploy --build-secret SENTRY_AUTH_TOKEN="<value from approved secret store>"
 # Runtime server-side capture uses the SENTRY_DSN Fly secret (set separately).
 [build.args]
   SENTRY_DSN = "https://ec7ed63a21303d6dbaf509a8c115bb7b@o4511616620363776.ingest.us.sentry.io/4511649571864576"
