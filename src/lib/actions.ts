@@ -11,6 +11,7 @@ import {
   getSessionPersonId,
   getCurrentPerson,
   requireOperator,
+  requireSuperAdmin,
   createLoginToken,
   normalizeEmail,
   purgeExpiredAuth,
@@ -40,6 +41,12 @@ import {
   queueSmsDelivery,
   retryFailedDeliveryJob,
 } from "./delivery";
+import {
+  provisionOperatorAccount,
+  revokeOperatorAccount,
+  setNonOperatorMemberStatus,
+} from "./operator-access";
+import { deleteNonOperatorPersonRecord } from "./account-deletion";
 
 // A normalized phone is only usable for the SMS intro flow if it carries a full
 // subscriber number. normalizePhone is deliberately lenient (it will return
@@ -517,8 +524,12 @@ export async function setMatchOptIn(formData: FormData) {
 
 /** Permanently delete the signed-in member and all of their data. */
 export async function deleteAccount() {
-  const me = await getSessionPersonId();
-  if (!me) throw new Error("not logged in");
+  const person = await getCurrentPerson();
+  if (!person) throw new Error("not logged in");
+  if (person.isOperator) {
+    throw new Error("Operator accounts must be revoked before they can be deleted.");
+  }
+  const me = person.id;
 
   const myMatches = await prisma.match.findMany({
     where: { OR: [{ personAId: me }, { personBId: me }] },
@@ -533,27 +544,29 @@ export async function deleteAccount() {
     select: { id: true, storageUrl: true },
   });
 
-  await prisma.$transaction([
+  await prisma.$transaction(async (tx) => {
     // Notes that reference me, my matches, or were authored by me (operators).
-    prisma.note.deleteMany({
+    await tx.note.deleteMany({
       where: { OR: [{ subjectId: me }, { authorId: me }, { matchId: { in: matchIds } }] },
-    }),
+    });
     // References tied to me (requester/friend are plain ids, no cascade).
-    prisma.reference.deleteMany({ where: { OR: [{ requesterId: me }, { friendId: me }] } }),
+    await tx.reference.deleteMany({ where: { OR: [{ requesterId: me }, { friendId: me }] } });
     // My matches (cascades concierge threads, messages, remaining references).
-    prisma.match.deleteMany({ where: { OR: [{ personAId: me }, { personBId: me }] } }),
+    await tx.match.deleteMany({ where: { OR: [{ personAId: me }, { personBId: me }] } });
     // Vouches in either direction.
-    prisma.vouch.deleteMany({ where: { OR: [{ voucherId: me }, { subjectId: me }] } }),
+    await tx.vouch.deleteMany({ where: { OR: [{ voucherId: me }, { subjectId: me }] } });
     // Referrals I sent; detach invites/referrals that point at me.
-    prisma.referral.deleteMany({ where: { inviterId: me } }),
-    prisma.referral.updateMany({ where: { inviteeId: me }, data: { inviteeId: null } }),
-    prisma.person.updateMany({ where: { referredById: me }, data: { referredById: null } }),
+    await tx.referral.deleteMany({ where: { inviterId: me } });
+    await tx.referral.updateMany({ where: { inviteeId: me }, data: { inviteeId: null } });
+    await tx.person.updateMany({ where: { referredById: me }, data: { referredById: null } });
     // Coaching engagements I am part of.
-    prisma.coachingEngagement.deleteMany({ where: { OR: [{ clientId: me }, { coachId: me }] } }),
-    // Finally the person; cascades photos, prompts, sessions, blocks, reports,
-    // dinner attendance.
-    prisma.person.delete({ where: { id: me } }),
-  ]);
+    await tx.coachingEngagement.deleteMany({
+      where: { OR: [{ clientId: me }, { coachId: me }] },
+    });
+    // The role condition closes the race where this member is promoted while
+    // deletion is in flight. Throwing rolls back every preceding deletion.
+    await deleteNonOperatorPersonRecord(tx, me);
+  });
 
   // Free the photo objects from the store after the rows are gone.
   await Promise.all(myPhotos.map((p) => deleteUpload(p.storageUrl, p.id)));
@@ -612,80 +625,77 @@ export async function setMemberStatus(formData: FormData) {
   if (!op) throw new Error("operators only");
   const id = String(formData.get("personId") || "");
   const action = String(formData.get("action") || "");
-  if (action === "approve") {
-    await prisma.person.update({ where: { id }, data: { status: "active", acceptedAt: new Date() } });
-  } else if (action === "decline") {
-    await prisma.person.update({ where: { id }, data: { status: "exited" } });
-    // Revoke any live sessions so a removed member loses access immediately,
-    // not at the end of the 30-day session TTL.
-    await prisma.session.deleteMany({ where: { personId: id } });
-  }
+  if (!id || !["approve", "decline"].includes(action)) throw new Error("invalid status change");
+
+  await setNonOperatorMemberStatus(op.id, id, action as "approve" | "decline");
   revalidatePath("/studio");
 }
 
 // --- operator (admin) accounts ----------------------------------------------
 //
-// There is one login mechanism for everyone (magic link by email); an account
-// is an operator iff Person.isOperator is true, which routes them to /studio and
-// unlocks every operators-only action. These let an existing operator add or
-// revoke other operators self-serve, instead of editing the DB.
+// There is one login mechanism for everyone (magic link by email). Person.isOperator
+// unlocks the studio, while Person.isSuperAdmin grants the narrower authority to
+// add or revoke operator accounts.
 
-// Operator: add another operator by email. Creates the account if new, promotes
-// it if it exists, and emails them a sign-in link so they can log in right away.
+// Super admin: add another operator by email. Creates the account if new,
+// promotes it if it exists, and emails them a sign-in link.
 export async function addOperator(formData: FormData) {
-  const op = await requireOperator();
-  if (!op) throw new Error("operators only");
+  const superAdmin = await requireSuperAdmin();
+  if (!superAdmin) throw new Error("super admins only");
 
   const email = normalizeEmail(String(formData.get("email") || ""));
   if (!email.includes("@") || email.length > 254) throw new Error("Enter a valid email.");
   const rawName = String(formData.get("name") || "").trim().slice(0, 60);
   const city = String(formData.get("city") || "").includes("Francisco") ? "SF" : "NYC";
 
-  const existing = await prisma.person.findUnique({ where: { email } });
-  if (existing) {
-    await prisma.person.update({
-      where: { id: existing.id },
-      data: { isOperator: true, status: "active" },
-    });
-  } else {
-    const local = email.split("@")[0].replace(/[._-]+/g, " ").trim();
-    const name = rawName || (local ? local.replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 60) : "Operator");
-    await prisma.person.create({
-      data: { email, name, city, isOperator: true, status: "active", headline: "Matchmaker" },
-    });
-  }
+  const existing = await prisma.person.findUnique({
+    where: { email },
+    select: { name: true },
+  });
+  const name = existing?.name || rawName;
+  if (!name) throw new Error("Enter the operator's full name.");
 
-  // Best-effort invite: email them a one-time sign-in link if we can build the
-  // public URL. Never block on mail; the account works regardless.
+  const operator = await provisionOperatorAccount({
+    actorId: superAdmin.id,
+    email,
+    name,
+    city,
+  });
+
+  // Email a one-time sign-in link. If delivery fails, the account still exists
+  // and the Team page tells the super admin to have them request a fresh link.
   const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
+  let inviteStatus = "created";
   if (base) {
     try {
       const token = await createLoginToken(email);
       const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
       const { subject, html, text } = magicLinkEmail(link);
       await sendEmail({ to: email, subject, html, text });
+      inviteStatus = "sent";
     } catch {
-      /* invite email is best-effort */
+      inviteStatus = "failed";
     }
   }
 
   revalidatePath("/studio/team");
+  redirect(`/studio/team?invite=${inviteStatus}&operator=${encodeURIComponent(operator.name)}`);
 }
 
-// Operator: revoke operator (admin) access. Keeps the person/account; just drops
-// the flag. Guards against removing yourself or the last operator (lockout).
+// Super admin: revoke ordinary operator access. Keeps the person/account and
+// guards against removing yourself or another super admin.
 export async function removeOperator(formData: FormData) {
-  const op = await requireOperator();
-  if (!op) throw new Error("operators only");
+  const superAdmin = await requireSuperAdmin();
+  if (!superAdmin) throw new Error("super admins only");
   const id = String(formData.get("personId") || "");
   if (!id) throw new Error("missing operator");
-  if (id === op.id) throw new Error("You cannot revoke your own operator access.");
+  if (id === superAdmin.id) throw new Error("You cannot revoke your own operator access.");
 
-  const count = await prisma.person.count({ where: { isOperator: true } });
-  if (count <= 1) throw new Error("Cannot remove the last operator.");
-
-  await prisma.person.update({ where: { id }, data: { isOperator: false } });
+  const operator = await revokeOperatorAccount(superAdmin.id, id);
   revalidatePath("/studio/team");
+  redirect(
+    `/studio/team?access=revoked&operator=${encodeURIComponent(operator.name)}`,
+  );
 }
 
 // Operator: set their own mobile number. Used to add the matchmaker to the 3-way

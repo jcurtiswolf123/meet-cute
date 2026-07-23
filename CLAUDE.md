@@ -30,6 +30,8 @@ npm run build
 - Production has two Fly machines. Uploads use Vercel Blob when configured and
   otherwise use Postgres, so no upload depends on one machine.
 - Demo login is local development only.
+- Email magic links are shared authentication. `isOperator` grants studio
+  access, while `isSuperAdmin` grants only operator-account management.
 - Introduction delivery uses a database outbox with fenced workers, retries,
   authorization checks at send time, and operator-visible failure state.
 - Venue booking and calendar coordination are manual. Do not claim they are

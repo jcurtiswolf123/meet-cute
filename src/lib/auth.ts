@@ -22,6 +22,35 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+type OperatorAccessSubject = {
+  isOperator: boolean;
+  isSuperAdmin: boolean;
+};
+
+type OperatorRevocationSubject = OperatorAccessSubject & {
+  id: string;
+};
+
+export function hasOperatorAccess(person: OperatorAccessSubject | null | undefined): boolean {
+  return person?.isOperator === true;
+}
+
+export function hasSuperAdminAccess(person: OperatorAccessSubject | null | undefined): boolean {
+  return person?.isOperator === true && person.isSuperAdmin === true;
+}
+
+export function canRevokeOperatorAccess(
+  actor: OperatorRevocationSubject | null | undefined,
+  target: OperatorRevocationSubject | null | undefined,
+): boolean {
+  return (
+    hasSuperAdminAccess(actor) &&
+    target?.isOperator === true &&
+    target.isSuperAdmin === false &&
+    actor?.id !== target.id
+  );
+}
+
 // --- sessions ----------------------------------------------------------------
 
 export async function setSession(personId: string, userAgent?: string) {
@@ -77,7 +106,13 @@ export async function getCurrentPerson() {
 
 export async function requireOperator() {
   const p = await getCurrentPerson();
-  if (!p || !p.isOperator) return null;
+  if (!hasOperatorAccess(p)) return null;
+  return p;
+}
+
+export async function requireSuperAdmin() {
+  const p = await getCurrentPerson();
+  if (!hasSuperAdminAccess(p)) return null;
   return p;
 }
 

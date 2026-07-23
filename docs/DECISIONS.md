@@ -2,6 +2,22 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-07-23 : Role-based studio administration
+- Decision: Keep one email magic-link authentication flow and separate
+  authorization into member, operator, and super-admin roles.
+- Decision: Give `jesswolflord@gmail.com` the initial super-admin role. Super
+  admins can provision and revoke ordinary operators. Ordinary operators retain
+  all matchmaking capabilities but cannot change studio access.
+- Decision: Invalidate sessions and outstanding magic links whenever privileges
+  increase, and invalidate sessions when operator access is revoked.
+- Why: Meet Cute needs individual identities and least-privilege studio access,
+  not shared credentials or organization tenancy.
+- Alternatives rejected: shared operator passwords, allowing every operator to
+  manage access, and introducing organization-level multi-tenancy without a
+  current product requirement.
+- Reversible?: Additional organizations or delegated admin roles can be added
+  later without changing the current sign-in mechanism.
+
 ## 2026-07-23 : Launch integrity architecture
 - Decision: Store photos in Vercel Blob when configured and otherwise in
   Postgres. Never use a machine-local production fallback.

@@ -27,6 +27,9 @@ model Person {
 
   // role
   isOperator   Boolean @default(false)
+  // Super admins can provision and revoke operator accounts. Ordinary operators
+  // retain full matchmaking access but cannot change who can enter the studio.
+  isSuperAdmin Boolean @default(false)
   isAmbassador Boolean @default(false)
   isCoach      Boolean @default(false)
   status       String  @default("applicant") // applicant | active | paused | exited

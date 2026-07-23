@@ -159,7 +159,7 @@ async function main() {
 
   // ---- operators -----------------------------------------------------------
   const jess = await db.person.create({
-    data: { name: "Jess", email: "jess@meetcute.co", city: "NYC", isOperator: true, status: "active", headline: "Overall lead, matchmaker" },
+    data: { name: "Jess", email: "jesswolflord@gmail.com", city: "NYC", isOperator: true, isSuperAdmin: true, status: "active", headline: "Overall lead, matchmaker" },
   });
   const zoe = await db.person.create({
     data: { name: "Zoe", email: "zoe@meetcute.co", city: "NYC", isOperator: true, status: "active", headline: "NYC co-lead, roster + member experience" },
@@ -328,8 +328,8 @@ async function main() {
   });
   await db.conciergeMessage.createMany({
     data: [
-      { threadId: thread.id, direction: "out", toPersonId: id("sofia@example.com"), body: "You matched with Marcus 🎉 I've got you a table at Via Carota.", kind: "propose" },
-      { threadId: thread.id, direction: "out", toPersonId: id("sofia@example.com"), body: "You're set with Marcus at Via Carota. Ask for the Meet Cute table. 🥂", kind: "confirm" },
+      { threadId: thread.id, direction: "out", toPersonId: id("sofia@example.com"), body: "You matched with Marcus. I've got you a table at Via Carota.", kind: "propose" },
+      { threadId: thread.id, direction: "out", toPersonId: id("sofia@example.com"), body: "You're set with Marcus at Via Carota. Ask for the Meet Cute table.", kind: "confirm" },
     ],
   });
 

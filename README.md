@@ -18,6 +18,14 @@ remaining external review item are in
 | Liveness | `/healthz` | Confirm the Node process is accepting requests |
 | Readiness | `/readyz` | Confirm the process can query the required production schema |
 
+## Access model
+
+Everyone signs in with an individual email magic link. Members manage their
+profiles and introductions under `/app`. Operators use `/studio` for
+matchmaking, moderation, events, and delivery operations. Super admins retain
+ordinary operator access and can also add or revoke operator accounts from the
+Team page. `jesswolflord@gmail.com` is the initial super admin.
+
 Meet Cute does not automatically book venues or send calendar invitations. When
 two members accept an introduction, the app shares authorized contact details
 and tells the operator to coordinate the date manually.
@@ -53,8 +61,10 @@ npm run build
 npm audit --audit-level=low
 ```
 
-The database-backed tests use isolated identifiers and remove their fixtures.
-Confirm the selected database before running them.
+CI runs the database-backed suites against an isolated PostgreSQL service. It
+also runs `npm run test:launch:roles:e2e` against the built app to cover
+ordinary-operator restrictions and super-admin provisioning and revocation.
+The browser role suite refuses to run unless `DATABASE_URL` points to localhost.
 
 ## Production architecture
 

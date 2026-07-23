@@ -1,24 +1,90 @@
 "use client";
 
+import { useState } from "react";
 import { useFormStatus } from "react-dom";
 
 // A submit button that reflects the pending state of its enclosing <form>
 // server action: spinner + disabled, so every mutation has real feedback.
 export function SubmitButton({
   children,
+  ariaLabel,
   pendingText,
   className = "btn-primary",
 }: {
   children: React.ReactNode;
+  ariaLabel?: string;
   pendingText?: string;
   className?: string;
 }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className={`${className} disabled:opacity-60`} aria-busy={pending}>
+    <button
+      type="submit"
+      disabled={pending}
+      className={`${className} disabled:opacity-60`}
+      aria-busy={pending}
+      aria-label={ariaLabel}
+    >
       {pending && <Spinner />}
       {pending ? pendingText ?? children : children}
     </button>
+  );
+}
+
+export function ConfirmActionForm({
+  children,
+  action,
+  confirmMessage,
+  triggerLabel,
+  triggerAriaLabel,
+  confirmLabel,
+  pendingText,
+  buttonClassName,
+  className,
+}: {
+  children?: React.ReactNode;
+  action: (formData: FormData) => void | Promise<void>;
+  confirmMessage: string;
+  triggerLabel: string;
+  triggerAriaLabel?: string;
+  confirmLabel: string;
+  pendingText: string;
+  buttonClassName?: string;
+  className?: string;
+}) {
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <form action={action} className={className}>
+      {children}
+      {confirming ? (
+        <div className="flex max-w-xs flex-wrap items-center justify-end gap-2 text-right">
+          <p className="w-full text-xs text-muted">{confirmMessage}</p>
+          <button
+            type="button"
+            className="rounded-full border border-line px-3 py-1 text-xs"
+            onClick={() => setConfirming(false)}
+          >
+            Cancel
+          </button>
+          <SubmitButton
+            className={buttonClassName}
+            pendingText={pendingText}
+          >
+            {confirmLabel}
+          </SubmitButton>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className={buttonClassName}
+          aria-label={triggerAriaLabel}
+          onClick={() => setConfirming(true)}
+        >
+          {triggerLabel}
+        </button>
+      )}
+    </form>
   );
 }
 

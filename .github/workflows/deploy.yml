@@ -8,6 +8,22 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine@sha256:4e6e670bb069649261c9c18031f0aded7bb249a5b6664ddec29c013a89310d50
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: meetcute
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d meetcute"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/meetcute?schema=meetcute
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/meetcute?schema=meetcute
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -16,16 +32,31 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
+      - run: npm run db:deploy
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm run test:launch:pure
+      - run: npm run test:launch
+      - run: npm run test:race
       # Full production build gate: catch build-time breakage (bad imports, RSC
       # boundary errors, font/axes config) before we ship, not on the Fly builder.
       - run: npm run build
-        env:
-          # Build only needs the schema/types, not a live DB, but Prisma wants a
-          # URL present. A dummy is fine; no queries run at build time.
-          DATABASE_URL: "postgresql://user:pass@localhost:5432/db?schema=public"
+      - run: npx playwright install --with-deps chromium
+      - name: Run operator role browser checks
+        run: |
+          NEXT_PUBLIC_APP_URL="" npm run start > /tmp/meet-cute-role-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3009/healthz > /dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              tail -100 /tmp/meet-cute-role-server.log
+              exit 1
+            fi
+            sleep 1
+          done
+          npm run test:launch:roles:e2e
 
   deploy:
     needs: ci
@@ -41,11 +72,6 @@ jobs:
       - run: npx prisma generate
       - name: Apply additive database schema
         run: npm run db:deploy
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
-      - name: Run database launch checks
-        run: npm run test:launch && npm run test:race
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
