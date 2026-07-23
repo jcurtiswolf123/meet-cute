@@ -129,7 +129,7 @@ export default function Terms() {
             Meet Cute a non-exclusive, worldwide, royalty-free license to host, store, display, and
             use that content as needed to operate the service, including showing your profile to
             members you are introduced to. You confirm that you have the right to share the content
-            you submit and that it does not infringe anyone else's rights.
+            you submit and that it does not infringe anyone else&apos;s rights.
           </p>
           <p>
             We may review, moderate, or remove content and may suspend or terminate accounts that

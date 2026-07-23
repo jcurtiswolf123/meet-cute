@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui";
 import { logout } from "@/lib/actions";
 
@@ -38,11 +38,14 @@ export function PortalSidebar({
 
   // Restore the collapsed preference after mount (avoids hydration mismatch).
   useEffect(() => {
-    try {
-      setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
-    } catch {
-      /* ignore */
-    }
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+      } catch {
+        /* ignore */
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
   const toggleCollapse = () => {
     setCollapsed((c) => {
@@ -55,11 +58,6 @@ export function PortalSidebar({
       return next;
     });
   };
-
-  // Close the mobile drawer on navigation.
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   const isActive = (href: string) =>
     href === homeHref ? pathname === href : pathname === href || pathname.startsWith(href + "/");
@@ -199,6 +197,7 @@ function SidebarInner({
                   <li key={it.href}>
                     <Link
                       href={it.href}
+                      onClick={onClose}
                       aria-current={active ? "page" : undefined}
                       title={collapsed ? it.label : undefined}
                       className={`group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition ${

@@ -50,7 +50,6 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const photoUrl = other.photos[0] ? `/api/invite/${token}/photo/${other.photos[0].id}` : null;
 
   const connected = match.stage === "connected";
-  const decided = myDecision !== "pending" || connected || match.stage === "exit";
 
   return (
     <main className="mx-auto max-w-2xl px-5 py-10">

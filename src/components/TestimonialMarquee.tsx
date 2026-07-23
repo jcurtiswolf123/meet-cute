@@ -33,7 +33,6 @@ function QuoteCard({ q }: { q: Quote }) {
 
 function Row({ data, reverse, speed, dark = false }: { data: Quote[]; reverse?: boolean; speed: number; dark?: boolean }) {
   const doubled = [...data, ...data];
-  const bgFrom = dark ? "from-espresso" : "from-cream";
   const bgGradient = dark ? "bg-gradient-to-r from-espresso to-transparent" : "bg-gradient-to-r from-cream to-transparent";
   const bgGradientReverse = dark ? "bg-gradient-to-l from-espresso to-transparent" : "bg-gradient-to-l from-cream to-transparent";
 

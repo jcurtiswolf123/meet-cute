@@ -36,7 +36,10 @@ export async function GET() {
     exportedAt: new Date().toISOString(),
     person: {
       ...personRest,
-      photos: photos.map(({ storageUrl: _omit, ...photo }) => photo),
+      photos: photos.map(({ storageUrl, ...photo }) => {
+        void storageUrl;
+        return photo;
+      }),
     },
     blocks,
     reportsFiled: reports,

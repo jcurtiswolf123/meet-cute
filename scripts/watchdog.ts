@@ -273,7 +273,6 @@ async function cycle(n: number): Promise<boolean> {
     process.exitCode = ok ? 0 : 1; // non-zero so CI / cron flags failures
     return;
   }
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     await cycle(n++).catch((e) => log(`cycle error: ${(e as Error).message}`));
     await new Promise((r) => setTimeout(r, INTERVAL_MS));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { createIntroduction } from "@/lib/actions";
 
 type Person = { id: string; name: string; phone: string | null; city: string; instagram: string | null; blurb?: string };
@@ -214,6 +214,7 @@ function PersonCombobox({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  const listboxId = useId();
   const selected = people.find((p) => p.id === value);
 
   const filtered = useMemo(() => {
@@ -243,7 +244,10 @@ function PersonCombobox({
         value={display}
         autoComplete="off"
         role="combobox"
+        aria-autocomplete="list"
+        aria-controls={listboxId}
         aria-expanded={open}
+        aria-activedescendant={open && filtered[active] ? `${listboxId}-${filtered[active].id}` : undefined}
         onFocus={() => { setOpen(true); setQuery(""); setActive(0); }}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); setActive(0); }}
@@ -257,10 +261,15 @@ function PersonCombobox({
       />
       <input type="hidden" name={name} value={value} />
       {open && filtered.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-line bg-panel py-1 shadow-card">
+        <ul
+          id={listboxId}
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-line bg-panel py-1 shadow-card"
+        >
           {filtered.map((p, i) => (
-            <li key={p.id}>
+            <li key={p.id} role="option" aria-selected={i === active}>
               <button
+                id={`${listboxId}-${p.id}`}
                 type="button"
                 onMouseEnter={() => setActive(i)}
                 onMouseDown={(e) => { e.preventDefault(); choose(p.id); }}
