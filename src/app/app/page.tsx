@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentPerson } from "@/lib/auth";
+import { requireMemberPage } from "@/lib/page-auth";
 import { setMatchOptIn } from "@/lib/actions";
 import { connectedPersonIds } from "@/lib/social";
 import { SubmitButton } from "@/components/forms";
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 // you reply Y or N. So the in-app surface is small and calm: opt in to be
 // matched, see who you have been connected to, keep your profile sharp.
 export default async function Home() {
-  const me = (await getCurrentPerson())!;
+  const me = await requireMemberPage();
   const connections = await connectedPersonIds(me.id);
 
   if (!me.openToMatch) {

@@ -1,4 +1,4 @@
-import { getCurrentPerson } from "@/lib/auth";
+import { requireMemberPage } from "@/lib/page-auth";
 import { updateProfile } from "@/lib/actions";
 import { Avatar } from "@/components/ui";
 import { SubmitButton } from "@/components/forms";
@@ -20,7 +20,7 @@ async function save(formData: FormData) {
 }
 
 export default async function Profile() {
-  const me = (await getCurrentPerson())!;
+  const me = await requireMemberPage();
   return (
     <div className="mx-auto max-w-xl">
       <div className="flex items-center gap-4">

@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getCurrentPerson } from "@/lib/auth";
+import { requireOperatorPage } from "@/lib/page-auth";
 import { PortalSidebar, type SidebarSection } from "@/components/PortalSidebar";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +24,7 @@ const STUDIO_SECTIONS: SidebarSection[] = [
 ];
 
 export default async function StudioPortalLayout({ children }: { children: React.ReactNode }) {
-  const me = await getCurrentPerson();
-  if (!me) redirect("/studio/login");
-  if (!me.isOperator) redirect("/app");
+  const me = await requireOperatorPage();
 
   return (
     <div className="flex min-h-screen flex-col bg-cream md:flex-row">

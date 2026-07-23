@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireOperatorPage } from "@/lib/page-auth";
 import { conversationHealth, toneClass, relativeAge } from "@/lib/conversation-health";
 import { stalledWhere, expiredWhere, STALLED_DAYS, EXPIRED_DAYS } from "@/lib/introductions";
 import { bulkResendStalled, bulkCloseExpired } from "@/lib/actions";
@@ -19,6 +20,7 @@ export default async function Conversations({
 }: {
   searchParams: Promise<{ resent?: string; closed?: string }>;
 }) {
+  await requireOperatorPage();
   const sp = await searchParams;
   const now = new Date();
   const [intros, stalledCount, expiredCount] = await Promise.all([
