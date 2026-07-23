@@ -17,6 +17,7 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npm run typecheck
+      - run: npm run lint
       # Full production build gate: catch build-time breakage (bad imports, RSC
       # boundary errors, font/axes config) before we ship, not on the Fly builder.
       - run: npm run build
