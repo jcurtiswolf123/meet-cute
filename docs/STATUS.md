@@ -2,7 +2,16 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-22 (reply-by-email WIRED + verified live)
+Last updated: 2026-07-23 (launch QA complete, verdict HOLD)
+
+## 2026-07-23: launch QA complete, verdict HOLD
+- QA branch: `codex/launch-qa-2026-07-23`. Fix commits through `1533dad`.
+- Production was checked but not changed. Fly version 99 remains live on two machines, both health checks passing.
+- Verified on the branch: clean install, lint, type checking, database-backed introduction race test, production build, zero-vulnerability production audit, zero-finding Semgrep scan, standalone non-root Docker runtime, responsive browser QA, and 100 accessibility on the local home and apply pages.
+- Final mobile Lighthouse: home 96 performance / 100 accessibility / 100 best practices / 100 SEO; apply 95 / 100 / 100 / 100.
+- Launch remains blocked by shared photo storage, durable and retryable introduction delivery, concierge and booking operations that do not yet match product actions, and production demo-secret plus test-operator cleanup.
+- Secondary prelaunch work: transactional event capacity, database readiness and migration gates, proven watchdog alerts, deployed Sentry source maps, and legal review.
+- Full report: `docs/LAUNCH-QA-2026-07-23.md`.
 
 ## 2026-07-22: reply-by-email inbound WIRED + verified end-to-end LIVE
 - The email double opt-in now works both ways in production. Button path (/i/<token>) already live; the REPLY-BY-EMAIL path is now wired and proven.
