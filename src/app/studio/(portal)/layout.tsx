@@ -30,7 +30,7 @@ export default async function StudioPortalLayout({ children }: { children: React
   if (!me.isOperator) redirect("/app");
 
   return (
-    <div className="flex min-h-screen bg-cream">
+    <div className="flex min-h-screen flex-col bg-cream md:flex-row">
       <PortalSidebar
         workspace="Meet Cute"
         subtitle="Studio"

@@ -11,4 +11,4 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 echo "[entrypoint] Starting Next.js on :3009"
-exec npx next start -p 3009 -H 0.0.0.0
+exec node server.js

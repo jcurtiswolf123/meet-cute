@@ -8,18 +8,9 @@ export function isLocalDemoLogin(): boolean {
   return process.env.NODE_ENV !== "production" && isDemoLoginEnabled();
 }
 
-/** Production: operator demo login only when a passphrase gate is configured. */
-export function isProductionOperatorDemoLogin(): boolean {
-  return (
-    process.env.NODE_ENV === "production" &&
-    isDemoLoginEnabled() &&
-    !!process.env.STUDIO_DEMO_PASSWORD
-  );
-}
-
-/** Operator quick-login allowed (local dev, or production with passphrase gate). */
+/** Operator quick-login is a local development convenience only. */
 export function allowOperatorDemoLogin(): boolean {
-  return isLocalDemoLogin() || isProductionOperatorDemoLogin();
+  return isLocalDemoLogin();
 }
 
 /** Member quick-login on /login — local dev only. */

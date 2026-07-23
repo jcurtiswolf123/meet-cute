@@ -26,9 +26,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Removed/declined members lose access immediately (decline also revokes their
   // sessions); never let an exited account into the member app.
   if (me.status === "exited") redirect("/login");
+  if (me.status === "applicant") redirect(me.appliedAt ? "/apply/thanks" : "/apply");
 
   return (
-    <div className="flex min-h-screen bg-cream">
+    <div className="flex min-h-screen flex-col bg-cream md:flex-row">
       <PortalSidebar
         workspace="Meet Cute"
         sections={MEMBER_SECTIONS}

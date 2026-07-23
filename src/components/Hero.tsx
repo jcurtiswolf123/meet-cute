@@ -1,25 +1,9 @@
-"use client";
-
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
-
-const EASE = [0.22, 1, 0.36, 1] as const;
-
-const container = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.75, ease: EASE } },
-};
 
 // Text-forward warm hero: no photo. A confident left-aligned headline on the
-// sunlit cream canvas, a soft warm ambient wash for depth, a staggered entrance,
-// and the roster stats set on a hairline ledger. Reduced-motion safe.
+// sunlit cream canvas, a soft warm ambient wash for depth, and the roster stats
+// set on a hairline ledger.
 export function Hero({ members, couples, dinners }: { members: number; couples: number; dinners: number }) {
-  const reduce = useReducedMotion();
-  const v = reduce ? undefined : { variants: item };
   const hasStats = [members, couples, dinners].some((n) => n > 0);
 
   return (
@@ -35,55 +19,44 @@ export function Hero({ members, couples, dinners }: { members: number; couples: 
       />
 
       <div className="container-mc pb-20 pt-36 md:pb-28 md:pt-44">
-        <motion.div
-          className="max-w-4xl"
-          variants={reduce ? undefined : container}
-          initial={reduce ? false : "hidden"}
-          animate={reduce ? false : "show"}
-        >
-          <motion.p
-            {...v}
-            className="mb-5 font-mono text-[11px] font-medium uppercase tracking-[0.24em] text-ember"
-          >
+        <div className="max-w-4xl">
+          <p className="mb-5 font-mono text-[11px] font-medium uppercase tracking-[0.24em] text-ember">
             Thoughtful matchmaking · NYC &amp; SF
-          </motion.p>
+          </p>
           <h1 className="font-display text-[2.9rem] font-medium leading-[1.02] tracking-tight text-ink sm:text-6xl md:text-[5.5rem]">
-            <motion.span {...v} className="block">
+            <span className="block">
               We help you <span className="italic text-ember">meet</span>,
-            </motion.span>
-            <motion.span {...v} className="block">
+            </span>
+            <span className="block">
               date, and stay together.
-            </motion.span>
+            </span>
           </h1>
-          <motion.p {...v} className="mt-7 max-w-[52ch] text-lg leading-relaxed text-muted">
-            Matchmaking with a human touch. A real person picks your introductions, and our concierge
-            books the first date so it actually happens. No swiping, no endless texting.
-          </motion.p>
-          <motion.div {...v} className="mt-9 flex flex-wrap items-center gap-3">
+          <p className="mt-7 max-w-[52ch] text-lg leading-relaxed text-muted">
+            Matchmaking with a human touch. A real person picks your introductions and helps turn a
+            mutual yes into a real first date. No swiping, no endless texting.
+          </p>
+          <div className="mt-9 flex flex-wrap items-center gap-3">
             <Link href="/apply" className="btn-primary px-7 py-3">
               Apply to join
             </Link>
             <Link href="/dinners" className="btn-ghost px-7 py-3">
               Come to a dinner
             </Link>
-          </motion.div>
+          </div>
 
           {hasStats ? (
-            <motion.div
-              {...v}
-              className="mt-14 flex flex-wrap gap-x-12 gap-y-5 border-t border-line pt-7 text-sm text-muted"
-            >
+            <div className="mt-14 flex flex-wrap gap-x-12 gap-y-5 border-t border-line pt-7 text-sm text-muted">
               {members > 0 && <Stat n={members} label="members on the roster" />}
               {couples > 0 && <Stat n={couples} label="couples introduced" />}
               {dinners > 0 && <Stat n={dinners} label="dinners hosted" />}
-            </motion.div>
+            </div>
           ) : (
-            <motion.p {...v} className="mt-14 border-t border-line pt-7 text-sm text-muted">
+            <p className="mt-14 border-t border-line pt-7 text-sm text-muted">
               By introduction only. Currently inviting members in <span className="text-ink">NYC</span> and{" "}
               <span className="text-ink">San Francisco</span>.
-            </motion.p>
+            </p>
           )}
-        </motion.div>
+        </div>
       </div>
     </section>
   );

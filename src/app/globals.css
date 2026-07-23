@@ -47,7 +47,7 @@ body {
   }
   /* Eyebrow labels: the "concierge stamp" - mono, small-caps, wide-tracked, ember. */
   .label {
-    @apply font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-ember/75;
+    @apply font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-ember-deep;
   }
   .field {
     @apply w-full rounded-lg border border-line bg-panel px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted/70 focus:border-ember/60 focus:bg-cream;

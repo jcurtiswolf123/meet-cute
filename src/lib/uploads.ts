@@ -1,22 +1,17 @@
 // Photo upload storage.
 //
-// Two backends, chosen at runtime so the same call sites work everywhere:
-//   - Vercel Blob (production): set BLOB_READ_WRITE_TOKEN. Objects live in a
+// Two shared backends, chosen at runtime so the same call sites work everywhere:
+//   - Vercel Blob: set BLOB_READ_WRITE_TOKEN. Objects live in a
 //     global store, so any number of app instances can read every photo. This
 //     is what makes the deployment horizontally scalable.
-//   - Local disk (dev / single box): no token -> files are written under
-//     UPLOAD_DIR and read back from there.
+//   - Postgres: the fallback when Blob is not configured. Normalized bytes live
+//     in PhotoAsset, shared by every app instance and local process.
 //
 // Either way photos are still served through the auth-gated /api/photos route,
 // never linked to directly, so pending (unmoderated) images stay private until
 // an operator approves them.
-import { mkdir, writeFile, readFile } from "node:fs/promises";
-import { join, resolve, sep } from "node:path";
 import sharp from "sharp";
 import { put, del } from "@vercel/blob";
-
-export const UPLOAD_DIR =
-  process.env.UPLOAD_DIR || (process.env.NODE_ENV === "production" ? "/data/uploads" : "./.uploads");
 
 // Allowlisted *input* image types only. Output is always normalized to WebP.
 export const ALLOWED: Record<string, string> = {
@@ -33,8 +28,19 @@ export function extFor(contentType: string): string | null {
   return ALLOWED[contentType] ?? null;
 }
 
+export type UploadStorageMode = "blob" | "database";
+
+export function uploadStorageMode(args: {
+  production?: boolean;
+  blobToken?: string | null;
+} = {}): UploadStorageMode {
+  const blobToken = args.blobToken ?? process.env.BLOB_READ_WRITE_TOKEN;
+  if (blobToken) return "blob";
+  return "database";
+}
+
 function blobEnabled(): boolean {
-  return !!process.env.BLOB_READ_WRITE_TOKEN;
+  return uploadStorageMode() === "blob";
 }
 
 /**
@@ -56,10 +62,19 @@ export async function normalizeImage(input: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-/** Persist already-normalized bytes. Returns the external storage URL when the
- *  object lives in Blob, or null when it lives on local disk. */
-export async function writeUpload(id: string, ext: string, bytes: Buffer): Promise<string | null> {
-  if (blobEnabled()) {
+export type UploadWriteResult = {
+  storageUrl: string | null;
+  databaseBytes: Buffer | null;
+};
+
+/** Persist already-normalized bytes or return them for an atomic database write. */
+export async function writeUpload(
+  id: string,
+  ext: string,
+  bytes: Buffer,
+): Promise<UploadWriteResult> {
+  const mode = uploadStorageMode();
+  if (mode === "blob") {
     // addRandomSuffix:true so the public object URL is an unguessable capability
     // (not photos/{cuid}.webp): the app always serves photos through the
     // auth-gated /api/photos route, and a random suffix stops anyone from
@@ -70,34 +85,39 @@ export async function writeUpload(id: string, ext: string, bytes: Buffer): Promi
       contentType: contentTypeForExt(ext),
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
-    return url;
+    return { storageUrl: url, databaseBytes: null };
   }
-  await mkdir(UPLOAD_DIR, { recursive: true });
-  await writeFile(join(UPLOAD_DIR, `${id}.${ext}`), bytes);
-  return null;
+  return { storageUrl: null, databaseBytes: bytes };
 }
 
 /** Read bytes for serving. Prefers the external store (storageUrl) and falls
- *  back to local disk. The local path is asserted to stay inside UPLOAD_DIR so
- *  a crafted id/ext can never escape the directory. */
-export async function readUpload(id: string, ext: string, storageUrl?: string | null): Promise<Buffer> {
+ *  back to the shared database asset. */
+export async function readUpload(
+  _id: string,
+  _ext: string,
+  storageUrl?: string | null,
+  databaseBytes?: Uint8Array | null,
+): Promise<Buffer> {
+  void _id;
+  void _ext;
   if (storageUrl) {
-    const res = await fetch(storageUrl, { cache: "no-store" });
+    const res = await fetch(storageUrl, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
     if (!res.ok) throw new Error(`blob fetch ${res.status}`);
     return Buffer.from(await res.arrayBuffer());
   }
-  const base = resolve(UPLOAD_DIR);
-  const full = resolve(base, `${id}.${ext}`);
-  if (full !== base && !full.startsWith(base + sep)) {
-    throw new Error("invalid path");
-  }
-  return readFile(full);
+  if (databaseBytes) return Buffer.from(databaseBytes);
+  throw new Error("database photo asset is missing");
 }
 
-/** Best-effort delete from the backing store (called when a member removes a
- *  photo). Local-disk files are left for the OS/volume lifecycle; Blob objects
- *  are billed, so we delete them. */
-export async function deleteUpload(storageUrl?: string | null): Promise<void> {
+/** Best-effort delete from the backing store when a member removes a photo. */
+export async function deleteUpload(
+  storageUrl?: string | null,
+  _id?: string,
+): Promise<void> {
+  void _id;
   if (storageUrl && blobEnabled()) {
     await del(storageUrl, { token: process.env.BLOB_READ_WRITE_TOKEN }).catch(() => {});
   }

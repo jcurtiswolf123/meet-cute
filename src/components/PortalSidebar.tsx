@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui";
 import { logout } from "@/lib/actions";
 
@@ -35,15 +35,67 @@ export function PortalSidebar({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
 
   // Restore the collapsed preference after mount (avoids hydration mismatch).
   useEffect(() => {
-    try {
-      setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
-    } catch {
-      /* ignore */
-    }
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+      } catch {
+        /* ignore */
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const pageMain = document.querySelector("main");
+    const openButton = openButtonRef.current;
+    const priorOverflow = document.body.style.overflow;
+    pageMain?.setAttribute("inert", "");
+    document.body.style.overflow = "hidden";
+
+    const focusableSelector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusable = () =>
+      Array.from(drawerRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? []);
+    focusable()[0]?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      pageMain?.removeAttribute("inert");
+      document.body.style.overflow = priorOverflow;
+      openButton?.focus();
+    };
+  }, [mobileOpen]);
   const toggleCollapse = () => {
     setCollapsed((c) => {
       const next = !c;
@@ -55,11 +107,6 @@ export function PortalSidebar({
       return next;
     });
   };
-
-  // Close the mobile drawer on navigation.
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   const isActive = (href: string) =>
     href === homeHref ? pathname === href : pathname === href || pathname.startsWith(href + "/");
@@ -73,6 +120,7 @@ export function PortalSidebar({
       avatarUrl={avatarUrl}
       collapsed={collapsed}
       isActive={isActive}
+      logoutTo={homeHref.startsWith("/studio") ? "/studio/login" : "/login"}
       onToggleCollapse={toggleCollapse}
     />
   );
@@ -91,9 +139,12 @@ export function PortalSidebar({
       {/* Mobile top bar. */}
       <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-paper/80 px-4 py-2.5 backdrop-blur md:hidden">
         <button
+          ref={openButtonRef}
           onClick={() => setMobileOpen(true)}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-ink transition hover:bg-cream"
           aria-label="Open menu"
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-navigation"
         >
           <Icon name="menu" />
         </button>
@@ -109,7 +160,14 @@ export function PortalSidebar({
             onClick={() => setMobileOpen(false)}
             aria-hidden
           />
-          <aside className="absolute left-0 top-0 flex h-full w-64 flex-col border-r border-line bg-paper shadow-card">
+          <aside
+            ref={drawerRef}
+            id="mobile-navigation"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${workspace} navigation`}
+            className="absolute left-0 top-0 flex h-full w-64 flex-col border-r border-line bg-paper shadow-card"
+          >
             <SidebarInner
               workspace={workspace}
               subtitle={subtitle}
@@ -118,6 +176,7 @@ export function PortalSidebar({
               avatarUrl={avatarUrl}
               collapsed={false}
               isActive={isActive}
+              logoutTo={homeHref.startsWith("/studio") ? "/studio/login" : "/login"}
               onClose={() => setMobileOpen(false)}
             />
           </aside>
@@ -135,6 +194,7 @@ function SidebarInner({
   avatarUrl,
   collapsed,
   isActive,
+  logoutTo,
   onToggleCollapse,
   onClose,
 }: {
@@ -145,6 +205,7 @@ function SidebarInner({
   avatarUrl?: string | null;
   collapsed: boolean;
   isActive: (href: string) => boolean;
+  logoutTo: "/login" | "/studio/login";
   onToggleCollapse?: () => void;
   onClose?: () => void;
 }) {
@@ -199,6 +260,7 @@ function SidebarInner({
                   <li key={it.href}>
                     <Link
                       href={it.href}
+                      onClick={onClose}
                       aria-current={active ? "page" : undefined}
                       title={collapsed ? it.label : undefined}
                       className={`group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition ${
@@ -241,6 +303,7 @@ function SidebarInner({
         action={logout}
         className="border-t border-line p-2"
       >
+        <input type="hidden" name="returnTo" value={logoutTo} />
         <button
           className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted transition hover:bg-cream hover:text-ink ${
             collapsed ? "justify-center" : ""

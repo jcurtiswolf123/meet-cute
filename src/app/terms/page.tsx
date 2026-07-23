@@ -14,7 +14,7 @@ export default function Terms() {
 
         <p className="label mt-8 mb-3">Terms</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Terms of Service</h1>
-        <p className="mt-3 text-sm text-muted">Last updated: 2026-07-16</p>
+        <p className="mt-3 text-sm text-muted">Last updated: 2026-07-23</p>
 
         <p className="mt-6 text-sm leading-relaxed text-muted">
           These Terms of Service (&quot;Terms&quot;) are an agreement between you and Meet Cute
@@ -68,19 +68,22 @@ export default function Terms() {
 
         <Section title="4. The nature of the service">
           <p>
-            Meet Cute is a matchmaking and concierge service. Our matchmakers and systems use the
-            information you provide to suggest introductions, and our concierge can help arrange dates
-            and logistics when you ask. We curate; we do not control who is a good fit, whether other
-            members respond, or how any introduction turns out.
+            Meet Cute is a matchmaking service. Our matchmakers and systems use the information you
+            provide to suggest introductions, and our human team can help coordinate date logistics
+            when you ask. We do not automatically make reservations or send calendar invitations.
+            A booking is confirmed only when our team or the venue explicitly confirms it. We curate;
+            we do not control who is a good fit, whether other members respond, or how any
+            introduction turns out.
           </p>
         </Section>
 
         <Section title="5. Text messaging (SMS) program terms">
           <p>
-            By providing your mobile number and joining Meet Cute, you agree to receive text messages
-            (SMS/MMS) from Meet Cute as part of the service. These include introduction invites you can
-            accept or decline, connection details once both people say yes, scheduling notes, and
-            account notices. Consent to receive these messages is not a condition of any purchase.
+            You receive text messages (SMS/MMS) from Meet Cute only when you separately choose the
+            optional text message consent. These can include introduction invites you can accept or
+            decline, connection details once both people say yes, scheduling notes, and account
+            notices. A mobile number and text message consent are not required to join, and consent is
+            not a condition of any purchase.
           </p>
           <p>
             Message frequency varies with your introductions and activity.{" "}
@@ -129,7 +132,7 @@ export default function Terms() {
             Meet Cute a non-exclusive, worldwide, royalty-free license to host, store, display, and
             use that content as needed to operate the service, including showing your profile to
             members you are introduced to. You confirm that you have the right to share the content
-            you submit and that it does not infringe anyone else's rights.
+            you submit and that it does not infringe anyone else&apos;s rights.
           </p>
           <p>
             We may review, moderate, or remove content and may suspend or terminate accounts that
@@ -168,10 +171,9 @@ export default function Terms() {
 
         <Section title="11. Governing law">
           <p>
-            These Terms are governed by the laws of [GOVERNING LAW JURISDICTION PLACEHOLDER], without
-            regard to its conflict-of-laws rules. Any disputes will be resolved in the courts located
-            in [VENUE PLACEHOLDER], unless applicable law requires otherwise. This section is a
-            placeholder and must be completed by counsel before launch.
+            These Terms are governed by the laws of the State of California, without regard to its
+            conflict-of-laws rules. Any disputes will be resolved in the state or federal courts
+            located in Los Angeles County, California, unless applicable law requires otherwise.
           </p>
         </Section>
 
@@ -187,8 +189,8 @@ export default function Terms() {
         <Section title="13. Contact us">
           <p>
             Questions about these Terms? Email us at{" "}
-            <a href="mailto:support@meetcute.com" className="text-claret underline">
-              support@meetcute.com
+            <a href="mailto:josh@shiftsupportnetwork.com" className="text-claret underline">
+              josh@shiftsupportnetwork.com
             </a>
             . See also our{" "}
             <Link href="/privacy" className="text-claret underline">

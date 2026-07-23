@@ -18,11 +18,11 @@ jobs:
   watchdog:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: master       # stay on a branch (not detached HEAD) so autofix can branch/PR
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -36,12 +36,15 @@ jobs:
         run: npm run watchdog
         env:
           WATCHDOG_ONCE: "1"
-          WATCHDOG_BUILD_EVERY: "999" # skip the heavy build in CI
+          WATCHDOG_SKIP_BUILD: "1"
           WATCHDOG_AUTOFIX: "1"
-          WATCHDOG_URL: ${{ vars.WATCHDOG_URL || 'https://meet-cute.fly.dev' }}
+          WATCHDOG_URL: ${{ vars.WATCHDOG_URL || 'https://hellomeetcute.com' }}
           WATCHDOG_ALERT_EMAIL: ${{ secrets.WATCHDOG_ALERT_EMAIL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: "riiva"
+          SENTRY_PROJECT: "meet-cute"
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # gh pr create

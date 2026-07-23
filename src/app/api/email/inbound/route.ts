@@ -86,12 +86,14 @@ function firstReplyLine(text: string): string {
 }
 
 // Fetch the full received message (the webhook carries metadata only) so we can
-// read the reply body. Returns "" on any failure; the caller then no-ops.
+// read the reply body. Provider or database failures throw so Resend retries the
+// signed webhook. The decision transition is atomic, so a retry is safe.
 async function fetchReceivedText(emailId: string): Promise<string> {
   const key = process.env.RESEND_API_KEY;
-  if (!key || !emailId) return "";
+  if (!key || !emailId) throw new Error("received email fetch is not configured");
   try {
     const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+      signal: AbortSignal.timeout(12_000),
       headers: {
         Authorization: `Bearer ${key}`,
         Accept: "application/json",
@@ -102,8 +104,7 @@ async function fetchReceivedText(emailId: string): Promise<string> {
       },
     });
     if (!res.ok) {
-      console.error(`[email:inbound] receiving fetch ${res.status} for ${emailId}`);
-      return "";
+      throw new Error(`receiving fetch returned ${res.status}`);
     }
     const j = (await res.json()) as { text?: string; html?: string };
     if (j.text) return j.text;
@@ -111,7 +112,7 @@ async function fetchReceivedText(emailId: string): Promise<string> {
     return (j.html || "").replace(/<[^>]+>/g, " ");
   } catch (e) {
     console.error(`[email:inbound] receiving fetch threw: ${(e as Error).message}`);
-    return "";
+    throw e;
   }
 }
 
@@ -158,7 +159,9 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     console.error(`[email:inbound] ${(e as Error).message}`);
     Sentry.captureException(e);
-    // 200 so the provider does not hammer retries on a message we can't parse.
-    return new Response("ok", { status: 200 });
+    return new Response("temporary failure", {
+      status: 503,
+      headers: { "Retry-After": "30" },
+    });
   }
 }

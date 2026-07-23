@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Fraunces, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
-import { Toaster } from "sonner";
 import "./globals.css";
 
 // "Warm Daylight" type system. Fraunces is a soft, warm, high-optical-contrast
@@ -9,24 +8,23 @@ import "./globals.css";
 // body grotesque. JetBrains Mono sets the small-caps eyebrow labels.
 const display = Fraunces({
   subsets: ["latin"],
-  style: ["normal", "italic"],
-  axes: ["opsz", "SOFT"],
+  style: "normal",
   variable: "--font-display",
-  display: "swap",
+  display: "optional",
 });
 
 const sans = Hanken_Grotesk({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
-  display: "swap",
+  display: "optional",
 });
 
 const mono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-mono",
-  display: "swap",
+  display: "optional",
 });
 
 export const metadata: Metadata = {
@@ -50,7 +48,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body className="font-sans antialiased">
         {children}
-        <Toaster position="top-center" theme="light" toastOptions={{ style: { fontFamily: "var(--font-sans)" } }} />
       </body>
     </html>
   );

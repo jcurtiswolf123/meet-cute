@@ -10,7 +10,7 @@ export default async function Coaching() {
   return (
     <>
       <SiteHeader />
-      <main className="container-mc min-h-screen py-12">
+      <main id="main-content" className="container-mc min-h-screen py-12">
       <div className="max-w-[58ch]">
         <p className="label mb-3">Coaching</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">

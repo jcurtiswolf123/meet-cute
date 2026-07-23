@@ -1,198 +1,74 @@
-# Meet Cute: Public Launch Checklist
+# Meet Cute Public Launch Checklist
 
-**Current Status**: Production Ready (Tier 0 + Design Complete)  
-**Live**: https://meet-cute.fly.dev  
-**Last Updated**: June 15, 2026
+Current status: READY FOR DEPLOY
 
----
+Last updated: 2026-07-23
 
-## What's Ready Now (✓)
+Live site: `https://hellomeetcute.com`
 
-- [x] **Magic-link authentication** (email signup, opaque sessions, revocation)
-- [x] **Safety infrastructure** (photo moderation, blocking, reporting, 18+ gate)
-- [x] **Legal framework** (privacy policy, terms, consent, data deletion)
-- [x] **Operator features** (co-pilot: suggest/book/note, moderation queue)
-- [x] **Landing page** (cinematic hero, design polish, warm aesthetic)
-- [x] **Member experience** (one-at-a-time suggestions, refined UI)
-- [x] **Full-stack security** (host-injection hardened, email-bombing blocked, path-traversal fixed)
-- [x] **Responsive design** (mobile, tablet, desktop tested)
-- [x] **Hero video asset** (8.1MB cinematic fallback, already in place)
+Detailed evidence: `docs/LAUNCH-QA-2026-07-23.md`
 
----
+## Technical launch requirements
 
-## Before You Can Launch Publicly
+- [x] Use machine-independent photo storage in every production configuration.
+- [x] Persist introduction email and SMS work in a durable delivery outbox.
+- [x] Fence concurrent workers and recover safely from interrupted processing.
+- [x] Recheck consent, account, block, match, and token authorization at send time.
+- [x] Expose failed delivery work and safe retry actions to operators.
+- [x] Remove unsupported booking and calendar claims from active product paths.
+- [x] Remove seeded test members and test-named production operator access.
+- [x] Enforce dinner capacity transactionally.
+- [x] Add schema-aware readiness to the release and Fly health gate.
+- [x] Replace manual schema push with checked-in Prisma migrations.
+- [x] Configure monitoring paths for Sentry, watchdog alerts, and delivery failures.
+- [ ] Remove the two legacy demo secret names from Fly after the production guard deploys.
+- [ ] Obtain counsel review of privacy, terms, SMS consent, retention, and safety language.
 
-### Legal (HIGH PRIORITY)
-- [ ] **Schedule legal review** of /privacy and /terms
-  - Email counsel with links to live pages
-  - They'll want to review: data retention, consent language, cross-border transfer rules
-  - Expected turnaround: 3-5 business days
-  - Joshua to own
+The counsel item is an external review requirement. The repository does not
+claim that the current legal text has been approved by counsel.
 
-### Operations (MEDIUM PRIORITY)
-- [ ] **Verify email domain** in Resend
-  - Current: placeholder `hello@meet-cute.app` (won't work)
-  - Set `RESEND_FROM` to a Resend-verified domain (josh@shiftsupportnetwork.com? meet-cute.com?)
-  - Test sending a magic link to yourself
-  - Joshua to own
+## Release verification
 
-- [ ] **Reseed database** with empty roster
-  - Current: synthetic demo data (Alice, Bob, etc.)
-  - Before public launch: wipe and start fresh
-  - Option A: Reset Fly volume (destroys all data, starts clean)
-  - Option B: Use prisma to delete demo records
-  - Add yourself as first operator for testing
-  - Joshua to own
+- [x] `npm ci` completes from a clean checkout.
+- [x] Lint passes with zero warnings.
+- [x] Type checking passes.
+- [x] All launch tests pass and remove their fixtures.
+- [x] The introduction concurrency test passes and removes its fixtures.
+- [x] The production build passes without warnings.
+- [x] The exact production Docker image builds and starts as user `node`.
+- [x] The Docker image contains no local secrets, dumps, or QA artifacts.
+- [x] The dependency audit reports zero vulnerabilities.
+- [x] Static security scanning reports no unresolved findings.
+- [x] Public desktop and mobile browser QA passes without console errors or overflow.
+- [ ] Member and operator smoke tests pass on the release image.
+- [x] Unsigned webhooks and unauthenticated protected routes are rejected.
+- [x] Applicant accounts cannot enter member routes.
+- [x] Photo access is limited to authorized viewers.
+- [x] Email and SMS failures are visible and recoverable.
+- [ ] Both Fly machines pass `/readyz` after the rolling release.
+- [ ] Sentry and the scheduled watchdog are healthy after deployment.
 
-- [ ] **Set Fly secrets** (verify all set)
-  - `RESEND_API_KEY`: ✓ (already done)
-  - `RESEND_FROM`: ✗ (set this to verified domain)
-  - `NEXT_PUBLIC_APP_URL`: ✓ (https://meet-cute.fly.dev)
-  - `STUDIO_DEMO_PASSWORD`: ✗ (optional, gates operator access)
-  - Run: `fly secrets set KEY=value`
+## Launch day
 
-- [ ] **Alert Resend** that you're going public
-  - Let them know volume expectations
-  - Ask about rate limits on magic-link sends (currently limited to 10/hr per IP, 3/15min per email)
-  - Low volume at launch, so not urgent
+1. Freeze and record the release commit.
+2. Verify the database backup, target, and migration status.
+3. Confirm the GitHub release secrets and watchdog variable by name.
+4. Merge the reviewed pull request to `master`.
+5. Monitor the migration, database tests, Docker build, and rolling Fly release.
+6. Confirm both machines pass `/healthz` and `/readyz`.
+7. Remove the production demo secret names and reverify both machines.
+8. Run public, member, operator, webhook, and delivery canaries.
+9. Monitor Sentry, Fly logs, delivery failures, and moderation during launch.
+10. Roll back immediately if authentication, private media, or delivery is inconsistent.
 
-### Operations (AFTER LAUNCH)
-- [ ] **Twilio SMS** (concierge date confirmations)
-  - Swap transport in `src/lib/concierge.ts` from in-app to SMS
-  - Get Twilio account + phone number
-  - Run `scripts/concierge-tick.ts` on 15-min cron
-  - Timeline: Tier 1, after public launch
+## Verified before deployment
 
-- [ ] **Sentry** (error tracking)
-  - Add Sentry to Next.js config
-  - Wire client + server error boundaries
-  - Timeline: Tier 1, first week of real users
+- Public routes render at desktop and mobile sizes without horizontal overflow.
+- Member and operator mobile layouts use the full viewport.
+- Operator and member sign-out return to the correct login routes.
+- Accessibility audits reached 100 on the local home and apply pages.
+- The dependency audit and static security scan found no vulnerabilities.
+- The delivery, storage, capacity, and decision race suites pass.
 
-- [ ] **Volume backups** (Fly SQLite)
-  - Set up automated snapshots of the Fly volume
-  - Or migrate to Neon Postgres when roster grows
-  - Timeline: Tier 1, after 50+ members
-
----
-
-## How Jessica Gets Started
-
-### 1. First Access
-```
-Joshua sends you operator credentials + login link
-You go to: https://meet-cute.fly.dev/login
-Check your email for magic link, click it
-You land in: /studio (the command center)
-```
-
-### 2. Explore the Studio
-- **Roster** (searchable): all members with photos, profiles, notes
-- **Pipeline** (metrics): suggested → mutual_yes → date_scheduled → together
-- **Copilot Chat** (top): natural language commands
-- **Moderation Queue** (/studio/moderation): approve photos, resolve reports
-
-### 3. Try Member Role
-```
-Joshua sends you a test member account (or you create one)
-Go to /login, use that member's email
-You see: one suggestion at a time
-Try: "Yes, introduce us" and "Pass"
-You'll understand the member experience
-```
-
-### 4. Key Commands in Copilot
-```
-"Suggest Alice and Bob for each other"
-→ Creates match, notifies both (they'll see each other next time they open the app)
-
-"Book the date for Alice and Bob"
-→ Opens concierge thread, finds first available slot, sends calendar invites
-
-"Note on Alice: loves sushi, prefers evening dates"
-→ Adds to her profile (visible to you only)
-
-"Who's new on the roster?"
-→ Shows recent members
-
-"What's the match rate this week?"
-→ Shows metrics from the pipeline
-```
-
-### 5. Daily Workflow (Once Public)
-- Check **moderation queue** first thing (any photos to approve? reports to handle?)
-- Review **new applicants** (accept into roster or decline)
-- **Suggest matches** based on values, vibe, mutual connections
-- Use **co-pilot** to confirm dates once both say yes
-- Track **pipeline** to see how many are dating, coaching, etc.
-- Respond to **member questions** (they can email or message in the app)
-
----
-
-## Timeline to Public Launch
-
-### Option A: Launch This Week (Conservative)
-- [ ] Legal review (parallel with next steps)
-- [ ] Email domain verified in Resend
-- [ ] Database reseeded
-- [ ] Jessica trained + tested
-- **Friday 6/21**: Open signups, expect 50-100 applications
-
-### Option B: Launch Next Week (Comfortable)
-- [ ] Legal review complete
-- [ ] Twilio SMS wired (concierge via text)
-- [ ] Sentry set up
-- [ ] Jessica & team fully trained
-- **Friday 6/28**: Open signups, smoother ops
-
-### Option C: Launch in 2 Weeks (Premium)
-- [ ] All of Option B +
-- [ ] Volume backups automated
-- [ ] Real hero video tested
-- [ ] 10+ beta members in system (test flows, edge cases)
-- **Friday 7/5**: Full public launch with confidence
-
-**Joshua's call** on which path.
-
----
-
-## Post-Launch Monitoring
-
-Once public, check daily:
-1. **Magic-link delivery** (any bounces? slowness?)
-2. **Moderation queue** (is it clear or backlogged?)
-3. **Error logs** (Sentry dashboard when added)
-4. **Member feedback** (app experience, matching quality)
-5. **Co-pilot latency** (NVIDIA free tier holding up?)
-
----
-
-## Key Docs
-
-- **JESSICA_BRIEF.md**: What Meet Cute is, how to use it, next steps
-- **STATUS_2026-06-15.md**: Full production sprint recap, what's complete, known limitations
-- **PRODUCTION-PLAN.md**: Tier 0/1/2 roadmap, sequence of work
-- **docs/UI-UX-PRODUCTION-RULES.md**: Design standards we built against
-- **docs/PRODUCTION-READINESS.md**: (old, from earlier iteration, still useful for context)
-
----
-
-## Questions?
-
-- **Joshua**: Production decisions, legal/counsel, secret setup, launch timing
-- **Jessica**: Operator workflow, co-pilot commands, member experience
-- **Technical**: Code lives at ~/Projects/meet-cute, deploy via `fly deploy`
-
----
-
-## The Bar is High
-
-This app is built for quality, not volume. Every member is vouched for, every date is concierge-booked, every photo is reviewed. The moment you open signups, treat it like a curation job, not a growth game.
-
-Let's get the first real members in. 💌
-
----
-
-**Deploy**: `fly deploy`  
-**Logs**: `fly logs`  
-**Secrets**: `fly secrets list`  
-**Live**: https://meet-cute.fly.dev
+Items still unchecked require verification against the final clean commit,
+exact Docker image, or deployed production release.

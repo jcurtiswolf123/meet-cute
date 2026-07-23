@@ -1,63 +1,109 @@
 # Meet Cute Deployment Guide
 
-## Local Development
+Production runs on Fly.io at `https://hellomeetcute.com`. The application uses
+Neon PostgreSQL and a standalone Next.js Docker image.
 
-The app runs perfectly locally with SQLite:
+Launch status: READY FOR DEPLOY as of 2026-07-23.
+
+## Infrastructure
+
+- Two always-on Fly machines in `sjc`
+- Rolling Fly releases gated by `/readyz`
+- Neon PostgreSQL, schema `meetcute`
+- Vercel Blob when configured, otherwise Postgres-backed photo bytes
+- Database delivery outbox processed by each app machine with fenced leases
+- Sentry for runtime errors and source maps
+- A scheduled GitHub watchdog for site, schema, delivery, and Sentry checks
+
+Kubernetes is not used. The current Fly and Docker topology provides rolling
+deployment, health gating, and two-machine availability without the extra
+operational surface of a Kubernetes control plane.
+
+## Required GitHub release inputs
+
+The deploy workflow needs these GitHub Actions secrets:
+
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `FLY_API_TOKEN`
+- `SENTRY_AUTH_TOKEN` for source-map upload
+
+The watchdog also uses:
+
+- `WATCHDOG_ALERT_EMAIL`
+- `RESEND_API_KEY`
+- `SENTRY_AUTH_TOKEN`
+- Optional `OPENAI_API_KEY` for guarded autofix pull requests
+
+Set the `WATCHDOG_URL` repository variable to
+`https://hellomeetcute.com`. Inspect names only when auditing configuration.
+Never print secret values.
+
+## Automated release path
+
+A push to `master` runs the deploy workflow:
+
+1. Install from the lockfile.
+2. Generate the Prisma client.
+3. Run type checking, lint, pure launch tests, and the production build.
+4. Apply checked-in migrations with `prisma migrate deploy`.
+5. Run database launch tests and the introduction race test.
+6. Build and deploy the Docker image to Fly.
+7. Require successful `/healthz`, `/readyz`, and home-page canary requests.
+
+Application machines do not modify the schema while starting. The migration
+step completes before the rolling release begins.
+
+## Local release verification
 
 ```bash
-npm install
-npm run db:reset     # Create and seed SQLite database
-npm run dev          # Start at http://localhost:3009
+npm ci
+npm run db:deploy
+npm run typecheck
+npm run lint
+npm run test:launch
+npm run test:race
+npm run build
+npm audit --audit-level=low
+docker build -t meet-cute:release .
 ```
 
-## Vercel Deployment
+Run the image with the required environment variables inherited from a trusted
+local source. Do not pass the repository `.env` directly to Docker because
+quoted values are not parsed like Node environment files.
 
-Meet Cute is deployed at: **https://meet-cute-vert.vercel.app**
+Verify:
 
-GitHub repo: https://github.com/jcurtiswolf123/meet-cute
+- The runtime user is `node`.
+- `/healthz`, `/readyz`, and `/` return 200.
+- The image contains no `.env`, database dump, `.gstack`, or upload artifacts.
 
-### Setup Steps
+## Database safety and rollback
 
-1. **Create PostgreSQL Database** (required for Vercel persistence)
-   - Use Neon (recommended, free tier): https://neon.tech
-   - Or Supabase: https://supabase.com
-   - Copy the connection string
+Before a schema release:
 
-2. **Configure Vercel Environment**
-   ```bash
-   vercel env add DATABASE_URL production --value "postgresql://user:pass@host/dbname"
-   ```
+1. Confirm both connection URLs target the intended database and the
+   `meetcute` schema.
+2. Review every migration.
+3. Verify a recent recoverable backup.
+4. Apply only additive or backward-compatible changes before application code.
+5. Confirm `/readyz` against the migrated schema.
 
-3. **Update Prisma Schema for Production**
-   - Change `prisma/schema.prisma` datasource to PostgreSQL:
-   ```prisma
-   datasource db {
-     provider = "postgresql"
-     url      = env("DATABASE_URL")
-   }
-   ```
+For an application regression, redeploy the previous known-good image or commit.
+For a database regression, stop the rollout and use a reviewed forward repair.
+Do not attempt an automatic destructive migration rollback. Restore from the
+verified backup only if a reviewed forward repair is unsafe.
 
-4. **Deploy**
-   ```bash
-   git push origin main
-   # Vercel auto-deploys; migrations run automatically
-   ```
+## Post-deploy canary
 
-## Database Switching
+```bash
+fly status -a meet-cute
+curl -fsS https://hellomeetcute.com/healthz
+curl -fsS https://hellomeetcute.com/readyz
+curl -fsSI https://hellomeetcute.com/
+curl -fsSI https://hellomeetcute.com/apply
+```
 
-The app uses the same Prisma schema for both SQLite (local) and PostgreSQL (production). To switch:
-
-1. **For PostgreSQL**: Update `prisma/schema.prisma` provider line
-2. **For SQLite**: Revert to `provider = "sqlite"`
-3. Run `npm run db:reset` to create/seed locally
-
-## Why SQLite Local / PostgreSQL Vercel?
-
-- **SQLite**: Simple, no external dependencies, perfect for local dev and testing
-- **PostgreSQL**: Required for Vercel because serverless Lambda functions have ephemeral filesystem
-
-## Next Steps
-
-- Wire Twilio SMS for concierge messages (replace `say` in `src/lib/concierge.ts`)
-- Add Airtable sync layer (mirrors same data model)
-- Set up 15-min cron for `npm run concierge:tick`
+Then verify desktop and mobile browser behavior, no console errors, protected
+route authorization, webhook signature rejection, delivery failure visibility,
+and both Fly machines on the new release.

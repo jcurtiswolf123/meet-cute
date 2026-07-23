@@ -1,5 +1,10 @@
 # Meet Cute: production plan (real users)
 
+Historical plan from 2026-06-15. It is superseded by `docs/STATUS.md`,
+`docs/LAUNCH-QA-2026-07-23.md`, and `LAUNCH-CHECKLIST.md`. Do not use the
+SQLite, local-upload, demo-login, or booking assumptions below for current
+operations.
+
 Single source of truth for taking Meet Cute from security-audited demo to real
 public production. Started 2026-06-15. Update this as items land.
 

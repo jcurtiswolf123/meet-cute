@@ -47,6 +47,7 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
           inputMode="email"
           autoComplete="email"
           defaultValue={val("email")}
+          readOnly
           placeholder="you@email.com"
           aria-invalid={e.email ? true : undefined}
         />

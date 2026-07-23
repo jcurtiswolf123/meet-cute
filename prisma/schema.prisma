@@ -17,13 +17,13 @@ model Person {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  name      String
+  name  String
   // Email is optional: operator-added matchees may only have a phone. Still
   // unique (Postgres allows multiple NULLs), and required in practice for anyone
   // who signs in via magic link.
-  email     String?  @unique
-  phone     String? // E.164 (+1...). Primary contact for the SMS intro flow.
-  city      String // "NYC" | "SF"
+  email String? @unique
+  phone String? // E.164 (+1...). Primary contact for the SMS intro flow.
+  city  String // "NYC" | "SF"
 
   // role
   isOperator   Boolean @default(false)
@@ -33,19 +33,19 @@ model Person {
 
   // Member self-serve opt-in: have they said "yes, start matching me"? They
   // create a profile on signup, then opt in from their dashboard to go live.
-  openToMatch  Boolean @default(false)
-  optedInAt    DateTime?
+  openToMatch Boolean   @default(false)
+  optedInAt   DateTime?
 
   // profile
-  headline    String?
-  bio         String?
-  lookingFor  String?
+  headline     String?
+  bio          String?
+  lookingFor   String?
   dealBreakers String?
 
   // socials: collected at application and viewable by the operator. Stored as
   // canonical profile URLs (see normalizeInstagram/normalizeLinkedin in sms.ts).
-  linkedin    String?
-  instagram   String?
+  linkedin     String?
+  instagram    String?
   gender       String? // "woman" | "man" | "nonbinary"
   seeking      String? // comma list of genders sought
   age          Int?
@@ -88,8 +88,8 @@ model Person {
   referredBy   Person?  @relation("Referrals", fields: [referredById], references: [id])
   referred     Person[] @relation("Referrals")
 
-  photos  Photo[]
-  prompts Prompt[]
+  photos   Photo[]
+  prompts  Prompt[]
   sessions Session[]
 
   blocksMade     Block[]  @relation("Blocker")
@@ -106,8 +106,9 @@ model Person {
   notesAuthored Note[] @relation("NoteAuthor")
   notesAbout    Note[] @relation("NoteSubject")
 
-  invitesSent      Referral[] @relation("Inviter")
+  invitesSent      Referral[]       @relation("Inviter")
   dinnerAttendance DinnerAttendee[]
+  deliveryJobs     DeliveryJob[]
 
   coachingAsClient CoachingEngagement[] @relation("Client")
   coachingAsCoach  CoachingEngagement[] @relation("Coach")
@@ -146,13 +147,24 @@ model LoginToken {
 }
 
 model Photo {
-  id       String @id @default(cuid())
-  personId String
-  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
-  url      String // app proxy path the UI renders: /api/photos/{id}.{ext}
+  id         String      @id @default(cuid())
+  personId   String
+  person     Person      @relation(fields: [personId], references: [id], onDelete: Cascade)
+  url        String // app proxy path the UI renders: /api/photos/{id}.{ext}
   storageUrl String? // external object-store URL (Vercel Blob) when not on local disk
-  order    Int    @default(0)
-  status   String @default("approved") // pending | approved | rejected (moderation)
+  asset      PhotoAsset?
+  order      Int         @default(0)
+  status     String      @default("approved") // pending | approved | rejected (moderation)
+}
+
+// Shared database fallback for normalized image bytes. This keeps production
+// photos readable from every Fly machine when object storage is not configured.
+// The bytes live in a separate table so ordinary profile queries never load them.
+model PhotoAsset {
+  photoId   String   @id
+  photo     Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  bytes     Bytes
+  createdAt DateTime @default(now())
 }
 
 // One member blocks another: they are removed from each other's suggestions and
@@ -236,13 +248,14 @@ model Match {
   conversationSid String?
 
   // Operator follow-up: when to check back in (feedback after a connection).
-  followUpAt  DateTime?
+  followUpAt DateTime?
 
-  thread     ConciergeThread?
-  references Reference[]
-  notes      Note[]
+  thread        ConciergeThread?
+  references    Reference[]
+  notes         Note[]
   introMessages IntroMessage[]
-  invites    MatchInvite[]
+  invites       MatchInvite[]
+  deliveryJobs  DeliveryJob[]
 
   @@unique([personAId, personBId])
 }
@@ -255,22 +268,59 @@ model Match {
 // exact person + match. Both channels converge on recordIntroDecision, so a
 // match connects the moment both sides say yes, whether they clicked or replied.
 model MatchInvite {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  matchId   String
-  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  id           String        @id @default(cuid())
+  createdAt    DateTime      @default(now())
+  matchId      String
+  match        Match         @relation(fields: [matchId], references: [id], onDelete: Cascade)
   // The person who receives this invite and makes the Y/N decision.
-  personId  String
+  personId     String
   // Opaque capability token (base64url). Unique so a reply address / profile
   // link resolves to exactly one invite.
-  token     String   @unique
-  channel   String   @default("email")
-  sentAt    DateTime?
-  decidedAt DateTime?
+  token        String        @unique
+  channel      String        @default("email")
+  sentAt       DateTime?
+  decidedAt    DateTime?
+  deliveryJobs DeliveryJob[]
 
   // One invite per person per match; re-inviting reuses the row (new token).
   @@unique([matchId, personId])
   @@index([token])
+}
+
+// Durable provider work. App requests commit a job before returning, and any
+// healthy web machine can claim it. The unique key prevents duplicate enqueue
+// while the guarded status transition prevents two machines from sending the
+// same queued row at the same time.
+model DeliveryJob {
+  id                String    @id @default(cuid())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  channel           String
+  kind              String
+  recipient         String
+  payload           Json
+  idempotencyKey    String    @unique
+  status            String    @default("pending") // pending | processing | sent | failed
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(6)
+  availableAt       DateTime  @default(now())
+  lockedAt          DateTime?
+  leaseToken        String?
+  sentAt            DateTime?
+  lastError         String?
+  providerMessageId String?
+  personId          String?
+  person            Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  matchId String?
+  match   Match?  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  inviteId String?
+  invite   MatchInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+
+  @@index([status, availableAt])
+  @@index([status, lockedAt])
+  @@index([matchId, kind, status])
 }
 
 // Transcript of the SMS introduction for a match: the per-side invite texts, the
@@ -313,15 +363,15 @@ model Vouch {
 
 // Active reference: post-match "ask a mutual friend for the inside scoop"
 model Reference {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
+  id          String    @id @default(cuid())
+  createdAt   DateTime  @default(now())
   matchId     String
-  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  match       Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
   requesterId String
   friendId    String
   prompt      String
   reply       String?
-  status      String   @default("requested") // requested | replied | declined
+  status      String    @default("requested") // requested | replied | declined
   repliedAt   DateTime?
 }
 
@@ -338,13 +388,13 @@ model Referral {
 }
 
 model Venue {
-  id    String      @id @default(cuid())
-  city  String
-  name  String
-  area  String?
-  notes String?
-  partner Boolean   @default(true)
-  slots VenueSlot[]
+  id      String            @id @default(cuid())
+  city    String
+  name    String
+  area    String?
+  notes   String?
+  partner Boolean           @default(true)
+  slots   VenueSlot[]
   threads ConciergeThread[]
 }
 
@@ -382,24 +432,24 @@ model ConciergeThread {
 }
 
 model ConciergeMessage {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  threadId  String
-  thread    ConciergeThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  direction String // out | in
+  id         String          @id @default(cuid())
+  createdAt  DateTime        @default(now())
+  threadId   String
+  thread     ConciergeThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  direction  String // out | in
   toPersonId String?
-  body      String
-  kind      String  @default("text") // text | propose | confirm | reminder | checkin | system
+  body       String
+  kind       String          @default("text") // text | propose | confirm | reminder | checkin | system
 }
 
 model Dinner {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   city      String
   date      DateTime
   venue     String
-  capacity  Int      @default(12)
+  capacity  Int              @default(12)
   theme     String?
-  status    String   @default("planned") // planned | open | full | done
+  status    String           @default("planned") // planned | open | full | done
   notes     String?
   attendees DinnerAttendee[]
 }

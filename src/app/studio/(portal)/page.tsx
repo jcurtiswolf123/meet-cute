@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Avatar } from "@/components/ui";
-import { setMemberStatus } from "@/lib/actions";
+import { retryDeliveryJob, setMemberStatus } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +70,23 @@ export default async function Roster({
     include: { photos: true },
     orderBy: { appliedAt: "desc" },
   });
+  const [failedDeliveryCount, failedDeliveries] = await Promise.all([
+    prisma.deliveryJob.count({ where: { status: "failed" } }),
+    prisma.deliveryJob.findMany({
+      where: { status: "failed" },
+      select: {
+        id: true,
+        kind: true,
+        channel: true,
+        recipient: true,
+        attempts: true,
+        lastError: true,
+        updatedAt: true,
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 10,
+    }),
+  ]);
 
   return (
     <div>
@@ -97,6 +114,45 @@ export default async function Roster({
           <div className="ledger-label">Together</div>
         </div>
       </div>
+
+      {failedDeliveries.length > 0 && (
+        <section
+          className="mt-6 rounded-xl2 border border-claret/30 bg-claret/5 p-5"
+          aria-labelledby="delivery-failures-heading"
+        >
+          <h2 id="delivery-failures-heading" className="label text-claret">
+            Delivery failures ({failedDeliveryCount})
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            These messages exhausted their retries or were rejected permanently. Fix the provider
+            or recipient issue before retrying. Showing the 10 most recent.
+          </p>
+          <ul className="mt-4 space-y-2">
+            {failedDeliveries.map((job) => (
+              <li key={job.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel px-4 py-2.5">
+                <span>
+                  <span className="block text-sm font-medium text-ink">
+                    {humanizeDeliveryKind(job.kind)} via {job.channel} to {maskRecipient(job.recipient)}
+                  </span>
+                  <span className="block text-xs text-muted">
+                    {job.lastError || "Provider rejected the message."} Attempt {job.attempts}.{" "}
+                    {job.updatedAt.toLocaleString("en-US")}
+                  </span>
+                </span>
+                <form action={retryDeliveryJob}>
+                  <input type="hidden" name="deliveryJobId" value={job.id} />
+                  <button
+                    className="rounded-full border border-claret/30 px-3 py-1 text-xs text-claret"
+                    aria-label={`Retry ${humanizeDeliveryKind(job.kind)} via ${job.channel} to ${maskRecipient(job.recipient)}`}
+                  >
+                    Retry
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {pendingApplicants.length > 0 && (
         <div className="mt-6 rounded-xl2 border border-claret/25 bg-claret/5 p-5">
@@ -137,14 +193,19 @@ export default async function Roster({
       )}
 
       <form className="mt-6 flex flex-wrap items-center gap-2" action="/studio">
-        <input name="q" defaultValue={sp.q} placeholder="Search name, headline, what they want..." className="field max-w-xs" />
-        <Select name="city" value={sp.city} options={[["", "All cities"], ["NYC", "NYC"], ["SF", "SF"]]} />
-        <Select name="gender" value={sp.gender} options={[["", "Any"], ["woman", "Women"], ["man", "Men"]]} />
-        <Select name="sort" value={sp.sort} options={[["name", "A-Z"], ["vouches", "Most vouched"], ["stale", "Stalest"]]} />
+        <input name="q" aria-label="Search directory" defaultValue={sp.q} placeholder="Search name, headline, what they want..." className="field max-w-xs" />
+        <Select label="Filter by city" name="city" value={sp.city} options={[["", "All cities"], ["NYC", "NYC"], ["SF", "SF"]]} />
+        <Select label="Filter by gender" name="gender" value={sp.gender} options={[["", "Any"], ["woman", "Women"], ["man", "Men"]]} />
+        <Select label="Sort directory" name="sort" value={sp.sort} options={[["name", "A-Z"], ["vouches", "Most vouched"], ["stale", "Stalest"]]} />
         <button className="btn-ghost">Filter</button>
       </form>
 
-      <div className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-panel shadow-card">
+      <div
+        className="mt-5 overflow-x-auto rounded-xl2 border border-line bg-panel shadow-card"
+        role="region"
+        aria-label="Member directory table"
+        tabIndex={0}
+      >
         <table className="roster min-w-[640px]">
           <thead>
             <tr>
@@ -180,9 +241,22 @@ export default async function Roster({
   );
 }
 
-function Select({ name, value, options }: { name: string; value?: string; options: [string, string][] }) {
+function humanizeDeliveryKind(kind: string): string {
+  return kind.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function maskRecipient(recipient: string): string {
+  if (recipient.includes("@")) {
+    const [local, domain] = recipient.split("@");
+    return `${local.slice(0, 1)}***@${domain || "unknown"}`;
+  }
+  const digits = recipient.replace(/\D/g, "");
+  return digits.length >= 4 ? `ending ${digits.slice(-4)}` : "recipient";
+}
+
+function Select({ label, name, value, options }: { label: string; name: string; value?: string; options: [string, string][] }) {
   return (
-    <select name={name} defaultValue={value} className="field max-w-[10rem]">
+    <select aria-label={label} name={name} defaultValue={value} className="field max-w-[10rem]">
       {options.map(([v, l]) => (
         <option key={v} value={v}>{l}</option>
       ))}

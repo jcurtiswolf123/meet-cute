@@ -282,7 +282,7 @@ async function main() {
     },
   });
   // mutual_yes (no thread yet -> concierge will spin up)
-  const m2 = await db.match.create({
+  await db.match.create({
     data: {
       personAId: id("maya@example.com"), personBId: id("ben@example.com"),
       stage: "mutual_yes", aDecision: "yes", bDecision: "yes", createdById: jess.id,

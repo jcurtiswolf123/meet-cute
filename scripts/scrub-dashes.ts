@@ -30,12 +30,20 @@ const TARGETS: Record<string, string[]> = {
   note: ["body"],
 };
 
+type ScrubDelegate = {
+  findMany(args: { select: Record<string, boolean> }): Promise<Array<Record<string, unknown>>>;
+  update(args: {
+    where: { id: unknown };
+    data: Record<string, string>;
+  }): Promise<unknown>;
+};
+
 async function main() {
   let changed = 0;
   for (const [model, fields] of Object.entries(TARGETS)) {
-    const delegate = (prisma as Record<string, any>)[model];
+    const delegate = (prisma as unknown as Record<string, ScrubDelegate>)[model];
     if (!delegate?.findMany) continue;
-    const rows: any[] = await delegate.findMany({ select: { id: true, ...Object.fromEntries(fields.map((f) => [f, true])) } });
+    const rows = await delegate.findMany({ select: { id: true, ...Object.fromEntries(fields.map((f) => [f, true])) } });
     for (const row of rows) {
       const patch: Record<string, string> = {};
       for (const f of fields) {

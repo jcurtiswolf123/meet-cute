@@ -11,7 +11,8 @@
 //   WATCHDOG_AUTOFIX=1 npm run watchdog
 //
 // Tunables: WATCHDOG_INTERVAL_MS, WATCHDOG_URL, WATCHDOG_BUILD_EVERY,
-// WATCHDOG_ALERT_EMAIL, ANTHROPIC_API_KEY, WATCHDOG_AUTOFIX.
+// WATCHDOG_SKIP_BUILD, WATCHDOG_ALERT_EMAIL, ANTHROPIC_API_KEY,
+// WATCHDOG_AUTOFIX.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
@@ -22,8 +23,9 @@ import { sendEmail } from "../src/lib/email";
 const ROOT = process.cwd();
 const OUT_DIR = join(ROOT, ".watchdog");
 const INTERVAL_MS = Number(process.env.WATCHDOG_INTERVAL_MS) || 5 * 60 * 1000;
-const URL = (process.env.WATCHDOG_URL || "https://meet-cute.fly.dev").replace(/\/$/, "");
+const URL = (process.env.WATCHDOG_URL || "https://hellomeetcute.com").replace(/\/$/, "");
 const BUILD_EVERY = Number(process.env.WATCHDOG_BUILD_EVERY) || 12; // ~hourly at 5m
+const SKIP_BUILD = process.env.WATCHDOG_SKIP_BUILD === "1";
 const ALERT_EMAIL = process.env.WATCHDOG_ALERT_EMAIL || process.env.RESEND_REPLY_TO || "";
 const AUTOFIX = process.env.WATCHDOG_AUTOFIX === "1";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
@@ -84,6 +86,18 @@ async function checkHealth(): Promise<Check> {
   }
 }
 
+async function checkReadiness(): Promise<Check> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15_000);
+    const res = await fetch(`${URL}/readyz`, { signal: ctrl.signal, cache: "no-store" });
+    clearTimeout(timer);
+    return { name: "readiness", ok: res.ok, detail: `${URL}/readyz -> ${res.status}` };
+  } catch (e) {
+    return { name: "readiness", ok: false, detail: `${URL}/readyz unreachable: ${(e as Error).message}` };
+  }
+}
+
 function checkTypecheck(): Check {
   const r = run("npx", ["tsc", "--noEmit"]);
   return { name: "typecheck", ok: r.ok, detail: r.ok ? "clean" : r.out.slice(-4000) };
@@ -130,6 +144,32 @@ async function checkDb(): Promise<Check> {
     return { name: "db", ok: true, detail: "reachable" };
   } catch (e) {
     return { name: "db", ok: false, detail: `db error: ${(e as Error).message}` };
+  }
+}
+
+async function checkDeliveryQueue(): Promise<Check> {
+  if (!process.env.DATABASE_URL) {
+    return { name: "delivery", ok: true, detail: "skipped (no DATABASE_URL)" };
+  }
+  try {
+    const { prisma } = await import("../src/lib/prisma");
+    const [failed, staleProcessing] = await Promise.all([
+      prisma.deliveryJob.count({ where: { status: "failed" } }),
+      prisma.deliveryJob.count({
+        where: {
+          status: "processing",
+          lockedAt: { lt: new Date(Date.now() - 5 * 60_000) },
+        },
+      }),
+    ]);
+    const ok = failed === 0 && staleProcessing === 0;
+    return {
+      name: "delivery",
+      ok,
+      detail: `${failed} permanently failed, ${staleProcessing} stale processing`,
+    };
+  } catch (e) {
+    return { name: "delivery", ok: false, detail: `queue check error: ${(e as Error).message}` };
   }
 }
 
@@ -237,7 +277,9 @@ async function attemptAutofix(tscOut: string): Promise<void> {
 async function cycle(n: number): Promise<boolean> {
   const checks: Check[] = [];
   checks.push(await checkHealth());
+  checks.push(await checkReadiness());
   checks.push(await checkDb());
+  checks.push(await checkDeliveryQueue());
   const sentry = await checkSentry();
   if (sentry) {
     checks.push(sentry);
@@ -245,7 +287,7 @@ async function cycle(n: number): Promise<boolean> {
   }
   const tc = checkTypecheck();
   checks.push(tc);
-  if (n % BUILD_EVERY === 0) checks.push(checkBuild());
+  if (!SKIP_BUILD && n % BUILD_EVERY === 0) checks.push(checkBuild());
 
   const failed = checks.filter((c) => !c.ok);
   const status = { at: new Date().toISOString(), cycle: n, ok: failed.length === 0, checks };
@@ -273,7 +315,6 @@ async function cycle(n: number): Promise<boolean> {
     process.exitCode = ok ? 0 : 1; // non-zero so CI / cron flags failures
     return;
   }
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     await cycle(n++).catch((e) => log(`cycle error: ${(e as Error).message}`));
     await new Promise((r) => setTimeout(r, INTERVAL_MS));

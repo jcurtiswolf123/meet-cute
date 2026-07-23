@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { getSessionPersonId } from "@/lib/auth";
 import { rateLimit, clientKey } from "@/lib/ratelimit";
-import { extFor, writeUpload, normalizeImage, MAX_BYTES, STORED_EXT } from "@/lib/uploads";
+import { deleteUpload, extFor, writeUpload, normalizeImage, MAX_BYTES, STORED_EXT } from "@/lib/uploads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const MAX_PHOTOS_PER_PERSON = 6;
+const MAX_MULTIPART_BYTES = MAX_BYTES + 1_000_000;
+
+class PhotoLimitError extends Error {}
 
 // Upload a profile photo. Auth required. Allowlisted image types only, size
 // capped, stored to the volume, and created in `pending` so it is invisible to
@@ -13,6 +19,18 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const me = await getSessionPersonId();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const contentLength = Number(req.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > MAX_MULTIPART_BYTES) {
+    return NextResponse.json({ error: "Image too large. Max 5 MB." }, { status: 413 });
+  }
+  const existingCount = await prisma.photo.count({ where: { personId: me } });
+  if (existingCount >= MAX_PHOTOS_PER_PERSON) {
+    return NextResponse.json(
+      { error: `You can upload up to ${MAX_PHOTOS_PER_PERSON} profile photos.` },
+      { status: 409 },
+    );
+  }
 
   const limit = await rateLimit(`photo:${clientKey(req)}:${me}`, 10, 60 * 60 * 1000);
   if (!limit.ok) {
@@ -50,13 +68,43 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "That image could not be processed." }, { status: 422 });
   }
 
-  const count = await prisma.photo.count({ where: { personId: me } });
-  const photo = await prisma.photo.create({
-    data: { personId: me, url: "", order: count, status: "pending" },
-  });
-  const storageUrl = await writeUpload(photo.id, STORED_EXT, buf);
-  const url = `/api/photos/${photo.id}.${STORED_EXT}`;
-  await prisma.photo.update({ where: { id: photo.id }, data: { url, storageUrl } });
+  const id = randomBytes(16).toString("hex");
+  let storage;
+  try {
+    storage = await writeUpload(id, STORED_EXT, buf);
+  } catch {
+    return NextResponse.json({ error: "Upload storage is unavailable." }, { status: 503 });
+  }
+  const url = `/api/photos/${id}.${STORED_EXT}`;
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`photo:${me}`}, 0))::text`;
+      const count = await tx.photo.count({ where: { personId: me } });
+      if (count >= MAX_PHOTOS_PER_PERSON) throw new PhotoLimitError();
+      await tx.photo.create({
+        data: {
+          id,
+          personId: me,
+          url,
+          storageUrl: storage.storageUrl,
+          order: count,
+          status: "pending",
+          ...(storage.databaseBytes
+            ? { asset: { create: { bytes: Uint8Array.from(storage.databaseBytes) } } }
+            : {}),
+        },
+      });
+    });
+  } catch (error) {
+    await deleteUpload(storage.storageUrl, id);
+    if (error instanceof PhotoLimitError) {
+      return NextResponse.json(
+        { error: `You can upload up to ${MAX_PHOTOS_PER_PERSON} profile photos.` },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json({ error: "The upload could not be saved." }, { status: 500 });
+  }
 
-  return NextResponse.json({ ok: true, id: photo.id, url, status: "pending" });
+  return NextResponse.json({ ok: true, id, url, status: "pending" });
 }

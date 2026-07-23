@@ -37,20 +37,20 @@ export default async function Profile() {
 
       <form action={save} className="mt-8 space-y-5">
         <div>
-          <label className="label">Headline</label>
-          <input name="headline" defaultValue={me.headline ?? ""} className="field mt-1.5" />
+          <label className="label" htmlFor="headline">Headline</label>
+          <input id="headline" name="headline" defaultValue={me.headline ?? ""} className="field mt-1.5" />
         </div>
         <div>
-          <label className="label">About you</label>
-          <textarea name="bio" defaultValue={me.bio ?? ""} className="field mt-1.5 min-h-32" />
+          <label className="label" htmlFor="bio">About you</label>
+          <textarea id="bio" name="bio" defaultValue={me.bio ?? ""} className="field mt-1.5 min-h-32" />
         </div>
         <div>
-          <label className="label">What you are looking for</label>
-          <textarea name="lookingFor" defaultValue={me.lookingFor ?? ""} className="field mt-1.5 min-h-24" />
+          <label className="label" htmlFor="lookingFor">What you are looking for</label>
+          <textarea id="lookingFor" name="lookingFor" defaultValue={me.lookingFor ?? ""} className="field mt-1.5 min-h-24" />
         </div>
         <div>
-          <label className="label">Deal-breakers</label>
-          <input name="dealBreakers" defaultValue={me.dealBreakers ?? ""} className="field mt-1.5" />
+          <label className="label" htmlFor="dealBreakers">Deal-breakers</label>
+          <input id="dealBreakers" name="dealBreakers" defaultValue={me.dealBreakers ?? ""} className="field mt-1.5" />
         </div>
 
         {/* Community recommendation: shown on your profile to people you connect with. */}
@@ -61,17 +61,17 @@ export default async function Profile() {
           )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="label">Who vouches for you?</label>
-              <input name="voucherName" defaultValue={me.voucherName ?? ""} className="field mt-1.5" placeholder="Their full name" />
+              <label className="label" htmlFor="voucherName">Who vouches for you?</label>
+              <input id="voucherName" name="voucherName" defaultValue={me.voucherName ?? ""} className="field mt-1.5" placeholder="Their full name" />
             </div>
             <div>
-              <label className="label">How we reach them</label>
-              <input name="voucherContact" defaultValue={me.voucherContact ?? ""} className="field mt-1.5" placeholder="Their email or phone" />
+              <label className="label" htmlFor="voucherContact">How we reach them</label>
+              <input id="voucherContact" name="voucherContact" defaultValue={me.voucherContact ?? ""} className="field mt-1.5" placeholder="Their email or phone" />
             </div>
           </div>
           <div>
-            <label className="label">In their words</label>
-            <textarea name="recommendation" defaultValue={me.recommendation ?? ""} className="field mt-1.5 min-h-24" placeholder="A line about you, from someone who knows you well." />
+            <label className="label" htmlFor="recommendation">In their words</label>
+            <textarea id="recommendation" name="recommendation" defaultValue={me.recommendation ?? ""} className="field mt-1.5 min-h-24" placeholder="A line about you, from someone who knows you well." />
           </div>
         </fieldset>
 

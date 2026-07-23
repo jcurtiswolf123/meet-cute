@@ -3,9 +3,12 @@
 _Lightweight backlog. Move items between sections as they progress._
 
 ## In progress
-- (none)
+- [ ] Complete reviewed launch deployment and production canary
+- [ ] Obtain counsel review of legal, consent, retention, and safety language
 
 ## Backlog (prioritized)
+- [ ] Automated photo pre-screening before high upload volume
+- [ ] Retire unused legacy Fly volumes during a maintenance window
 - [ ] Community admissions voting (V2)
 - [ ] Extend Sentry context with match/person metadata for error triage
 

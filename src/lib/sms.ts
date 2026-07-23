@@ -18,6 +18,9 @@
 import { createHmac, timingSafeEqual, createPublicKey, verify as edVerify } from "crypto";
 
 type SendArgs = { to: string; body: string };
+export type SmsSendResult =
+  | { ok: true; providerMessageId?: string }
+  | { ok: false; retryable: boolean; error: string };
 
 /** Which carrier to send through. Twilio is the default/fallback. */
 export function smsProvider(): "twilio" | "telnyx" {
@@ -75,16 +78,16 @@ export function normalizeLinkedin(raw: string | null | undefined): string | null
   return `https://www.linkedin.com/in/${handle}`;
 }
 
-export async function sendSMS({ to, body }: SendArgs): Promise<{ ok: boolean }> {
+export async function sendSMS({ to, body }: SendArgs): Promise<SmsSendResult> {
   const e164 = normalizePhone(to);
   if (!e164) {
     console.error("[sms] no valid destination number; skipping send");
-    return { ok: false };
+    return { ok: false, retryable: false, error: "invalid destination number" };
   }
   return smsProvider() === "telnyx" ? sendViaTelnyx(e164, body) : sendViaTwilio(e164, body);
 }
 
-async function sendViaTwilio(e164: string, body: string): Promise<{ ok: boolean }> {
+async function sendViaTwilio(e164: string, body: string): Promise<SmsSendResult> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_FROM;
@@ -94,15 +97,16 @@ async function sendViaTwilio(e164: string, body: string): Promise<{ ok: boolean 
     // broken intro is visible, never silently "succeed".
     if (process.env.NODE_ENV === "production") {
       console.error("[sms] Twilio credentials not set; refusing to send in production");
-      return { ok: false };
+      return { ok: false, retryable: false, error: "Twilio is not configured" };
     }
     console.log(`[sms:dev] (twilio) to=${e164} body="${body}"`);
-    return { ok: true };
+    return { ok: true, providerMessageId: "dev" };
   }
 
   try {
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: "POST",
+      signal: AbortSignal.timeout(12_000),
       headers: {
         Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
         "Content-Type": "application/x-www-form-urlencoded",
@@ -112,16 +116,28 @@ async function sendViaTwilio(e164: string, body: string): Promise<{ ok: boolean 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error(`[sms] Twilio ${res.status}: ${text.slice(0, 300)}`);
-      return { ok: false };
+      return {
+        ok: false,
+        retryable: res.status === 429,
+        error: `Twilio returned ${res.status}`,
+      };
     }
-    return { ok: true };
+    const payload = (await res.json().catch(() => ({}))) as { sid?: unknown };
+    return {
+      ok: true,
+      ...(typeof payload.sid === "string" ? { providerMessageId: payload.sid } : {}),
+    };
   } catch (e) {
     console.error(`[sms] send failed: ${(e as Error).message}`);
-    return { ok: false };
+    return {
+      ok: false,
+      retryable: false,
+      error: `Twilio outcome unknown: ${(e as Error).message}`,
+    };
   }
 }
 
-async function sendViaTelnyx(e164: string, body: string): Promise<{ ok: boolean }> {
+async function sendViaTelnyx(e164: string, body: string): Promise<SmsSendResult> {
   const apiKey = process.env.TELNYX_API_KEY;
   const from = process.env.TELNYX_FROM;
   const profileId = process.env.TELNYX_MESSAGING_PROFILE_ID;
@@ -132,10 +148,10 @@ async function sendViaTelnyx(e164: string, body: string): Promise<{ ok: boolean 
   if (!apiKey || (!from && !profileId)) {
     if (process.env.NODE_ENV === "production") {
       console.error("[sms] Telnyx credentials not set; refusing to send in production");
-      return { ok: false };
+      return { ok: false, retryable: false, error: "Telnyx is not configured" };
     }
     console.log(`[sms:dev] (telnyx) to=${e164} body="${body}"`);
-    return { ok: true };
+    return { ok: true, providerMessageId: "dev" };
   }
 
   try {
@@ -145,6 +161,7 @@ async function sendViaTelnyx(e164: string, body: string): Promise<{ ok: boolean 
 
     const res = await fetch("https://api.telnyx.com/v2/messages", {
       method: "POST",
+      signal: AbortSignal.timeout(12_000),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -154,12 +171,28 @@ async function sendViaTelnyx(e164: string, body: string): Promise<{ ok: boolean 
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error(`[sms] Telnyx ${res.status}: ${text.slice(0, 300)}`);
-      return { ok: false };
+      return {
+        ok: false,
+        retryable: res.status === 429,
+        error: `Telnyx returned ${res.status}`,
+      };
     }
-    return { ok: true };
+    const response = (await res.json().catch(() => ({}))) as {
+      data?: { id?: unknown };
+    };
+    return {
+      ok: true,
+      ...(typeof response.data?.id === "string"
+        ? { providerMessageId: response.data.id }
+        : {}),
+    };
   } catch (e) {
     console.error(`[sms] send failed: ${(e as Error).message}`);
-    return { ok: false };
+    return {
+      ok: false,
+      retryable: false,
+      error: `Telnyx outcome unknown: ${(e as Error).message}`,
+    };
   }
 }
 
@@ -371,6 +404,7 @@ async function conversationsPost(
 ): Promise<{ ok: boolean; status: number; json: Record<string, unknown>; text: string }> {
   const res = await fetch(`${CONVERSATIONS_BASE}${path}`, {
     method: "POST",
+    signal: AbortSignal.timeout(12_000),
     headers: {
       Authorization: `Basic ${creds.auth}`,
       "Content-Type": "application/x-www-form-urlencoded",
@@ -526,6 +560,7 @@ async function deleteConversation(creds: TwilioCreds, sid: string): Promise<void
   try {
     await fetch(`${CONVERSATIONS_BASE}/Conversations/${sid}`, {
       method: "DELETE",
+      signal: AbortSignal.timeout(12_000),
       headers: { Authorization: `Basic ${creds.auth}` },
     });
   } catch {

@@ -38,8 +38,8 @@ export default async function Matchmaking() {
 
   const [people, intros] = await Promise.all([
     prisma.person.findMany({
-      where: { isOperator: false, isAmbassador: false, isCoach: false, status: { in: ["active", "applicant"] } },
-      select: { id: true, name: true, phone: true, city: true, bio: true, openToMatch: true, lookingFor: true, linkedin: true, instagram: true },
+      where: { isOperator: false, isAmbassador: false, isCoach: false, status: "active" },
+      select: { id: true, name: true, email: true, phone: true, city: true, bio: true, openToMatch: true, lookingFor: true, linkedin: true, instagram: true, smsConsentAt: true },
       orderBy: [{ openToMatch: "desc" }, { name: "asc" }],
     }),
     prisma.match.findMany({
@@ -61,10 +61,12 @@ export default async function Matchmaking() {
   // Composer leads with people who've opted in (those are the ones to match).
   // Carry a starter blurb (their bio, or what they're looking for) so the composer
   // can prefill the "about" bullets and save the operator retyping what we know.
-  const composerPeople = people.map((p) => ({
+  const composerPeople = people.filter((p) => p.openToMatch).map((p) => ({
     id: p.id,
     name: p.name,
+    email: p.email,
     phone: p.phone,
+    canText: !!p.smsConsentAt,
     city: p.city,
     instagram: p.instagram,
     blurb: (p.bio || p.lookingFor || "").trim(),
@@ -115,7 +117,7 @@ export default async function Matchmaking() {
       <details open className="card p-5">
         <summary className="cursor-pointer font-display text-lg font-medium">Add someone to match</summary>
         <p className="mt-1 text-sm text-muted">
-          A name and mobile number is all you need. They don&apos;t have to sign up or build a profile.
+          Add someone only after they ask to be matched. Email is the baseline channel. Texting is optional and needs separate consent.
         </p>
         <form action={quickAddPerson} className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="block">
@@ -123,8 +125,8 @@ export default async function Matchmaking() {
             <input name="name" required placeholder="Jordan Rivera" className="field mt-1.5" />
           </label>
           <label className="block">
-            <span className="label">Mobile number</span>
-            <input name="phone" required type="tel" placeholder="(555) 123-4567" className="field mt-1.5" />
+            <span className="label">Mobile number (optional)</span>
+            <input name="phone" type="tel" placeholder="(555) 123-4567" className="field mt-1.5" />
           </label>
           <label className="block">
             <span className="label">City</span>
@@ -148,6 +150,18 @@ export default async function Matchmaking() {
           <label className="block sm:col-span-2">
             <span className="label">Notes about them (optional)</span>
             <input name="blurb" placeholder="Founder, loves trail running, wants something serious." className="field mt-1.5" />
+          </label>
+          <label className="flex items-start gap-3 text-sm sm:col-span-2">
+            <input type="checkbox" name="matchingConsent" required className="mt-1" />
+            <span className="text-muted">
+              I confirm this person asked to be added to Meet Cute and is ready to receive matchmaking introductions.
+            </span>
+          </label>
+          <label className="flex items-start gap-3 text-sm sm:col-span-2">
+            <input type="checkbox" name="smsConsent" className="mt-1" />
+            <span className="text-muted">
+              I confirm this person separately agreed to receive Meet Cute text messages at the mobile number above. Message and data rates may apply. Reply STOP to cancel.
+            </span>
           </label>
           <div className="sm:col-span-2">
             <button type="submit" className="btn-primary">Add person</button>
@@ -243,7 +257,12 @@ export default async function Matchmaking() {
       {/* People list */}
       <div>
         <h2 className="font-display text-lg font-medium">People ({people.length})</h2>
-        <div className="mt-3 overflow-x-auto rounded-xl2 border border-line bg-panel shadow-card">
+        <div
+          className="mt-3 overflow-x-auto rounded-xl2 border border-line bg-panel shadow-card"
+          role="region"
+          aria-label="People ready for matchmaking"
+          tabIndex={0}
+        >
           <table className="roster min-w-[560px]">
             <thead>
               <tr>

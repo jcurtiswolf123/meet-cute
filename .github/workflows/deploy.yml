@@ -9,14 +9,16 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npx prisma generate
       - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:launch:pure
       # Full production build gate: catch build-time breakage (bad imports, RSC
       # boundary errors, font/axes config) before we ship, not on the Fly builder.
       - run: npm run build
@@ -30,9 +32,37 @@ jobs:
     runs-on: ubuntu-latest
     concurrency: deploy-meet-cute
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Apply additive database schema
+        run: npm run db:deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      - name: Run database launch checks
+        run: npm run test:launch && npm run test:race
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
       # pinned to a commit SHA (supply-chain): superfly/flyctl-actions setup-flyctl
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
-      - run: flyctl deploy --remote-only
+      - name: Deploy
+        run: |
+          if [ -n "$SENTRY_AUTH_TOKEN" ]; then
+            flyctl deploy --remote-only --build-secret SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"
+          else
+            flyctl deploy --remote-only
+          fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      - name: Verify production canary
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 https://hellomeetcute.com/healthz
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 https://hellomeetcute.com/readyz
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 https://hellomeetcute.com/ > /dev/null

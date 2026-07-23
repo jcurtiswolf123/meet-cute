@@ -14,7 +14,7 @@ export default function Privacy() {
 
         <p className="label mt-8 mb-3">Privacy</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-muted">Last updated: 2026-07-16</p>
+        <p className="mt-3 text-sm text-muted">Last updated: 2026-07-23</p>
 
         <p className="mt-6 text-sm leading-relaxed text-muted">
           Meet Cute is a curated, invitation-only matchmaking service. To introduce you to people
@@ -35,7 +35,7 @@ export default function Privacy() {
           <p>We collect the following categories of personal information:</p>
           <List
             items={[
-              "Account data: your name, email address, password (stored as a secure hash, never in plain text), and the city you join under.",
+              "Account data: your name, email address, city, and passwordless sign-in records. We use short-lived magic links and revocable session tokens, and store only cryptographic hashes of those tokens.",
               "Profile data: the details you add to your profile, including the things you are looking for in a partner, relationship goals, lifestyle notes, and any free-text you choose to share with us.",
               "Photos: images you upload to your profile. Photos can reveal your appearance and, in some cases, locations or other people, so treat them as sensitive.",
               "Age and birthdate: your date of birth or age, which we use to confirm you are at least 18 and to make age-appropriate introductions.",
@@ -43,7 +43,7 @@ export default function Privacy() {
               "Dating preferences: the attributes, interests, and dealbreakers you tell us about, which our matchmakers and systems use to suggest introductions.",
               "Vouches from friends: when someone you know vouches for you, we collect what they submit about you, and we collect the references you provide for others. Tell the people you list that you are sharing them with us.",
               "Usage data: how you interact with the service, including pages viewed, introductions you accept or pass on, messages and scheduling activity, device and browser type, and approximate location derived from your IP address.",
-              "Communications: messages you send to our team, your matchmaker, or support, and records of bookings the concierge arranges for you.",
+              "Communications: messages you send to our team, your matchmaker, or support, including scheduling details you choose to discuss with us.",
             ]}
           />
           <p>
@@ -57,7 +57,7 @@ export default function Privacy() {
           <List
             items={[
               "Matchmaking: to build your profile, suggest introductions, and let our human matchmakers curate matches for you. This is the core of the service.",
-              "Concierge booking: to arrange dates, reservations, and logistics on your behalf when you ask us to.",
+              "Matchmaking support: to coordinate introductions and provide human help with date logistics when you ask us to.",
               "Safety and trust: to verify accounts, review vouches, screen for fake or abusive profiles, investigate reports, and keep members safe.",
               "Service operation: to run, maintain, secure, and improve the product, and to provide customer support.",
               "Communications: to send you introductions, scheduling details, account notices, and, where permitted, occasional updates about the service. You can opt out of non-essential messages.",
@@ -74,7 +74,7 @@ export default function Privacy() {
           </p>
           <List
             items={[
-              "Contract: to provide the matchmaking and concierge service you signed up for.",
+              "Contract: to provide the matchmaking service and related support you signed up for.",
               "Consent: for optional features and any sensitive data you choose to share, such as certain profile details and photos. You can withdraw consent at any time.",
               "Legitimate interests: to keep the service safe, prevent fraud and abuse, and improve the product, balanced against your rights.",
               "Legal obligation: to meet our legal and regulatory duties.",
@@ -100,10 +100,11 @@ export default function Privacy() {
 
         <Section title="6. SMS, text messaging, and your mobile information">
           <p>
-            Meet Cute sends text messages (SMS/MMS) as part of the service, such as introduction
-            invites you can accept or decline, connection details once both people say yes, scheduling
-            notes, and account notices. You provide your mobile number and agree to receive these
-            messages when you apply or join, and you can opt out at any time.
+            Meet Cute sends text messages (SMS/MMS) only when you separately choose the optional text
+            message consent on the application. These messages can include introduction invites you
+            can accept or decline, connection details once both people say yes, scheduling notes, and
+            account notices. A mobile number or text message consent is not required to join, and you
+            can withdraw consent at any time.
           </p>
           <p className="font-medium text-ink">
             No mobile information (including your phone number and SMS opt-in or consent) will be
@@ -146,10 +147,10 @@ export default function Privacy() {
         <Section title="9. Security">
           <p>
             We protect your data with administrative, technical, and physical safeguards, including
-            encryption in transit, hashed passwords, access controls, and limits on who on our team
-            can view member data. No system is perfectly secure, so we cannot guarantee absolute
-            security, but we work to protect your information and to notify you and the relevant
-            authorities if a breach affecting your data occurs, as required by law.
+            encryption in transit, hashed magic-link and session tokens, access controls, and limits
+            on who on our team can view member data. No system is perfectly secure, so we cannot
+            guarantee absolute security, but we work to protect your information and to notify you
+            and the relevant authorities if a breach affecting your data occurs, as required by law.
           </p>
         </Section>
 
@@ -210,8 +211,8 @@ export default function Privacy() {
         <Section title="15. Contact us">
           <p>
             Questions about your privacy or this policy? Email us at{" "}
-            <a href="mailto:privacy@meetcute.com" className="text-claret underline">
-              privacy@meetcute.com
+            <a href="mailto:josh@shiftsupportnetwork.com" className="text-claret underline">
+              josh@shiftsupportnetwork.com
             </a>
             . We read every message.
           </p>
