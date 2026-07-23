@@ -3,7 +3,7 @@
 _Lightweight backlog. Move items between sections as they progress._
 
 ## In progress
-- [ ] Complete reviewed launch deployment and production canary
+- [ ] Obtain Twilio re-vet for A2P campaign errors 30882 and 30908
 - [ ] Obtain counsel review of legal, consent, retention, and safety language
 
 ## Backlog (prioritized)
@@ -20,6 +20,10 @@ _Lightweight backlog. Move items between sections as they progress._
 - [x] Member feedback post-connection: surfaced kind:"feedback" notes on the conversation detail page + per-intro "Ask how it went" / "Resend invite" / "Close intro" quick actions
 
 ## Done
+- [x] Deploy and verify super-admin operator administration, including Jess
+  provisioning, ordinary-operator restrictions, production role QA, and the
+  Fly version 107 canary (2026-07-23)
+- [x] Complete reviewed launch deployment and production canary (2026-07-23)
 - [x] Task 1: Prisma schema evolution (voucherName, voucherContact, recommendation, conversationSid, IntroMessage model) (2026-06-28)
 - [x] Task 2: Bot SMS composer with LLM + fallback template, emoji-free output (2026-06-28)
 - [x] Task 3: Twilio Conversations webhook for group thread logging (2026-06-28)
