@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getCurrentPerson } from "@/lib/auth";
+import { requireMemberPage } from "@/lib/page-auth";
 import { unblockPerson } from "@/lib/actions";
 import { DeleteAccount } from "./DeleteAccount";
 
 export const dynamic = "force-dynamic";
 
 export default async function Settings() {
-  const me = (await getCurrentPerson())!;
+  const me = await requireMemberPage();
   const blocks = await prisma.block.findMany({
     where: { blockerId: me.id },
     include: { blocked: { select: { id: true, name: true } } },

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireOperatorPage } from "@/lib/page-auth";
 import { addNote, createSuggestion } from "@/lib/actions";
 import { candidatesFor } from "@/lib/copilot";
 import { connectionsOf, vouchesFor } from "@/lib/social";
@@ -10,6 +11,7 @@ import { SubmitButton } from "@/components/forms";
 export const dynamic = "force-dynamic";
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireOperatorPage();
   const { id } = await params;
   const p = await prisma.person.findUnique({
     where: { id },

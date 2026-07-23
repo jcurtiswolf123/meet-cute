@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireOperatorPage } from "@/lib/page-auth";
 import { Avatar } from "@/components/ui";
 import { manualMatch } from "@/lib/actions";
 
@@ -15,6 +16,7 @@ const STAGES: [string, string][] = [
 ];
 
 export default async function Pipeline() {
+  await requireOperatorPage();
   const matches = await prisma.match.findMany({
     where: { stage: { not: "exit" } },
     include: {

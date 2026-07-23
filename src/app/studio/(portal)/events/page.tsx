@@ -1,14 +1,12 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireOperator } from "@/lib/auth";
+import { requireOperatorPage } from "@/lib/page-auth";
 import { createEvent } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function Events() {
-  const op = await requireOperator();
-  if (!op) redirect("/login");
+  await requireOperatorPage();
 
   const events = await prisma.dinner.findMany({
     include: { _count: { select: { attendees: true } } },

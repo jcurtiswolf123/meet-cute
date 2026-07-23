@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireOperator } from "@/lib/auth";
+import { requireOperatorPage } from "@/lib/page-auth";
 import { addEventInvitees, removeAttendee, setAttendeeStatus, setEventStatus } from "@/lib/actions";
 import { Avatar } from "@/components/ui";
 
@@ -12,8 +12,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function EventDetail({ params }: { params: Promise<{ id: string }> }) {
-  const op = await requireOperator();
-  if (!op) redirect("/login");
+  await requireOperatorPage();
   const { id } = await params;
 
   const event = await prisma.dinner.findUnique({

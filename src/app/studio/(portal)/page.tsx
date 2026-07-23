@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { requireOperatorPage } from "@/lib/page-auth";
 import { Avatar } from "@/components/ui";
 import { retryDeliveryJob, setMemberStatus } from "@/lib/actions";
 
@@ -10,6 +11,7 @@ export default async function Roster({
 }: {
   searchParams: Promise<{ q?: string; city?: string; gender?: string; sort?: string }>;
 }) {
+  await requireOperatorPage();
   const sp = await searchParams;
   const q = (sp.q ?? "").toLowerCase();
 

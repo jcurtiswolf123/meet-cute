@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { requireOperatorPage } from "@/lib/page-auth";
 import { conversationHealth, toneClass, relativeAge } from "@/lib/conversation-health";
 import { messageGroup, resendIntro, closeIntroduction, askForFeedback } from "@/lib/actions";
 import { SubmitButton } from "@/components/forms";
@@ -16,6 +17,7 @@ function firstName(name: string) {
 // opener, group messages logged via the Conversations webhook, and any operator
 // messages. This is the "monitor + step in" surface from the call notes.
 export default async function ConversationDetail({ params }: { params: Promise<{ id: string }> }) {
+  await requireOperatorPage();
   const { id } = await params;
   const match = await prisma.match.findUnique({
     where: { id },

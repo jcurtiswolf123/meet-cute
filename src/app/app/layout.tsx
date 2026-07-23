@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getCurrentPerson } from "@/lib/auth";
+import { requireMemberPage } from "@/lib/page-auth";
 import { PortalSidebar, type SidebarSection } from "@/components/PortalSidebar";
 
 export const dynamic = "force-dynamic";
@@ -20,13 +19,7 @@ const MEMBER_SECTIONS: SidebarSection[] = [
 ];
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const me = await getCurrentPerson();
-  if (!me) redirect("/login");
-  if (me.isOperator) redirect("/studio");
-  // Removed/declined members lose access immediately (decline also revokes their
-  // sessions); never let an exited account into the member app.
-  if (me.status === "exited") redirect("/login");
-  if (me.status === "applicant") redirect(me.appliedAt ? "/apply/thanks" : "/apply");
+  const me = await requireMemberPage();
 
   return (
     <div className="flex min-h-screen flex-col bg-cream md:flex-row">

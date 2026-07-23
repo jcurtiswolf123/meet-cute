@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentPerson } from "@/lib/auth";
+import { requireMemberPage } from "@/lib/page-auth";
 import { prisma } from "@/lib/prisma";
 import { connectedPersonIds } from "@/lib/social";
 import { Avatar } from "@/components/ui";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // The only roster a member ever sees: people they have actually been connected
 // to. Everyone else's profile is off-limits (enforced in [id]/page.tsx).
 export default async function Connections() {
-  const me = (await getCurrentPerson())!;
+  const me = await requireMemberPage();
   const ids = await connectedPersonIds(me.id);
   const people = ids.length
     ? await prisma.person.findMany({

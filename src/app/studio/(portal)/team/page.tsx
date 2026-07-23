@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireOperator } from "@/lib/auth";
+import { requireOperatorPage } from "@/lib/page-auth";
 import { addOperator, removeOperator, setOperatorPhone } from "@/lib/actions";
 import { Avatar } from "@/components/ui";
 
@@ -10,8 +9,7 @@ export const dynamic = "force-dynamic";
 // the same magic-link flow as members; the isOperator flag is what unlocks the
 // studio. Here a current operator can add or revoke others self-serve.
 export default async function Team() {
-  const me = await requireOperator();
-  if (!me) redirect("/login");
+  const me = await requireOperatorPage();
 
   const operators = await prisma.person.findMany({
     where: { isOperator: true },

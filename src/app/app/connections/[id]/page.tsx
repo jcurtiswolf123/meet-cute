@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { getCurrentPerson } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { requireMemberPage } from "@/lib/page-auth";
 import { prisma } from "@/lib/prisma";
 import { isConnectedTo, vouchesFor, mutualFriends } from "@/lib/social";
 import { Avatar } from "@/components/ui";
@@ -9,8 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ConnectionDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const me = await getCurrentPerson();
-  if (!me) redirect("/login");
+  const me = await requireMemberPage();
 
   // Guard: member can only view profiles of people they are connected to
   const canView = await isConnectedTo(me.id, id);

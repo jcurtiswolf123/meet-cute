@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getCurrentPerson } from "@/lib/auth";
+import { requireOperatorPage } from "@/lib/page-auth";
 import {
   quickAddPerson,
   resendIntro,
@@ -33,8 +33,8 @@ function statusFor(m: { stage: string; aDecision: string; bDecision: string; per
 }
 
 export default async function Matchmaking() {
-  const me = await getCurrentPerson();
-  const operatorName = me?.name || "your matchmaker";
+  const me = await requireOperatorPage();
+  const operatorName = me.name;
 
   const [people, intros] = await Promise.all([
     prisma.person.findMany({
