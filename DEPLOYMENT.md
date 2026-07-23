@@ -3,7 +3,7 @@
 Production runs on Fly.io at `https://hellomeetcute.com`. The application uses
 Neon PostgreSQL and a standalone Next.js Docker image.
 
-Launch status: READY FOR DEPLOY as of 2026-07-23.
+Launch status: LIVE as of 2026-07-23.
 
 ## Infrastructure
 
@@ -53,6 +53,35 @@ A push to `master` runs the deploy workflow:
 
 Application machines do not modify the schema while starting. The migration
 step completes before the rolling release begins.
+
+## Current Fly Machine limit
+
+The Fly organization is currently capped at two Machines, and both slots are
+used by production. Fly can build and push a release image, but its in-place
+Machine update returns a Machine-limit error while both slots are occupied.
+This is an account constraint, not an application or image failure.
+
+The preferred fix is to ask Fly Billing to raise the Machine limit. Until that
+is complete, use this controlled rotation:
+
+1. Let the GitHub workflow finish every CI, migration, database test, and image
+   build step. Record the exact registry image tag from the failed deploy step.
+2. Confirm both existing Machines pass readiness. Record each Machine ID and
+   attached volume ID.
+3. Stop and destroy exactly one Machine. Do not delete its volume.
+4. Confirm the remaining Machine still serves `/healthz` and `/readyz`.
+5. Deploy the recorded image with `--update-only`, `--strategy rolling`, and
+   `--max-unavailable 1`.
+6. Wait for the updated Machine and the public readiness route to pass.
+7. Scale the app back to two Machines in `sjc`. Fly assigns the unattached
+   legacy volume to the new Machine.
+8. Confirm both Machines use the recorded image, both readiness checks pass,
+   and both original volume IDs remain attached.
+
+Never destroy the remaining Machine before the updated Machine is ready. Never
+delete either volume as part of this workaround. The legacy volumes do not hold
+production data, but preserving them keeps the release reversible and avoids an
+unrelated storage change during deployment.
 
 ## Local release verification
 

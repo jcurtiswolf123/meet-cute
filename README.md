@@ -3,7 +3,7 @@
 Meet Cute is a curated matchmaking app with a public application funnel, a
 member experience, and an operator studio.
 
-Launch status: READY FOR DEPLOY as of 2026-07-23. The release evidence and
+Launch status: LIVE as of 2026-07-23. The release evidence and
 remaining external review item are in
 [`docs/LAUNCH-QA-2026-07-23.md`](docs/LAUNCH-QA-2026-07-23.md).
 

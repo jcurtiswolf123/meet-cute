@@ -2,10 +2,38 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-23 (launch remediation ready for deployment)
+Last updated: 2026-07-23 (public launch deployed and verified)
 
-## 2026-07-23: launch blockers remediated, ready for deployment
-- Branch: `codex/launch-qa-2026-07-23`.
+## 2026-07-23: public launch deployed and verified
+- Release commits: `cde712e` for launch readiness and `d5975fc` for the
+  protected-page authorization hotfix.
+- Production is on Fly version 106 with image
+  `deployment-01KY88ZZ32GCR7658QCYYN1JRW`. Machines `d8d0504f10e6e8` and
+  `7841027c64e108` are started in `sjc`, and both readiness checks pass.
+- GitHub run `30040110228` passed installation, Prisma generation, type checking,
+  lint, pure tests, the production build, migrations, and all database launch
+  tests. Fly rejected its in-place update because the organization is at its
+  two-Machine limit. The already-built image was released with a controlled
+  one-Machine rotation, preserving and reattaching both legacy volumes.
+- Production desktop and mobile browser QA passed for the public, application,
+  legal, login, member, and studio entry routes. There were no console errors or
+  horizontal overflow. Anonymous `/app` requests end at `/login`, and anonymous
+  `/studio` requests end at `/studio/login`.
+- Sentry read access is working. A real anonymous `/app` error discovered during
+  the canary was fixed across all protected pages, did not recur after version
+  106, and was resolved. The old deliberate Sentry test issue was also resolved.
+- GitHub watchdog run `30040786032` passed health, readiness, database,
+  delivery, Sentry, and type checking with zero unresolved Sentry issues.
+- Production database canaries report zero `.test` profiles, zero seeded photo
+  URLs, and no delivery jobs in any failure state.
+- The obsolete Fly demo secret names were removed. Production demo login remains
+  disabled in code.
+- Legal pages are implemented but not represented as counsel-approved. Counsel
+  review remains the only external launch governance follow-up.
+- Current report: `docs/LAUNCH-QA-2026-07-23.md`.
+
+## 2026-07-23: launch blockers remediated and released
+- Original QA branch: `codex/launch-qa-2026-07-23`.
 - Photo uploads are machine-independent. Vercel Blob is preferred when
   configured, with Postgres `PhotoAsset` storage as the shared fallback.
 - Introduction delivery now uses a durable `DeliveryJob` outbox with fenced
@@ -19,13 +47,12 @@ Last updated: 2026-07-23 (launch remediation ready for deployment)
 - `/readyz` verifies the required production schema, Fly gates rolling releases
   on readiness, and GitHub applies checked-in migrations before deployment.
 - Production cleanup removed seeded `.test` members, fake match rows, seeded
-  photo URLs, and test-named operator access. Obsolete Fly demo secret names are
-  scheduled for removal after the production guard deploys.
+  photo URLs, test-named operator access, and obsolete Fly demo secret names.
 - The launch, delivery, storage, capacity, and decision race suites pass.
   Dependency audit and static analysis have no findings. The warning-free exact
   Docker image runs as `node`, passes schema-aware readiness, contains no
   restricted artifacts, and passes desktop and mobile browser smoke checks.
-  CI, deploy, and production canary evidence is still pending.
+  CI, deployment, and production canary evidence are complete.
 - Legal pages are implemented but not represented as counsel-approved. Counsel
   review remains external follow-up.
 - Current report: `docs/LAUNCH-QA-2026-07-23.md`.
