@@ -14,6 +14,7 @@ import { logout } from "@/lib/actions";
 
 export type SidebarItem = { href: string; label: string; icon: IconName };
 export type SidebarSection = { label?: string; items: SidebarItem[] };
+export type PortalSidebarVariant = "warm" | "twenty";
 
 const STORAGE_KEY = "mc.sidebar.collapsed";
 
@@ -24,6 +25,9 @@ export function PortalSidebar({
   homeHref,
   userName,
   avatarUrl,
+  variant = "warm",
+  hoverExpand = false,
+  defaultCollapsed = false,
 }: {
   workspace: string;
   subtitle?: string;
@@ -31,24 +35,33 @@ export function PortalSidebar({
   homeHref: string;
   userName: string;
   avatarUrl?: string | null;
+  variant?: PortalSidebarVariant;
+  hoverExpand?: boolean;
+  defaultCollapsed?: boolean;
 }) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+  const [hoverExpanded, setHoverExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
+  const desktopRailRef = useRef<HTMLElement>(null);
+  const storageKey = `${STORAGE_KEY}.${homeHref.startsWith("/studio") ? "studio" : "member"}`;
+  const visuallyCollapsed = collapsed && !hoverExpanded;
 
   // Restore the collapsed preference after mount (avoids hydration mismatch).
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       try {
-        setCollapsed(localStorage.getItem(STORAGE_KEY) === "1");
+        const stored = localStorage.getItem(storageKey);
+        setCollapsed(stored === null ? defaultCollapsed : stored === "1");
       } catch {
         /* ignore */
       }
     });
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [defaultCollapsed, storageKey]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -97,10 +110,11 @@ export function PortalSidebar({
     };
   }, [mobileOpen]);
   const toggleCollapse = () => {
+    setHoverExpanded(false);
     setCollapsed((c) => {
       const next = !c;
       try {
-        localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+        localStorage.setItem(storageKey, next ? "1" : "0");
       } catch {
         /* ignore */
       }
@@ -118,26 +132,59 @@ export function PortalSidebar({
       sections={sections}
       userName={userName}
       avatarUrl={avatarUrl}
-      collapsed={collapsed}
+      collapsed={visuallyCollapsed}
+      persistentlyCollapsed={collapsed}
       isActive={isActive}
       logoutTo={homeHref.startsWith("/studio") ? "/studio/login" : "/login"}
       onToggleCollapse={toggleCollapse}
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
+      variant={variant}
     />
   );
 
   return (
     <>
-      {/* Desktop rail: sticky, full height, collapsible width. */}
       <aside
-        className={`sticky top-0 hidden h-screen shrink-0 border-r border-line bg-paper/70 backdrop-blur md:flex md:flex-col ${
-          collapsed ? "w-[60px]" : "w-64"
+        ref={desktopRailRef}
+        data-portal-sidebar
+        data-collapsed={visuallyCollapsed ? "true" : "false"}
+        onMouseEnter={() => {
+          if (hoverExpand && collapsed) setHoverExpanded(true);
+        }}
+        onMouseLeave={() => {
+          if (hoverExpand && collapsed) setHoverExpanded(false);
+        }}
+        onFocusCapture={() => {
+          if (hoverExpand && collapsed) setHoverExpanded(true);
+        }}
+        onBlurCapture={(event) => {
+          if (
+            hoverExpand &&
+            collapsed &&
+            !event.currentTarget.contains(event.relatedTarget as Node | null)
+          ) {
+            setHoverExpanded(false);
+          }
+        }}
+        className={`hidden h-dvh shrink-0 md:flex md:flex-col ${
+          variant === "twenty"
+            ? "bg-[#f5f5f6]"
+            : "sticky top-0 border-r border-line bg-paper/70 backdrop-blur"
+        } ${
+          visuallyCollapsed
+            ? variant === "twenty"
+              ? "w-12"
+              : "w-[60px]"
+            : variant === "twenty"
+              ? "w-[248px]"
+              : "w-64"
         } transition-[width] duration-200 ease-soft`}
       >
         {rail}
       </aside>
 
-      {/* Mobile top bar. */}
-      <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-paper/80 px-4 py-2.5 backdrop-blur md:hidden">
+      <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-paper px-4 py-2.5 md:hidden">
         <button
           ref={openButtonRef}
           onClick={() => setMobileOpen(true)}
@@ -146,7 +193,7 @@ export function PortalSidebar({
           aria-expanded={mobileOpen}
           aria-controls="mobile-navigation"
         >
-          <Icon name="menu" />
+          <PortalIcon name="menu" />
         </button>
         <span className="font-display text-base font-medium text-ink">{workspace}</span>
         <Avatar url={avatarUrl} name={userName} size={28} />
@@ -175,9 +222,13 @@ export function PortalSidebar({
               userName={userName}
               avatarUrl={avatarUrl}
               collapsed={false}
+              persistentlyCollapsed={false}
               isActive={isActive}
               logoutTo={homeHref.startsWith("/studio") ? "/studio/login" : "/login"}
               onClose={() => setMobileOpen(false)}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              variant={variant}
             />
           </aside>
         </div>
@@ -193,10 +244,14 @@ function SidebarInner({
   userName,
   avatarUrl,
   collapsed,
+  persistentlyCollapsed,
   isActive,
   logoutTo,
   onToggleCollapse,
   onClose,
+  searchQuery,
+  onSearchQueryChange,
+  variant,
 }: {
   workspace: string;
   subtitle?: string;
@@ -204,21 +259,51 @@ function SidebarInner({
   userName: string;
   avatarUrl?: string | null;
   collapsed: boolean;
+  persistentlyCollapsed: boolean;
   isActive: (href: string) => boolean;
   logoutTo: "/login" | "/studio/login";
   onToggleCollapse?: () => void;
   onClose?: () => void;
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
+  variant: PortalSidebarVariant;
 }) {
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const visibleSections = normalizedSearch
+    ? sections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) =>
+            item.label.toLowerCase().includes(normalizedSearch),
+          ),
+        }))
+        .filter((section) => section.items.length > 0)
+    : sections;
+  const twenty = variant === "twenty";
+
   return (
-    <div className="flex h-full flex-col">
-      {/* Workspace header */}
-      <div className={`flex items-center gap-2 px-3 pb-2 pt-3 ${collapsed ? "justify-center" : ""}`}>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ember text-cream">
-          <span className="font-display text-[15px] leading-none">M</span>
+    <div className={`flex h-full flex-col ${twenty ? "px-2 py-3" : ""}`}>
+      <div
+        className={`flex items-center gap-2 ${
+          twenty ? "min-h-8 px-1 pb-2" : "px-3 pb-2 pt-3"
+        } ${collapsed ? "justify-center" : ""}`}
+      >
+        <div
+          className={`flex shrink-0 items-center justify-center ${
+            twenty
+              ? "h-6 w-6 rounded-full border border-ember/35 bg-paper text-ember"
+              : "h-8 w-8 rounded-lg bg-ember text-cream"
+          }`}
+        >
+          <span className={`font-display leading-none ${twenty ? "text-[12px]" : "text-[15px]"}`}>
+            M
+          </span>
         </div>
         {!collapsed && (
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-ink">{workspace}</div>
+            <div className={`truncate font-semibold text-ink ${twenty ? "text-[13px]" : "text-sm"}`}>
+              {workspace}
+            </div>
             {subtitle && <div className="truncate text-[11px] text-muted">{subtitle}</div>}
           </div>
         )}
@@ -226,29 +311,50 @@ function SidebarInner({
           (onClose ? (
             <button
               onClick={onClose}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition hover:bg-cream hover:text-ink"
+              className="flex h-7 w-7 items-center justify-center rounded text-muted transition hover:bg-ink/[0.06] hover:text-ink"
               aria-label="Close menu"
             >
-              <Icon name="x" />
+              <PortalIcon name="x" />
             </button>
           ) : onToggleCollapse ? (
             <button
               onClick={onToggleCollapse}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition hover:bg-cream hover:text-ink"
-              aria-label="Collapse sidebar"
-              title="Collapse"
+              className="flex h-7 w-7 items-center justify-center rounded text-muted transition hover:bg-ink/[0.06] hover:text-ink"
+              aria-label={persistentlyCollapsed ? "Keep sidebar open" : "Collapse sidebar"}
+              title={persistentlyCollapsed ? "Keep open" : "Collapse"}
             >
-              <Icon name="chevronsLeft" />
+              <PortalIcon name={persistentlyCollapsed ? "chevronsRight" : "chevronsLeft"} />
             </button>
           ) : null)}
       </div>
 
-      {/* Nav sections */}
-      <nav className="flex-1 overflow-y-auto px-2 py-2">
-        {sections.map((section, i) => (
-          <div key={i} className={i > 0 ? "mt-4" : ""}>
+      {!collapsed && twenty && (
+        <div className="relative mb-3">
+          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted">
+            <PortalIcon name="search" />
+          </span>
+          <input
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+            className="h-8 w-full rounded border border-line bg-paper pl-8 pr-12 text-[12px] text-ink outline-none transition placeholder:text-muted focus:border-ink/30 focus:ring-2 focus:ring-ink/5"
+            placeholder="Quick search..."
+            aria-label="Quick search"
+          />
+          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-line bg-[#f5f5f6] px-1.5 py-0.5 font-mono text-[9px] text-muted">
+            /
+          </span>
+        </div>
+      )}
+
+      <nav className={`flex-1 overflow-y-auto ${twenty ? "px-0 py-0" : "px-2 py-2"}`}>
+        {visibleSections.map((section, i) => (
+          <div key={section.label ?? i} className={i > 0 ? (twenty ? "mt-3" : "mt-4") : ""}>
             {section.label && !collapsed && (
-              <div className="px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted/80">
+              <div
+                className={`px-2 pb-1.5 pt-1 text-[11px] font-semibold uppercase text-muted/80 ${
+                  twenty ? "tracking-[0.06em]" : "tracking-[0.08em]"
+                }`}
+              >
                 {section.label}
               </div>
             )}
@@ -263,16 +369,22 @@ function SidebarInner({
                       onClick={onClose}
                       aria-current={active ? "page" : undefined}
                       title={collapsed ? it.label : undefined}
-                      className={`group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition ${
+                      className={`group flex items-center gap-2.5 text-sm transition ${
+                        twenty ? "h-8 rounded px-2" : "rounded-lg px-2.5 py-2"
+                      } ${
                         collapsed ? "justify-center" : ""
                       } ${
                         active
-                          ? "bg-ember/12 font-medium text-ember-deep"
-                          : "text-muted hover:bg-cream hover:text-ink"
+                          ? twenty
+                            ? "bg-ember/10 font-medium text-ink ring-1 ring-inset ring-ember/10"
+                            : "bg-ember/12 font-medium text-ember-deep"
+                          : twenty
+                            ? "text-muted hover:bg-ink/[0.055] hover:text-ink"
+                            : "text-muted hover:bg-cream hover:text-ink"
                       }`}
                     >
                       <span className={`shrink-0 ${active ? "text-ember-deep" : "text-muted group-hover:text-ink"}`}>
-                        <Icon name={it.icon} />
+                        <PortalIcon name={it.icon} />
                       </span>
                       {!collapsed && <span className="truncate">{it.label}</span>}
                     </Link>
@@ -282,30 +394,33 @@ function SidebarInner({
             </ul>
           </div>
         ))}
+        {!collapsed && visibleSections.length === 0 && (
+          <div className="px-2 py-4 text-xs text-muted">No views found.</div>
+        )}
       </nav>
 
-      {/* Collapsed expand toggle */}
       {collapsed && onToggleCollapse && (
         <div className="flex justify-center px-2 pb-1">
           <button
             onClick={onToggleCollapse}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted transition hover:bg-cream hover:text-ink"
+            className="flex h-8 w-8 items-center justify-center rounded text-muted transition hover:bg-ink/[0.055] hover:text-ink"
             aria-label="Expand sidebar"
             title="Expand"
           >
-            <Icon name="chevronsRight" />
+            <PortalIcon name="chevronsRight" />
           </button>
         </div>
       )}
 
-      {/* Footer: user + sign out */}
       <form
         action={logout}
-        className="border-t border-line p-2"
+        className={twenty ? "border-t border-line pt-2" : "border-t border-line p-2"}
       >
         <input type="hidden" name="returnTo" value={logoutTo} />
         <button
-          className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-muted transition hover:bg-cream hover:text-ink ${
+          className={`flex w-full items-center gap-2.5 px-2.5 py-2 text-sm text-muted transition ${
+            twenty ? "rounded hover:bg-ink/[0.055]" : "rounded-lg hover:bg-cream"
+          } hover:text-ink ${
             collapsed ? "justify-center" : ""
           }`}
           title={`Sign out (${userName})`}
@@ -315,7 +430,7 @@ function SidebarInner({
             <>
               <span className="min-w-0 flex-1 truncate text-left text-ink">{userName}</span>
               <span className="shrink-0 text-muted">
-                <Icon name="logout" />
+                <PortalIcon name="logout" />
               </span>
             </>
           )}
@@ -326,7 +441,7 @@ function SidebarInner({
 }
 
 // Inline Tabler-style icons (Twenty uses @tabler/icons); kept dependency-free.
-type IconName =
+export type IconName =
   | "sparkles"
   | "message"
   | "users"
@@ -342,9 +457,10 @@ type IconName =
   | "x"
   | "logout"
   | "chevronsLeft"
-  | "chevronsRight";
+  | "chevronsRight"
+  | "search";
 
-function Icon({ name }: { name: IconName }) {
+export function PortalIcon({ name }: { name: IconName }) {
   const p = {
     width: 18,
     height: 18,
@@ -465,6 +581,13 @@ function Icon({ name }: { name: IconName }) {
       return (
         <svg {...p}>
           <path d="M13 7l5 5-5 5M6 7l5 5-5 5" />
+        </svg>
+      );
+    case "search":
+      return (
+        <svg {...p}>
+          <circle cx="11" cy="11" r="6" />
+          <path d="M16 16l4 4" />
         </svg>
       );
   }

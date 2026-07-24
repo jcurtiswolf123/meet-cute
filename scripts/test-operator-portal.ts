@@ -129,6 +129,54 @@ async function main() {
     await superPage.getByRole("heading", { name: "Add an operator" }).waitFor();
     assert.equal(await superPage.getByText("Super admin", { exact: true }).count(), 1);
 
+    const sidebar = superPage.locator("[data-portal-sidebar]");
+    await superPage.waitForFunction(
+      () =>
+        document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
+        "true",
+    );
+    assert.ok((await sidebar.boundingBox())!.width < 80);
+
+    await sidebar.hover();
+    await superPage.waitForFunction(
+      () =>
+        document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
+        "false",
+    );
+    assert.ok((await sidebar.boundingBox())!.width > 200);
+    const quickSearch = superPage.getByLabel("Quick search");
+    await quickSearch.fill("Team");
+    assert.equal(await superPage.getByRole("link", { name: "Team", exact: true }).count(), 1);
+    assert.equal(
+      await superPage.getByRole("link", { name: "Matchmaking", exact: true }).count(),
+      0,
+    );
+    await quickSearch.fill("");
+
+    await superPage.locator("main").hover();
+    await superPage.waitForFunction(
+      () =>
+        document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
+        "true",
+    );
+    assert.ok((await sidebar.boundingBox())!.width < 80);
+
+    await sidebar.hover();
+    await superPage.getByRole("button", { name: "Keep sidebar open" }).click();
+    await superPage.locator("main").hover();
+    await superPage.waitForFunction(
+      () =>
+        document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
+        "false",
+    );
+    assert.ok((await sidebar.boundingBox())!.width > 200);
+    await superPage.getByRole("button", { name: "Collapse sidebar" }).click();
+    await superPage.waitForFunction(
+      () =>
+        document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
+        "true",
+    );
+
     const newOperatorEmail = fixtureEmail("new-operator");
     await superPage.getByLabel("Full name").fill("Role E2E New Operator");
     await superPage.getByLabel("Operator email").fill(newOperatorEmail);
@@ -198,6 +246,20 @@ async function main() {
     await superPage
       .getByText(ordinaryOperator.name, { exact: true })
       .waitFor({ state: "detached" });
+
+    await superPage.setViewportSize({ width: 390, height: 844 });
+    await superPage.reload();
+    const openMenu = superPage.getByRole("button", { name: "Open menu" });
+    await openMenu.click();
+    await superPage
+      .getByRole("dialog", { name: "Meet Cute navigation" })
+      .waitFor({ state: "visible" });
+    await superPage.keyboard.press("Escape");
+    await superPage
+      .getByRole("dialog", { name: "Meet Cute navigation" })
+      .waitFor({ state: "detached" });
+    assert.equal(await openMenu.evaluate((element) => element === document.activeElement), true);
+
     await superContext.close();
 
     console.log("operator portal browser checks passed");
