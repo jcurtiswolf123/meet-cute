@@ -2,7 +2,42 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-23 (Twilio A2P replacement resubmitted and rechecked)
+Last updated: 2026-07-23 (Twenty-style Studio and match email journey release candidate verified)
+
+## 2026-07-23: Twenty-style Studio and match email journey release candidate
+- Branch `feat/twenty-admin-email-journey` is ready for release after local
+  verification against an isolated PostgreSQL 16 database.
+- Studio now uses the forked Twenty shell measurements: a 48 px collapsed rail,
+  a 220 px expanded rail, and 28 px navigation rows. The desktop rail opens on
+  hover or keyboard focus, closes on pointer or focus exit, and can be pinned
+  open or closed. The mobile drawer closes with Escape and returns focus to its
+  trigger.
+- Member signup was exercised from anonymous login through the real magic-link
+  verification route, profile creation, consent capture, and operator-visible
+  directory and profile views.
+- The match journey now proves two separate invitation emails, signed reply
+  capture for both `Y` and `No`, mutual consent, and exactly one second email
+  addressed to both matched people. Declines close the introduction without a
+  connection email.
+- The inbound email route rejects stale signatures, ignores signed replies sent
+  to a foreign receiving domain, and only accepts tokens for the configured
+  receiving domain. Joint email delivery revalidates both recipient addresses
+  immediately before sending and cancels stale-address jobs.
+- Super-admin operator invitations now report provider delivery failures instead
+  of presenting them as successful sends.
+- Verification passed: type checking, lint with zero warnings, launch tests,
+  introduction race tests, member application browser tests, operator role and
+  sidebar browser tests, match email journey tests, production build, dependency
+  audit with zero high-severity findings, Semgrep with zero findings, secret
+  pattern scan with zero findings, desktop and mobile visual QA, accessibility
+  interaction checks, and a clean browser console. CodeQL was not available in
+  the local toolchain and was not run.
+- Deployment and production canary evidence will replace this release-candidate
+  note after the release lands.
+- Twilio is unchanged by this release. The Standard brand remains approved and
+  vetted. The replacement A2P campaign remains failed with cached errors `30882`
+  and `30908`. Do not recreate it again until Twilio support confirms a fresh
+  external review.
 
 ## 2026-07-23: Twilio A2P replacement resubmitted, immediate repeat failure
 - Preflight confirmed exactly one existing campaign, status `FAILED`, and an
