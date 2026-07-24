@@ -2,7 +2,24 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-23 (super-admin release deployed and verified)
+Last updated: 2026-07-23 (Twilio A2P replacement resubmitted and rechecked)
+
+## 2026-07-23: Twilio A2P replacement resubmitted, immediate repeat failure
+- Preflight confirmed exactly one existing campaign, status `FAILED`, and an
+  `APPROVED` and `VETTED_VERIFIED` Standard brand. Both registered compliance
+  pages returned HTTP 200 and contained the SMS program, STOP and HELP, message
+  rate, and mobile-data non-sharing language.
+- Deleted only the existing failed campaign. Twilio returned HTTP 204. Submitted
+  exactly one replacement campaign. Twilio returned HTTP 201.
+- Twilio created and failed the replacement at `2026-07-24T00:50:32Z`. The
+  authoritative campaign read still reports error `30908` for the Privacy Policy
+  URL and error `30882` for the Terms and Conditions URL.
+- The same-second failure and unchanged findings after verified live page
+  corrections are consistent with the previously observed cached external
+  registry verdict. No further automatic retry was attempted.
+- Next action: Twilio support must force a fresh external re-vet or clear the
+  cached campaign verdict. Do not delete and recreate the campaign again unless
+  support confirms that a new review will be triggered.
 
 ## 2026-07-23: super-admin release deployed and verified
 - PR `#12` merged as `57d3c9a`. GitHub run `30053909219` passed

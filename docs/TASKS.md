@@ -3,7 +3,8 @@
 _Lightweight backlog. Move items between sections as they progress._
 
 ## In progress
-- [ ] Obtain Twilio re-vet for A2P campaign errors 30882 and 30908
+- [ ] Obtain a forced Twilio re-vet for A2P campaign errors 30882 and 30908.
+  The 2026-07-23 replacement failed in the same second with the same findings.
 - [ ] Obtain counsel review of legal, consent, retention, and safety language
 
 ## Backlog (prioritized)
