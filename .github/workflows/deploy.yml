@@ -37,13 +37,14 @@ jobs:
       - run: npm run lint
       - run: npm run test:launch
       - run: npm run test:race
+      - run: npm run test:journey:email
       # Full production build gate: catch build-time breakage (bad imports, RSC
       # boundary errors, font/axes config) before we ship, not on the Fly builder.
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Run operator role browser checks
         run: |
-          NEXT_PUBLIC_APP_URL="" npm run start > /tmp/meet-cute-role-server.log 2>&1 &
+          NEXT_PUBLIC_APP_URL="http://127.0.0.1:3009" npm run start > /tmp/meet-cute-role-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
@@ -57,6 +58,7 @@ jobs:
             sleep 1
           done
           npm run test:launch:roles:e2e
+          npm run test:journey:application
 
   deploy:
     needs: ci
