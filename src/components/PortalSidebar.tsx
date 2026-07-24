@@ -177,7 +177,7 @@ export function PortalSidebar({
               ? "w-12"
               : "w-[60px]"
             : variant === "twenty"
-              ? "w-[248px]"
+              ? "w-[220px]"
               : "w-64"
         } transition-[width] duration-200 ease-soft`}
       >
@@ -213,7 +213,9 @@ export function PortalSidebar({
             role="dialog"
             aria-modal="true"
             aria-label={`${workspace} navigation`}
-            className="absolute left-0 top-0 flex h-full w-64 flex-col border-r border-line bg-paper shadow-card"
+            className={`absolute left-0 top-0 flex h-full flex-col border-r border-line shadow-card ${
+              variant === "twenty" ? "w-[220px] bg-[#f5f5f6]" : "w-64 bg-paper"
+            }`}
           >
             <SidebarInner
               workspace={workspace}
@@ -370,7 +372,7 @@ function SidebarInner({
                       aria-current={active ? "page" : undefined}
                       title={collapsed ? it.label : undefined}
                       className={`group flex items-center gap-2.5 text-sm transition ${
-                        twenty ? "h-8 rounded px-2" : "rounded-lg px-2.5 py-2"
+                        twenty ? "h-7 rounded px-1" : "rounded-lg px-2.5 py-2"
                       } ${
                         collapsed ? "justify-center" : ""
                       } ${
