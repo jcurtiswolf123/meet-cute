@@ -67,7 +67,7 @@ async function main() {
     import("../src/lib/introductions"),
     import("../src/app/api/email/inbound/route"),
   ]);
-  const { drainDeliveryJobs } = delivery;
+  const { drainDeliveryJobs, queueConnectionDeliveries } = delivery;
   const { sendEmailInvites } = introductions;
   const suffix = randomUUID();
   const people: string[] = [];
@@ -274,8 +274,40 @@ async function main() {
       0,
     );
 
+    const [changedA, changedB] = await Promise.all([
+      createPerson("Changed A"),
+      createPerson("Changed B"),
+    ]);
+    const changedMatch = await prisma.match.create({
+      data: {
+        personAId: changedA.id,
+        personBId: changedB.id,
+        stage: "connecting",
+        aDecision: "yes",
+        bDecision: "yes",
+      },
+    });
+    matches.push(changedMatch.id);
+    assert.equal(await queueConnectionDeliveries(changedMatch.id), 1);
+    await prisma.person.update({
+      where: { id: changedA.id },
+      data: { email: `journey-changed-a-new-${suffix}@example.test` },
+    });
+    const capturesBeforeChangedAddress = captures.length;
+    await drainDeliveryJobs({
+      matchId: changedMatch.id,
+      limit: 10,
+      send: captureSender,
+    });
+    assert.equal(captures.length, capturesBeforeChangedAddress);
+    const cancelledThread = await prisma.deliveryJob.findFirstOrThrow({
+      where: { matchId: changedMatch.id, kind: "connection_email_thread" },
+    });
+    assert.equal(cancelledThread.status, "cancelled");
+    assert.match(cancelledThread.lastError || "", /email changed/i);
+
     console.log(
-      "match email journey passed: two invite emails, signed Y/N capture, one joint thread email, and decline closure",
+      "match email journey passed: invite emails, signed Y/N capture, one joint thread email, decline closure, and stale-address cancellation",
     );
   } finally {
     globalThis.fetch = originalFetch;

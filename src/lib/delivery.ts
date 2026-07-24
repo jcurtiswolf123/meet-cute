@@ -420,8 +420,8 @@ async function deliveryEligibility(job: DeliveryJob): Promise<DeliveryEligibilit
         personBId: true,
         aDecision: true,
         bDecision: true,
-        personA: { select: { smsConsentAt: true } },
-        personB: { select: { smsConsentAt: true } },
+        personA: { select: { email: true, smsConsentAt: true } },
+        personB: { select: { email: true, smsConsentAt: true } },
       },
     });
     if (!match) return { ok: false, reason: "The related introduction no longer exists." };
@@ -453,6 +453,27 @@ async function deliveryEligibility(job: DeliveryJob): Promise<DeliveryEligibilit
         },
       });
       if (blocks > 0) return { ok: false, reason: "A block now exists between the members." };
+      if (job.kind === "connection_email_thread") {
+        const queuedRecipients = Array.isArray(payload.to)
+          ? payload.to.filter((value): value is string => typeof value === "string")
+          : [];
+        const currentRecipients = [match.personA.email, match.personB.email].filter(
+          (value): value is string => typeof value === "string",
+        );
+        const normalizedQueuedRecipients = queuedRecipients.map(normalizedEmail);
+        if (
+          queuedRecipients.length !== 2 ||
+          currentRecipients.length !== 2 ||
+          !currentRecipients.every((email) =>
+            normalizedQueuedRecipients.includes(normalizedEmail(email)),
+          )
+        ) {
+          return {
+            ok: false,
+            reason: "A participant email changed after the joint message was queued.",
+          };
+        }
+      }
     } else if (match.stage === "exit") {
       return { ok: false, reason: "The related introduction is closed." };
     }
