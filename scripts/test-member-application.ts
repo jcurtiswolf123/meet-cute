@@ -109,6 +109,19 @@ async function main() {
     });
     operatorId = operator.id;
     const operatorToken = await createSession(operator.id);
+    assert.equal(
+      await prisma.person.count({
+        where: {
+          id: member.id,
+          isOperator: false,
+          isAmbassador: false,
+          isCoach: false,
+          status: "active",
+        },
+      }),
+      1,
+      "The approved member must satisfy the Studio directory query.",
+    );
     const operatorContext = await browser.newContext();
     await operatorContext.addCookies([
       {
@@ -122,8 +135,21 @@ async function main() {
     ]);
     const operatorPage = await operatorContext.newPage();
     await operatorPage.goto(`${baseUrl}/studio`);
-    await operatorPage.getByText("Journey Member", { exact: true }).waitFor();
-    await operatorPage.getByRole("link", { name: "Journey Member" }).click();
+    assert.equal(
+      new URL(operatorPage.url()).pathname,
+      "/studio",
+      `Operator session was redirected to ${new URL(operatorPage.url()).pathname}.`,
+    );
+    await operatorPage.getByRole("heading", { name: "Directory" }).waitFor();
+    const directoryText = await operatorPage.locator("main").innerText();
+    assert.match(
+      directoryText,
+      /Journey Member/,
+      "The Studio directory did not render the approved member.",
+    );
+    const memberLink = operatorPage.getByRole("link", { name: /Journey Member/ });
+    await memberLink.waitFor();
+    await memberLink.click();
     await operatorPage.waitForURL(new RegExp(`/studio/person/${member.id}$`));
     await operatorPage.getByText("Journey Voucher", { exact: true }).waitFor();
     await operatorPage

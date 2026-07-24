@@ -63,9 +63,10 @@ async function main() {
       status: "paused",
     },
   });
+  const priorPausedMemberTokenHash = randomUUID();
   await prisma.loginToken.create({
     data: {
-      tokenHash: randomUUID(),
+      tokenHash: priorPausedMemberTokenHash,
       email: pausedMember.email!,
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     },
@@ -135,6 +136,11 @@ async function main() {
         document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
         "true",
     );
+    await superPage.waitForFunction(
+      () =>
+        (document.querySelector("[data-portal-sidebar]")?.getBoundingClientRect().width ?? 999) <
+        80,
+    );
     assert.ok((await sidebar.boundingBox())!.width < 80);
 
     await sidebar.hover();
@@ -142,6 +148,11 @@ async function main() {
       () =>
         document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
         "false",
+    );
+    await superPage.waitForFunction(
+      () =>
+        (document.querySelector("[data-portal-sidebar]")?.getBoundingClientRect().width ?? 0) >
+        200,
     );
     assert.ok((await sidebar.boundingBox())!.width > 200);
     const quickSearch = superPage.getByLabel("Quick search");
@@ -159,6 +170,11 @@ async function main() {
         document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
         "true",
     );
+    await superPage.waitForFunction(
+      () =>
+        (document.querySelector("[data-portal-sidebar]")?.getBoundingClientRect().width ?? 999) <
+        80,
+    );
     assert.ok((await sidebar.boundingBox())!.width < 80);
 
     await sidebar.hover();
@@ -168,6 +184,11 @@ async function main() {
       () =>
         document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
         "false",
+    );
+    await superPage.waitForFunction(
+      () =>
+        (document.querySelector("[data-portal-sidebar]")?.getBoundingClientRect().width ?? 0) >
+        200,
     );
     assert.ok((await sidebar.boundingBox())!.width > 200);
     await superPage.getByRole("button", { name: "Collapse sidebar" }).click();
@@ -204,9 +225,15 @@ async function main() {
       await prisma.session.count({ where: { personId: pausedMember.id } }),
       0,
     );
-    assert.equal(
-      await prisma.loginToken.count({ where: { email: pausedMember.email! } }),
-      0,
+    const refreshedOperatorTokens = await prisma.loginToken.findMany({
+      where: { email: pausedMember.email! },
+      select: { tokenHash: true },
+    });
+    assert.equal(refreshedOperatorTokens.length, 1);
+    assert.notEqual(
+      refreshedOperatorTokens[0]?.tokenHash,
+      priorPausedMemberTokenHash,
+      "Provisioning must replace stale member login tokens with one fresh operator invite.",
     );
 
     await superPage.goto(`${baseUrl}/studio/team`);
