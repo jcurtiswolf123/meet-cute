@@ -32,17 +32,19 @@ function signedInboundRequest(args: {
   token: string;
   text?: string;
   emailId?: string;
+  domain?: string;
+  timestamp?: number;
 }): NextRequest {
   const body = JSON.stringify({
     type: "email.received",
     data: {
-      to: [`Meet Cute <r+${args.token}@inbound.meetcute.test>`],
+      to: [`Meet Cute <r+${args.token}@${args.domain || "inbound.meetcute.test"}>`],
       ...(args.text ? { text: args.text } : {}),
       ...(args.emailId ? { email_id: args.emailId } : {}),
     },
   });
   const id = `journey-${randomUUID()}`;
-  const timestamp = String(Math.floor(Date.now() / 1000));
+  const timestamp = String(args.timestamp ?? Math.floor(Date.now() / 1000));
   const signature = createHmac("sha256", webhookKey)
     .update(`${id}.${timestamp}.${body}`)
     .digest("base64");
@@ -143,6 +145,26 @@ async function main() {
       assert.match(String(capture.payload.html), /profile &amp; decide/i);
     }
 
+    const yesAToken = yesInvites.find((invite) => invite.personId === yesA.id)!.token;
+    const staleReply = await inbound.POST(
+      signedInboundRequest({
+        token: yesAToken,
+        text: "Y",
+        timestamp: Math.floor(Date.now() / 1000) - 10 * 60,
+      }),
+    );
+    assert.equal(staleReply.status, 403);
+
+    const foreignDomainReply = await inbound.POST(
+      signedInboundRequest({
+        token: yesAToken,
+        text: "Y",
+        domain: "other-project.test",
+      }),
+    );
+    assert.equal(foreignDomainReply.status, 200);
+    assert.equal(await foreignDomainReply.text(), "no token");
+
     globalThis.fetch = async (input) => {
       assert.match(String(input), /api\.resend\.com\/emails\/receiving\/journey-received-a$/);
       return new Response(JSON.stringify({ text: "Y\n\nOn the earlier email..." }), {
@@ -152,7 +174,7 @@ async function main() {
     };
     const firstYes = await inbound.POST(
       signedInboundRequest({
-        token: yesInvites.find((invite) => invite.personId === yesA.id)!.token,
+        token: yesAToken,
         emailId: "journey-received-a",
       }),
     );
