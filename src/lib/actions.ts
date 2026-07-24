@@ -671,8 +671,8 @@ export async function addOperator(formData: FormData) {
       const token = await createLoginToken(email);
       const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
       const { subject, html, text } = magicLinkEmail(link);
-      await sendEmail({ to: email, subject, html, text });
-      inviteStatus = "sent";
+      const result = await sendEmail({ to: email, subject, html, text });
+      inviteStatus = result.ok ? "sent" : "failed";
     } catch {
       inviteStatus = "failed";
     }

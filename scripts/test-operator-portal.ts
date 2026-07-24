@@ -204,6 +204,7 @@ async function main() {
     await superPage.getByLabel("City").selectOption("San Francisco");
     await superPage.getByRole("button", { name: "Add & invite" }).click();
     await superPage.getByText(/Role E2E New Operator was added/).waitFor();
+    await superPage.getByText(/invitation email failed/i).waitFor();
     const created = await prisma.person.findUniqueOrThrow({
       where: { email: newOperatorEmail },
     });
@@ -215,6 +216,7 @@ async function main() {
     await superPage.getByLabel("City").selectOption("San Francisco");
     await superPage.getByRole("button", { name: "Add & invite" }).click();
     await superPage.getByText(/Role E2E Paused Member was added/).waitFor();
+    await superPage.getByText(/invitation email failed/i).waitFor();
     const promoted = await prisma.person.findUniqueOrThrow({
       where: { id: pausedMember.id },
     });
