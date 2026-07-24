@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
 
     // Match the inbound number to a person. Prefer the exact normalized E.164, and
     // only fall back to the last-10-digits substring when no exact row exists (so a
-    // number stored in an odd format still resolves) — exact-first avoids attaching
+    // number stored in an odd format still resolves). Exact-first avoids attaching
     // a reply to the wrong person who merely shares 10 digits. If two people share a
     // number, the pending-intro check below picks the right one.
     const fromE164 = normalizePhone(from);
