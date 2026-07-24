@@ -698,19 +698,6 @@ export async function removeOperator(formData: FormData) {
   );
 }
 
-// Operator: set their own mobile number. Used to add the matchmaker to the 3-way
-// group intro thread when both applicants opt in. Without a number on file, the
-// connection falls back to brokering each side the other's number.
-export async function setOperatorPhone(formData: FormData) {
-  const op = await requireOperator();
-  if (!op) throw new Error("operators only");
-  const phone = normalizePhone(String(formData.get("phone") || ""));
-  if (!phone) throw new Error("Enter a valid mobile number.");
-  await prisma.person.update({ where: { id: op.id }, data: { phone } });
-  revalidatePath("/studio/team");
-  revalidatePath("/studio/matchmaking");
-}
-
 // --- events (curated dinners) -----------------------------------------------
 
 // Operator: create an event. Redirects to the event detail page to add invitees.

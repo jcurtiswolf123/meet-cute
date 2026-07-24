@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import {
@@ -77,22 +76,9 @@ export default async function Matchmaking() {
       <div>
         <h1 className="font-display text-2xl font-medium">Matchmaking</h1>
         <p className="mt-1 text-sm text-muted">
-          Your console for connecting people over text. No profiles required - just a name and a number.
+          Manage private introductions, decisions, and mutual email connections in one place.
         </p>
       </div>
-
-      {!me?.phone && (
-        <div className="rounded-xl border border-champagne/50 bg-champagne/15 px-4 py-3 text-sm">
-          <span className="font-medium text-ink">Set your mobile to enable group intros.</span>{" "}
-          <span className="text-muted">
-            Until you add your number, a mutual yes texts each person the other&apos;s number instead of
-            opening a three-way group thread with you.
-          </span>{" "}
-          <Link href="/studio/team" className="font-medium text-claret underline underline-offset-2">
-            Add your number
-          </Link>
-        </div>
-      )}
 
       {/* KPI ledger: one editorial strip, lead metric tinted claret */}
       <div className="ledger">
@@ -174,7 +160,7 @@ export default async function Matchmaking() {
         <h2 className="font-display text-lg font-medium">Introductions</h2>
         {intros.length === 0 ? (
           <div className="card mt-3 p-8 text-center text-sm text-muted">
-            No introductions yet. Pick two people above and send your first intro texts.
+            No introductions yet. Pick two people above and send your first introduction.
           </div>
         ) : (
           <div className="mt-3 space-y-2">
