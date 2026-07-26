@@ -92,11 +92,53 @@ async function main() {
       where: { id: member.id },
       data: {
         status: "active",
-        openToMatch: true,
-        optedInAt: new Date(),
         acceptedAt: new Date(),
       },
     });
+    const memberToken = await createSession(member.id);
+    const approvedMemberContext = await browser.newContext();
+    await approvedMemberContext.addCookies([
+      {
+        name: "mc_session",
+        value: memberToken,
+        domain: cookieUrl.hostname,
+        path: "/",
+        httpOnly: true,
+        sameSite: "Lax",
+      },
+    ]);
+    const approvedMemberPage = await approvedMemberContext.newPage();
+    await approvedMemberPage.goto(`${baseUrl}/app`);
+    await approvedMemberPage
+      .getByText(
+        "Opt in and your matchmaker starts looking for the right introduction for you. If they find one, Meet Cute will email you a private introduction. You can say yes or pass privately, and a mutual yes connects you both by email. No swiping, no feed.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.doesNotMatch(
+      await approvedMemberPage.locator("main").innerText(),
+      /get a text|reply y|over text/i,
+      "Member home must not promise SMS-only introductions or connections.",
+    );
+    await approvedMemberPage
+      .getByRole("button", { name: "Opt in to get matched" })
+      .click();
+    await approvedMemberPage
+      .getByRole("heading", { name: "You are on the list." })
+      .waitFor();
+    await approvedMemberPage
+      .getByText(
+        "Your matchmaker is looking for your next introduction. When they find a fit, Meet Cute will email you a private introduction. You can decide privately from the email or profile page. A good introduction is worth the wait.",
+        { exact: true },
+      )
+      .waitFor();
+    assert.equal(
+      (await prisma.person.findUniqueOrThrow({ where: { id: member.id } })).openToMatch,
+      true,
+      "The member opt-in action must mark the approved member ready to match.",
+    );
+    await approvedMemberContext.close();
+
     const operator = await prisma.person.create({
       data: {
         name: "Journey Operator",
@@ -160,7 +202,7 @@ async function main() {
     await operatorContext.close();
 
     console.log(
-      "member application passed: signup token, profile creation, and operator-visible profile",
+      "member application passed: signup token, email-first opt-in, profile creation, and operator-visible profile",
     );
   } finally {
     await browser.close();

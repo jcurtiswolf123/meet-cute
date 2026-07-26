@@ -1,4 +1,4 @@
-// The operator-driven SMS introduction flow.
+// The operator-driven introduction flow, with email as the baseline channel.
 //
 // Mental model: the matchmaker picks two people and sends each a "want an intro?"
 // text. Each replies Y/N. When BOTH say yes, we connect them (text each the
