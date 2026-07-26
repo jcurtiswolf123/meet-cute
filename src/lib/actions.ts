@@ -852,11 +852,11 @@ export async function createSuggestion(aId: string, bId: string, rationale: stri
   revalidatePath("/studio/pipeline");
 }
 
-// --- SMS introductions (operator-first matchmaking) -------------------------
+// --- operator-led introductions ---------------------------------------------
 //
-// The lightweight flow: anyone the operator wants to match just needs a name and
-// a phone (no profile, no login). The operator picks two people, sends each a
-// "want an intro?" text, both reply Y, and the system connects them.
+// The lightweight flow: anyone the operator wants to match needs a name and one
+// authorized delivery channel. The operator picks two people and sends each a
+// private introduction. The system connects them after a mutual yes.
 
 // Operator: quick-add a person who expressly asked to be matched. Email is the
 // baseline channel. Texting requires a separate confirmation of SMS consent.

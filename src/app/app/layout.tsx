@@ -4,8 +4,8 @@ import { PortalSidebar, type SidebarSection } from "@/components/PortalSidebar";
 export const dynamic = "force-dynamic";
 
 // Members see a deliberately small surface: their home, the people they have
-// been connected to, their own profile, and account settings. Matching now
-// happens over SMS (operator-driven), so there is no in-app browse/swipe feed
+// been connected to, their own profile, and account settings. Matching is
+// operator-led and email-first, so there is no in-app browse/swipe feed
 // and no roster of other members. See lib/social.ts connectedPersonIds.
 const MEMBER_SECTIONS: SidebarSection[] = [
   {
