@@ -44,7 +44,11 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Run operator role browser checks
         run: |
-          NEXT_PUBLIC_APP_URL="http://127.0.0.1:3009" npm run start > /tmp/meet-cute-role-server.log 2>&1 &
+          mkdir -p .next/standalone/.next
+          cp -R .next/static .next/standalone/.next/static
+          cp -R public .next/standalone/public
+          PORT=3009 HOSTNAME=127.0.0.1 NEXT_PUBLIC_APP_URL="http://127.0.0.1:3009" \
+            node .next/standalone/server.js > /tmp/meet-cute-role-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do

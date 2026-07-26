@@ -520,6 +520,7 @@ export async function setMatchOptIn(formData: FormData) {
     data: { openToMatch: on, optedInAt: on ? new Date() : null },
   });
   revalidatePath("/app");
+  redirect("/app");
 }
 
 /** Permanently delete the signed-in member and all of their data. */
