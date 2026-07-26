@@ -509,20 +509,6 @@ export async function completeApplication(
   redirect("/apply/thanks");
 }
 
-// Member self-serve: opt in (or pause) being matched. This is the "yes, start
-// matching me" toggle on the dashboard - the whole point of the return visit.
-export async function setMatchOptIn(formData: FormData) {
-  const me = await getSessionPersonId();
-  if (!me) throw new Error("not logged in");
-  const on = String(formData.get("on") || "") === "1";
-  await prisma.person.update({
-    where: { id: me },
-    data: { openToMatch: on, optedInAt: on ? new Date() : null },
-  });
-  revalidatePath("/app");
-  redirect("/app");
-}
-
 /** Permanently delete the signed-in member and all of their data. */
 export async function deleteAccount() {
   const person = await getCurrentPerson();
