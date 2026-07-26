@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { requireMemberPage } from "@/lib/page-auth";
-import { setMatchOptIn } from "@/lib/actions";
 import { connectedPersonIds } from "@/lib/social";
-import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +20,11 @@ export default async function Home() {
           one, Meet Cute will email you a private introduction. You can say yes or pass privately,
           and a mutual yes connects you both by email. No swiping, no feed.
         </p>
-        <form action={setMatchOptIn} className="mt-8">
+        <form action="/api/me/match-opt-in" method="post" className="mt-8">
           <input type="hidden" name="on" value="1" />
-          <SubmitButton className="btn-primary px-8 py-3 text-base" pendingText="Opting in...">
+          <button type="submit" className="btn-primary px-8 py-3 text-base">
             Opt in to get matched
-          </SubmitButton>
+          </button>
         </form>
         <p className="mt-4 text-sm text-muted">
           First,{" "}
@@ -53,11 +51,11 @@ export default async function Home() {
         <Link href="/app/profile" className="btn-ghost">Edit your profile</Link>
       </div>
 
-      <form action={setMatchOptIn} className="mt-8">
+      <form action="/api/me/match-opt-in" method="post" className="mt-8">
         <input type="hidden" name="on" value="0" />
-        <SubmitButton className="btn-ghost text-sm" pendingText="Pausing...">
+        <button type="submit" className="btn-ghost text-sm">
           Pause matching for now
-        </SubmitButton>
+        </button>
       </form>
     </div>
   );

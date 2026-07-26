@@ -137,6 +137,17 @@ async function main() {
       true,
       "The member opt-in action must mark the approved member ready to match.",
     );
+    await approvedMemberPage
+      .getByRole("button", { name: "Pause matching for now" })
+      .click();
+    await approvedMemberPage
+      .getByRole("heading", { name: "Ready to meet someone?" })
+      .waitFor();
+    assert.equal(
+      (await prisma.person.findUniqueOrThrow({ where: { id: member.id } })).openToMatch,
+      false,
+      "The member pause action must remove the approved member from matching.",
+    );
     await approvedMemberContext.close();
 
     const operator = await prisma.person.create({
@@ -202,7 +213,7 @@ async function main() {
     await operatorContext.close();
 
     console.log(
-      "member application passed: signup token, email-first opt-in, profile creation, and operator-visible profile",
+      "member application passed: signup token, email-first opt-in and pause, profile creation, and operator-visible profile",
     );
   } finally {
     await browser.close();
