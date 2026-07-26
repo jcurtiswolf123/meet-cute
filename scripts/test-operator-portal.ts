@@ -63,9 +63,10 @@ async function main() {
       status: "paused",
     },
   });
+  const priorPausedMemberTokenHash = randomUUID();
   await prisma.loginToken.create({
     data: {
-      tokenHash: randomUUID(),
+      tokenHash: priorPausedMemberTokenHash,
       email: pausedMember.email!,
       expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     },
@@ -129,12 +130,81 @@ async function main() {
     await superPage.getByRole("heading", { name: "Add an operator" }).waitFor();
     assert.equal(await superPage.getByText("Super admin", { exact: true }).count(), 1);
 
+    const sidebar = superPage.locator("[data-portal-sidebar]");
+    await superPage.waitForFunction(
+      () =>
+        document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
+        "true",
+    );
+    await superPage.waitForFunction(
+      () =>
+        (document.querySelector("[data-portal-sidebar]")?.getBoundingClientRect().width ?? 999) <
+        80,
+    );
+    assert.ok((await sidebar.boundingBox())!.width < 80);
+
+    await sidebar.hover();
+    await superPage.waitForFunction(
+      () =>
+        document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
+        "false",
+    );
+    await superPage.waitForFunction(
+      () =>
+        (document.querySelector("[data-portal-sidebar]")?.getBoundingClientRect().width ?? 0) >
+        200,
+    );
+    assert.ok((await sidebar.boundingBox())!.width > 200);
+    const quickSearch = superPage.getByLabel("Quick search");
+    await quickSearch.fill("Team");
+    assert.equal(await superPage.getByRole("link", { name: "Team", exact: true }).count(), 1);
+    assert.equal(
+      await superPage.getByRole("link", { name: "Matchmaking", exact: true }).count(),
+      0,
+    );
+    await quickSearch.fill("");
+
+    await superPage.locator("main").hover();
+    await superPage.waitForFunction(
+      () =>
+        document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
+        "true",
+    );
+    await superPage.waitForFunction(
+      () =>
+        (document.querySelector("[data-portal-sidebar]")?.getBoundingClientRect().width ?? 999) <
+        80,
+    );
+    assert.ok((await sidebar.boundingBox())!.width < 80);
+
+    await sidebar.hover();
+    await superPage.getByRole("button", { name: "Keep sidebar open" }).click();
+    await superPage.locator("main").hover();
+    await superPage.waitForFunction(
+      () =>
+        document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
+        "false",
+    );
+    await superPage.waitForFunction(
+      () =>
+        (document.querySelector("[data-portal-sidebar]")?.getBoundingClientRect().width ?? 0) >
+        200,
+    );
+    assert.ok((await sidebar.boundingBox())!.width > 200);
+    await superPage.getByRole("button", { name: "Collapse sidebar" }).click();
+    await superPage.waitForFunction(
+      () =>
+        document.querySelector("[data-portal-sidebar]")?.getAttribute("data-collapsed") ===
+        "true",
+    );
+
     const newOperatorEmail = fixtureEmail("new-operator");
     await superPage.getByLabel("Full name").fill("Role E2E New Operator");
     await superPage.getByLabel("Operator email").fill(newOperatorEmail);
     await superPage.getByLabel("City").selectOption("San Francisco");
     await superPage.getByRole("button", { name: "Add & invite" }).click();
     await superPage.getByText(/Role E2E New Operator was added/).waitFor();
+    await superPage.getByText(/invitation email failed/i).waitFor();
     const created = await prisma.person.findUniqueOrThrow({
       where: { email: newOperatorEmail },
     });
@@ -146,6 +216,7 @@ async function main() {
     await superPage.getByLabel("City").selectOption("San Francisco");
     await superPage.getByRole("button", { name: "Add & invite" }).click();
     await superPage.getByText(/Role E2E Paused Member was added/).waitFor();
+    await superPage.getByText(/invitation email failed/i).waitFor();
     const promoted = await prisma.person.findUniqueOrThrow({
       where: { id: pausedMember.id },
     });
@@ -156,9 +227,15 @@ async function main() {
       await prisma.session.count({ where: { personId: pausedMember.id } }),
       0,
     );
-    assert.equal(
-      await prisma.loginToken.count({ where: { email: pausedMember.email! } }),
-      0,
+    const refreshedOperatorTokens = await prisma.loginToken.findMany({
+      where: { email: pausedMember.email! },
+      select: { tokenHash: true },
+    });
+    assert.equal(refreshedOperatorTokens.length, 1);
+    assert.notEqual(
+      refreshedOperatorTokens[0]?.tokenHash,
+      priorPausedMemberTokenHash,
+      "Provisioning must replace stale member login tokens with one fresh operator invite.",
     );
 
     await superPage.goto(`${baseUrl}/studio/team`);
@@ -198,6 +275,20 @@ async function main() {
     await superPage
       .getByText(ordinaryOperator.name, { exact: true })
       .waitFor({ state: "detached" });
+
+    await superPage.setViewportSize({ width: 390, height: 844 });
+    await superPage.reload();
+    const openMenu = superPage.getByRole("button", { name: "Open menu" });
+    await openMenu.click();
+    await superPage
+      .getByRole("dialog", { name: "Meet Cute navigation" })
+      .waitFor({ state: "visible" });
+    await superPage.keyboard.press("Escape");
+    await superPage
+      .getByRole("dialog", { name: "Meet Cute navigation" })
+      .waitFor({ state: "detached" });
+    assert.equal(await openMenu.evaluate((element) => element === document.activeElement), true);
+
     await superContext.close();
 
     console.log("operator portal browser checks passed");

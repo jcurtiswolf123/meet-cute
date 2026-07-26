@@ -13,7 +13,7 @@ export function allowOperatorDemoLogin(): boolean {
   return isLocalDemoLogin();
 }
 
-/** Member quick-login on /login — local dev only. */
+/** Member quick-login on /login. Local development only. */
 export function allowMemberDemoLogin(): boolean {
   return isLocalDemoLogin();
 }

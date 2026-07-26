@@ -671,8 +671,8 @@ export async function addOperator(formData: FormData) {
       const token = await createLoginToken(email);
       const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
       const { subject, html, text } = magicLinkEmail(link);
-      await sendEmail({ to: email, subject, html, text });
-      inviteStatus = "sent";
+      const result = await sendEmail({ to: email, subject, html, text });
+      inviteStatus = result.ok ? "sent" : "failed";
     } catch {
       inviteStatus = "failed";
     }
@@ -696,19 +696,6 @@ export async function removeOperator(formData: FormData) {
   redirect(
     `/studio/team?access=revoked&operator=${encodeURIComponent(operator.name)}`,
   );
-}
-
-// Operator: set their own mobile number. Used to add the matchmaker to the 3-way
-// group intro thread when both applicants opt in. Without a number on file, the
-// connection falls back to brokering each side the other's number.
-export async function setOperatorPhone(formData: FormData) {
-  const op = await requireOperator();
-  if (!op) throw new Error("operators only");
-  const phone = normalizePhone(String(formData.get("phone") || ""));
-  if (!phone) throw new Error("Enter a valid mobile number.");
-  await prisma.person.update({ where: { id: op.id }, data: { phone } });
-  revalidatePath("/studio/team");
-  revalidatePath("/studio/matchmaking");
 }
 
 // --- events (curated dinners) -----------------------------------------------

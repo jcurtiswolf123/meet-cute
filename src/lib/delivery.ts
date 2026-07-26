@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import type { DeliveryJob, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-import { connectionEmail, sendEmail } from "./email";
+import { connectionEmail, matchThreadEmail, sendEmail } from "./email";
 import { normalizePhone, sendConversationMessage, sendSMS } from "./sms";
 
 const STALE_LOCK_MS = 2 * 60_000;
@@ -292,17 +292,23 @@ async function finalizeConnectionIfReady(matchId: string): Promise<void> {
     select: { personAId: true, personBId: true, stage: true },
   });
   if (!matchState || matchState.stage !== "connecting") return;
-  const successfulRecipients = await prisma.deliveryJob.findMany({
+  const successfulDeliveries = await prisma.deliveryJob.findMany({
     where: {
       matchId,
       kind: { startsWith: "connection_" },
       status: "sent",
-      personId: { in: [matchState.personAId, matchState.personBId] },
     },
-    select: { personId: true },
-    distinct: ["personId"],
+    select: { kind: true, personId: true },
   });
-  const delivered = new Set(successfulRecipients.map((job) => job.personId));
+  const delivered = new Set<string>();
+  for (const job of successfulDeliveries) {
+    if (job.kind === "connection_email_thread") {
+      delivered.add(matchState.personAId);
+      delivered.add(matchState.personBId);
+    } else if (job.personId) {
+      delivered.add(job.personId);
+    }
+  }
   if (!delivered.has(matchState.personAId) || !delivered.has(matchState.personBId)) return;
 
   const connected = await prisma.match.updateMany({
@@ -414,8 +420,8 @@ async function deliveryEligibility(job: DeliveryJob): Promise<DeliveryEligibilit
         personBId: true,
         aDecision: true,
         bDecision: true,
-        personA: { select: { smsConsentAt: true } },
-        personB: { select: { smsConsentAt: true } },
+        personA: { select: { email: true, smsConsentAt: true } },
+        personB: { select: { email: true, smsConsentAt: true } },
       },
     });
     if (!match) return { ok: false, reason: "The related introduction no longer exists." };
@@ -447,6 +453,27 @@ async function deliveryEligibility(job: DeliveryJob): Promise<DeliveryEligibilit
         },
       });
       if (blocks > 0) return { ok: false, reason: "A block now exists between the members." };
+      if (job.kind === "connection_email_thread") {
+        const queuedRecipients = Array.isArray(payload.to)
+          ? payload.to.filter((value): value is string => typeof value === "string")
+          : [];
+        const currentRecipients = [match.personA.email, match.personB.email].filter(
+          (value): value is string => typeof value === "string",
+        );
+        const normalizedQueuedRecipients = queuedRecipients.map(normalizedEmail);
+        if (
+          queuedRecipients.length !== 2 ||
+          currentRecipients.length !== 2 ||
+          !currentRecipients.every((email) =>
+            normalizedQueuedRecipients.includes(normalizedEmail(email)),
+          )
+        ) {
+          return {
+            ok: false,
+            reason: "A participant email changed after the joint message was queued.",
+          };
+        }
+      }
     } else if (match.stage === "exit") {
       return { ok: false, reason: "The related introduction is closed." };
     }
@@ -635,8 +662,29 @@ export async function queueConnectionDeliveries(matchId: string): Promise<number
     { side: "b", me: match.personB, other: match.personA },
   ] as const;
   const queued: Promise<DeliveryJob>[] = [];
+  const bothHaveEmail = Boolean(match.personA.email && match.personB.email);
+
+  if (match.personA.email && match.personB.email) {
+    const message = matchThreadEmail({
+      aName: match.personA.name,
+      bName: match.personB.name,
+      city: match.personA.city || match.personB.city,
+    });
+    queued.push(
+      queueEmailDelivery({
+        kind: "connection_email_thread",
+        to: [match.personA.email, match.personB.email],
+        subject: message.subject,
+        html: message.html,
+        text: message.text,
+        idempotencyKey: makeDeliveryKey("connection", matchId, "thread", "email"),
+        matchId,
+      }),
+    );
+  }
+
   for (const { side, me, other } of sides) {
-    if (me.email) {
+    if (!bothHaveEmail && me.email) {
       const message = connectionEmail({
         toName: me.name,
         otherName: other.name,

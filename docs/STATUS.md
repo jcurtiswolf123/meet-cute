@@ -2,7 +2,58 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-23 (Twilio A2P replacement resubmitted and rechecked)
+Last updated: 2026-07-24 (operator walkthrough delivered to Jess)
+
+## 2026-07-24: operator walkthrough delivered
+- Replaced the short operator notes with a detailed guide covering member
+  invitations, applicant review, Quick Add, readiness, match creation,
+  introductions, private decisions, delivery follow-up, operator access, events,
+  safety rules, and troubleshooting.
+- Added a branded eight-page US Letter PDF and its printable HTML source. Visual
+  review confirmed that all pages render without clipping, overlap, broken
+  tables, or missing text. PDF metadata and extracted text were also verified.
+- Emailed the PDF to `jesswolflord@gmail.com` from
+  `josh@shiftsupportnetwork.com` with the subject `Meet Cute operator
+  walkthrough: matching, member invites, and Studio`. The authenticated sender
+  returned `SENT`, and the dated sent log records the recipient and delivery
+  key.
+- The guide reflects the current email-first production workflow and warns
+  operators not to rely on SMS while the Twilio A2P campaign remains blocked.
+
+## 2026-07-23: Twenty-style Studio and match email journey release candidate
+- Branch `feat/twenty-admin-email-journey` is ready for release after local
+  verification against an isolated PostgreSQL 16 database.
+- Studio now uses the forked Twenty shell measurements: a 48 px collapsed rail,
+  a 220 px expanded rail, and 28 px navigation rows. The desktop rail opens on
+  hover or keyboard focus, closes on pointer or focus exit, and can be pinned
+  open or closed. The mobile drawer closes with Escape and returns focus to its
+  trigger.
+- Member signup was exercised from anonymous login through the real magic-link
+  verification route, profile creation, consent capture, and operator-visible
+  directory and profile views.
+- The match journey now proves two separate invitation emails, signed reply
+  capture for both `Y` and `No`, mutual consent, and exactly one second email
+  addressed to both matched people. Declines close the introduction without a
+  connection email.
+- The inbound email route rejects stale signatures, ignores signed replies sent
+  to a foreign receiving domain, and only accepts tokens for the configured
+  receiving domain. Joint email delivery revalidates both recipient addresses
+  immediately before sending and cancels stale-address jobs.
+- Super-admin operator invitations now report provider delivery failures instead
+  of presenting them as successful sends.
+- Verification passed: type checking, lint with zero warnings, launch tests,
+  introduction race tests, member application browser tests, operator role and
+  sidebar browser tests, match email journey tests, production build, dependency
+  audit with zero high-severity findings, Semgrep with zero findings, secret
+  pattern scan with zero findings, desktop and mobile visual QA, accessibility
+  interaction checks, and a clean browser console. CodeQL was not available in
+  the local toolchain and was not run.
+- Deployment and production canary evidence will replace this release-candidate
+  note after the release lands.
+- Twilio is unchanged by this release. The Standard brand remains approved and
+  vetted. The replacement A2P campaign remains failed with cached errors `30882`
+  and `30908`. Do not recreate it again until Twilio support confirms a fresh
+  external review.
 
 ## 2026-07-23: Twilio A2P replacement resubmitted, immediate repeat failure
 - Preflight confirmed exactly one existing campaign, status `FAILED`, and an
@@ -185,8 +236,8 @@ Last updated: 2026-06-30 (hero + mobile shipped live)
   4. Member visibility scoping (connections-only view via /app/connections)
   5. Sentry error monitoring wired into SMS + Conversations webhooks
 - All features type-checked and build-verified.
-- Dev server: http://localhost:3009 · demo login at `/studio/login` and `/login`.
-- Live demo scenario: **Maya Rosen ↔ Alex Chen** match (suggested, both undecided). One command: `npm run demo:setup`.
+- Dev server: http://localhost:3009. Demo login at `/studio/login` and `/login`.
+- Live demo scenario: **Maya Rosen and Alex Chen** match (suggested, both undecided). One command: `npm run demo:setup`.
 
 ## Done (Erik's call notes)
 - Prisma schema: added voucherName, voucherContact, recommendation to Person; conversationSid to Match; created IntroMessage model.
@@ -231,15 +282,15 @@ Last updated: 2026-06-30 (hero + mobile shipped live)
   1. ESCALATE: log into help.twilio.com (console login + MFA; browse daemon has no Twilio session) and file the ticket. Ask: "A2P Messaging Trust Product BU26c444d0a43a6c5044db6aa9692445db has been in-review since 2026-06-29 with a compliant evaluation and an approved Primary Customer Profile BUa9f097eb7a501dde7a3b8dfefffd3304; please review/approve."
   2. TELNYX: create a Telnyx account (email verify + payment method), buy a 10DLC number, submit Brand + Campaign under Vanguard Labs LLC (EIN 99-2503371, HEALTHCARE, shiftsupportnetwork.com). Telnyx internal brand/CP vetting turns in days not weeks. Then set the 5 TELNYX_* + SMS_PROVIDER=telnyx secrets in Fly and point the messaging-profile inbound webhook at hellomeetcute.com/api/sms/inbound. Once a number is live, `git checkout master && git merge telnyx-migration && fly deploy`.
 
-## Telnyx account CREATED 2026-07-16 (~17:20 UTC) — gate 2 partially done
+## Telnyx account CREATED 2026-07-16 (~17:20 UTC). Gate 2 partially done
 - Created via Telnyx's SANCTIONED agent-signup flow (POST /v2/bot_challenge -> solve -> /v2/bot_signup -> magic link read via josh@shiftsupportnetwork.com IMAP -> /v2/api_keys). The normal https://telnyx.com/sign-up page bot-blocks headless browsers ("your browser could not be authenticated"); the agent flow at https://telnyx.com/agent-signup.md is the intended path.
 - Account: josh@shiftsupportnetwork.com, org/user 8d1c9c83-478f-4a8f-9997-50bcce609033. Balance $0.00.
 - DONE (free): API key [revoked key removed] (verified live); messaging profile "Meet Cute" 40019f6b-f1c4-4a12-8b1d-4eacea980794 (inbound webhook -> hellomeetcute.com/api/sms/inbound, v2); webhook Ed25519 public key n9QkllAdcWNLa3g60KGa8xCvh7MpMx1OU5OKg+y01Kw= (32 bytes, validated against verifyTelnyxSignature). All secrets in ~/.gstack/credentials/telnyx-login.txt (chmod 600). Env values map: TELNYX_API_KEY=<key>, TELNYX_MESSAGING_PROFILE_ID=40019f6b-..., TELNYX_PUBLIC_KEY=n9Qk..., TELNYX_FROM=<the number, once bought>.
 - PROGRESS 2026-07-16 ~18:00 UTC: Joshua funded balance to $5.00 + account shows "Your Telnyx Account Has Been Upgraded". Number BOUGHT via API: **+13854860015** (active, assigned to Meet Cute messaging profile 40019f6b-...). Balance now $3.43. TELNYX_FROM=+13854860015 stored.
-- BLOCKED — ACCOUNT-LEVEL / VERIFICATION WALL: 10DLC endpoints (GET/POST https://api.telnyx.com/10dlc/brand and /10dlc/campaign) return error 10038 "Feature not permitted at this account level. Refer to https://telnyx.com/upgrade." Number purchase works but A2P 10DLC Brand+Campaign registration is gated behind a higher account level (business verification / KYC). This is the Level-2 wall. UNBLOCK = Joshua completes the account upgrade + business verification in the portal (telnyx.com/upgrade or Portal > account/verification), and add more funds (~$25 to cover Brand ~$4 one-time + Campaign ~$10/mo vetting; $5 is too thin). Then I finish via API: POST /10dlc/brand (Vanguard Labs LLC, EIN 99-2503371) -> POST /10dlc/campaign (use case) -> assign number to campaign -> set 5 Fly secrets + SMS_PROVIDER=telnyx -> merge telnyx-migration -> fly deploy -> live test send.
+- BLOCKED. ACCOUNT-LEVEL / VERIFICATION WALL: 10DLC endpoints (GET/POST https://api.telnyx.com/10dlc/brand and /10dlc/campaign) return error 10038 "Feature not permitted at this account level. Refer to https://telnyx.com/upgrade." Number purchase works but A2P 10DLC Brand+Campaign registration is gated behind a higher account level (business verification / KYC). This is the Level-2 wall. UNBLOCK = Joshua completes the account upgrade + business verification in the portal (telnyx.com/upgrade or Portal > account/verification), and add more funds (~$25 to cover Brand ~$4 one-time + Campaign ~$10/mo vetting; $5 is too thin). Then I finish via API: POST /10dlc/brand (Vanguard Labs LLC, EIN 99-2503371) -> POST /10dlc/campaign (use case) -> assign number to campaign -> set 5 Fly secrets + SMS_PROVIDER=telnyx -> merge telnyx-migration -> fly deploy -> live test send.
 - Everything up to the 10DLC wall is API-driven and done. All IDs/secrets in ~/.gstack/credentials/telnyx-login.txt + memory reference_telnyx_account.
 
-## TWILIO UNBLOCKED 2026-07-16 ~18:47 UTC (escalation worked) — now the faster path
+## TWILIO UNBLOCKED 2026-07-16 ~18:47 UTC (escalation worked). Now the faster path
 - Twilio support (ticket #27999003) replied 18:39: Trust bundle BU26c444d0a43a6c5044db6aa9692445db APPROVED. The advancer (com.meetcute.a2p) then auto-ran: Brand BNa5fe1d0dbab802fed3e5de9f1d159d21 = **APPROVED / VETTED_VERIFIED**, and submitted campaign (us_app_to_person QE2c6890da8086d771620e9b13fadeba0b, LOW_VOLUME) on Messaging Service MG9fd14c01c6e72fea4e39d4d6c48cc50e.
 - Campaign REJECTED (status FAILED) on two URL-content errors, both FIXABLE:
   - 30908 PRIVACY_POLICY_URL: privacy policy missing the mandatory "mobile info / SMS consent not shared with third parties for marketing" statement.

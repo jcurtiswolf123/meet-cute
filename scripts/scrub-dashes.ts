@@ -9,8 +9,8 @@ const DRY = process.argv.includes("--dry");
 // em/en dash -> comma for prose; numeric en-dash range -> hyphen.
 function clean(s: string): string {
   return s
-    .replace(/(\d)\s*[–—]\s*(\d)/g, "$1-$2") // 20–30 -> 20-30
-    .replace(/\s*[–—]\s*/g, ", ") // prose dash -> comma
+    .replace(/(\d)\s*[\u2013\u2014]\s*(\d)/g, "$1-$2") // Numeric range to hyphen.
+    .replace(/\s*[\u2013\u2014]\s*/g, ", ") // Prose dash to comma.
     .replace(/\s*,\s*,\s*/g, ", ") // collapse accidental double commas
     .replace(/\s+,/g, ",") // no space before comma
     .replace(/,\s*([.!?])/g, "$1"); // ", ." -> "."
@@ -48,7 +48,7 @@ async function main() {
       const patch: Record<string, string> = {};
       for (const f of fields) {
         const v = row[f];
-        if (typeof v === "string" && /[–—]/.test(v)) {
+        if (typeof v === "string" && /[\u2013\u2014]/.test(v)) {
           const nv = clean(v);
           if (nv !== v) patch[f] = nv;
         }

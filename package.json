@@ -14,6 +14,8 @@
     "test:launch:storage": "node --env-file-if-exists=.env --import tsx scripts/test-photo-storage.ts",
     "test:launch:roles": "node --env-file-if-exists=.env --import tsx scripts/test-operator-roles.ts",
     "test:launch:roles:e2e": "node --env-file-if-exists=.env --import tsx scripts/test-operator-portal.ts",
+    "test:journey:application": "node --env-file-if-exists=.env --import tsx scripts/test-member-application.ts",
+    "test:journey:email": "node --env-file-if-exists=.env --import tsx scripts/test-match-email-journey.ts",
     "test:launch": "npm run test:launch:pure && npm run test:launch:capacity && npm run test:launch:delivery && npm run test:launch:storage && npm run test:launch:roles",
     "test:race": "node --env-file-if-exists=.env --import tsx scripts/test-introduction-race.ts",
     "db:deploy": "prisma migrate deploy",

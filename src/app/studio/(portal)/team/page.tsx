@@ -1,14 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
-import { addOperator, removeOperator, setOperatorPhone } from "@/lib/actions";
+import { addOperator, removeOperator } from "@/lib/actions";
 import { ConfirmActionForm } from "@/components/forms";
 import { Avatar } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
-// Each operator signs in with an individual magic link. Operators can maintain
-// their own group-introduction number, while only a super admin can change who
-// has access to the studio.
+// Each operator signs in with an individual magic link. Only a super admin can
+// change who has access to the studio.
 export default async function Team({
   searchParams,
 }: {
@@ -66,30 +65,6 @@ export default async function Team({
           Studio access was revoked for {result.operator || "the operator"}.
         </p>
       )}
-
-      <section className="card p-6">
-        <h2 className="label">Your mobile (for group intros)</h2>
-        <p className="mt-1 text-sm text-muted">
-          When both people in an introduction say yes, we open a group text with the two of them and
-          you. Add your cell so you&apos;re in that thread. Without it, we just send each of them the
-          other&apos;s number.
-        </p>
-        <form action={setOperatorPhone} className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
-          <input
-            name="phone"
-            type="tel"
-            required
-            defaultValue={me.phone ?? ""}
-            placeholder="(555) 123-4567"
-            autoComplete="off"
-            className="field"
-            aria-label="Your mobile number"
-          />
-          <button type="submit" className="btn-primary whitespace-nowrap">
-            Save number
-          </button>
-        </form>
-      </section>
 
       {me.isSuperAdmin ? (
         <section className="card p-6">

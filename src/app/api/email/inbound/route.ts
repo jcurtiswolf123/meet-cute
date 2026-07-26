@@ -24,6 +24,7 @@ export const dynamic = "force-dynamic";
 
 const YES = /^\s*(y|ye|yes|yeah|yep|yup|sure|ok|okay|absolutely|sounds good|do it)\b/i;
 const NO = /^\s*(n|no|nope|nah|pass|decline)\b/i;
+const SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 
 // Verify a Svix/Resend webhook signature. Fails closed in production when the
 // secret is set. Returns true in dev when no secret is configured (local testing).
@@ -33,6 +34,14 @@ function verifySignature(secret: string | undefined, req: NextRequest, rawBody: 
   const ts = req.headers.get("svix-timestamp");
   const sigHeader = req.headers.get("svix-signature");
   if (!id || !ts || !sigHeader) return false;
+  const timestamp = Number(ts);
+  const now = Math.floor(Date.now() / 1000);
+  if (
+    !Number.isFinite(timestamp) ||
+    Math.abs(now - timestamp) > SIGNATURE_TOLERANCE_SECONDS
+  ) {
+    return false;
+  }
 
   const keyB64 = secret.startsWith("whsec_") ? secret.slice(6) : secret;
   let key: Buffer;
@@ -54,7 +63,7 @@ function verifySignature(secret: string | undefined, req: NextRequest, rawBody: 
 }
 
 // Pull the invite token out of any `r+<token>@domain` recipient address.
-function tokenFromRecipients(to: unknown): string | null {
+function tokenFromRecipients(to: unknown, expectedDomain: string): string | null {
   const addrs: string[] = [];
   const push = (v: unknown) => {
     if (typeof v === "string") addrs.push(v);
@@ -66,8 +75,8 @@ function tokenFromRecipients(to: unknown): string | null {
   if (Array.isArray(to)) to.forEach(push);
   else push(to);
   for (const a of addrs) {
-    const m = a.match(/r\+([A-Za-z0-9_-]+)@/i);
-    if (m) return m[1];
+    const m = a.match(/r\+([A-Za-z0-9_-]+)@([A-Za-z0-9.-]+)/i);
+    if (m && m[2]?.toLowerCase() === expectedDomain) return m[1];
   }
   return null;
 }
@@ -135,10 +144,15 @@ export async function POST(req: NextRequest) {
     // Route on the recipient token FIRST (it is in the metadata). No token means
     // this message is not one of our invite replies, so we return without ever
     // fetching the body, keeping other projects' inbound mail untouched.
+    const inboundDomain = (process.env.RESEND_INBOUND_DOMAIN || "").trim().toLowerCase();
+    if (!inboundDomain) return new Response("inbound domain not configured", { status: 503 });
     const token =
-      tokenFromRecipients(data.to) ||
-      tokenFromRecipients(data.reply_to) ||
-      tokenFromRecipients((data.headers as Record<string, unknown> | undefined)?.["to"]);
+      tokenFromRecipients(data.to, inboundDomain) ||
+      tokenFromRecipients(data.reply_to, inboundDomain) ||
+      tokenFromRecipients(
+        (data.headers as Record<string, unknown> | undefined)?.["to"],
+        inboundDomain,
+      );
     if (!token) return new Response("no token", { status: 200 });
 
     // Body only for our own messages. Prefer any inline text, else fetch it.

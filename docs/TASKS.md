@@ -21,6 +21,9 @@ _Lightweight backlog. Move items between sections as they progress._
 - [x] Member feedback post-connection: surfaced kind:"feedback" notes on the conversation detail page + per-intro "Ask how it went" / "Resend invite" / "Close intro" quick actions
 
 ## Done
+- [x] Build and verify the Twenty-style Studio shell, hover-expanding sidebar,
+  full member signup and profile journey, signed email decision capture, and
+  one joint connection email after mutual consent (2026-07-23)
 - [x] Deploy and verify super-admin operator administration, including Jess
   provisioning, ordinary-operator restrictions, production role QA, and the
   Fly version 107 canary (2026-07-23)
