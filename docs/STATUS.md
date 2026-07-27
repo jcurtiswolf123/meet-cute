@@ -29,6 +29,20 @@ Last updated: 2026-07-27 (production readiness QA: three defects fixed, all gate
   member home states and an em dash placeholder from the matches list. A
   repository-wide scan now finds no emoji, glyph entities, or em/en dashes in
   `src/`.
+- **ISSUE-004 fixed (`c2129b7`).** Found from production Sentry, which had logged
+  `Error: already suggested` twice in 24 hours. `createSuggestion` threw a raw
+  error when a pair already had a match or had blocked each other, dropping the
+  operator on the generic error page. It now redirects back to the person page
+  and reports the outcome beside the candidate list.
+- **Released to production.** Fly version 111, both `sjc` machines started with
+  checks passing. Verified live: all eight public routes return 200 with a clean
+  console, no horizontal overflow at 390 px, and the homepage renders fully with
+  JavaScript disabled (0 hidden elements, closing call to action visible).
+- **CI note.** The first deploy attempt failed on `test:launch:roles:e2e` waiting
+  for the revoke flash. The identical commit passed on rerun, so this was runner
+  load. The step now waits for the confirm control explicitly and allows 60s
+  (`e03f3bd`). CI runs the standalone server, which is what production runs;
+  reproduce CI failures with `node .next/standalone/server.js`, not `npm start`.
 - **The two "known dev-only flakes" were environmental and are resolved.**
   `test:journey:application` and `test:launch:roles:e2e` both pass reliably
   against a production build (`npm start`) rather than the Turbopack dev
