@@ -875,7 +875,11 @@ export async function createSuggestion(aId: string, bId: string, rationale: stri
       ],
     },
   });
-  if (existing) throw new Error("already suggested");
+  // An operator clicking a pair that already has a match, or a pair that has
+  // blocked each other, is an ordinary thing to do, not a crash. Throwing here
+  // dropped the operator on the generic error page and raised a Sentry issue,
+  // so report the outcome on the page they came from instead.
+  if (existing) redirect(`/studio/person/${aId}?suggest=exists`);
   // Never suggest a pair where either has blocked the other.
   const blocked = await prisma.block.findFirst({
     where: {
@@ -885,11 +889,13 @@ export async function createSuggestion(aId: string, bId: string, rationale: stri
       ],
     },
   });
-  if (blocked) throw new Error("these members cannot be matched");
+  if (blocked) redirect(`/studio/person/${aId}?suggest=blocked`);
   await prisma.match.create({
     data: { personAId: aId, personBId: bId, rationale, createdById: me ?? undefined, stage: "suggested" },
   });
   revalidatePath("/studio/pipeline");
+  revalidatePath(`/studio/person/${aId}`);
+  redirect(`/studio/person/${aId}?suggest=created`);
 }
 
 // --- operator-led introductions ---------------------------------------------

@@ -10,9 +10,22 @@ import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
-export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
+const SUGGEST_MESSAGE: Record<string, string> = {
+  created: "Suggestion created. It is in the pipeline.",
+  exists: "These two already have a match. Open it from the pipeline.",
+  blocked: "These two cannot be matched. One of them blocked the other.",
+};
+
+export default async function PersonPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ suggest?: string }>;
+}) {
   await requireOperatorPage();
   const { id } = await params;
+  const suggestNotice = SUGGEST_MESSAGE[(await searchParams)?.suggest ?? ""];
   const p = await prisma.person.findUnique({
     where: { id },
     include: {
@@ -137,6 +150,14 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <div className="card p-4">
             <p className="label">Suggested candidates</p>
             <p className="mb-2 mt-0.5 text-xs text-muted">Ranked by fit + vouches. Click to create a suggestion.</p>
+            {suggestNotice && (
+              <p
+                role="status"
+                className="mb-2 rounded-lg border border-claret/30 bg-claret/5 px-3 py-2 text-xs text-claret"
+              >
+                {suggestNotice}
+              </p>
+            )}
             <div className="space-y-2">
               {candidates.map((c) => (
                 <form key={c.p.id} action={createSuggestion.bind(null, id, c.p.id, `Co-pilot suggested: fit ${c.score.toFixed(2)}, ${c.vouches} vouches.`)}>
