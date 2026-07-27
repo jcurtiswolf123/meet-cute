@@ -2,7 +2,45 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-26 (Raya-leaning redesign + lifecycle emails, dinner/coaching intake, photo upload, matches history)
+Last updated: 2026-07-27 (production readiness QA: three defects fixed, all gates green)
+
+## 2026-07-27: production readiness QA and fixes
+- Full QA against an isolated local PostgreSQL 18 database and a production
+  build. Report: `docs/QA-2026-07-27.md`.
+- All gates green: typecheck, lint, build, ten test suites, zero dependency
+  vulnerabilities, zero Semgrep findings, zero tracked secrets, zero console
+  errors across twenty routes, no horizontal overflow at 390 px, and no drift
+  between the migrations and `schema.prisma`.
+- **ISSUE-001 fixed (`d0aacb8`).** `Reveal` server-rendered its children at
+  `opacity: 0`, so with JavaScript unavailable the homepage showed the hero and
+  then six blank bands, including the closing call to action. Reveal wrappers
+  are now tagged `data-reveal` and a `<noscript>` style in the root layout
+  forces them visible. Re-verified with `javaScriptEnabled: false`: 15 hidden
+  elements before, 0 after. The scroll animation is unchanged.
+- **ISSUE-002 fixed (`10064a4`).** `requestDinnerSeat` and `requestCoaching`
+  sent both emails inline, swallowed failures, and still showed "Request
+  received." An anonymous lead was destroyed outright when the provider
+  rejected the send: two submissions produced eight provider errors and zero
+  stored records. All three intake emails now queue through the `DeliveryJob`
+  outbox, so they retry and any permanent failure lands in the operator's
+  Delivery failures panel with a Retry action. Idempotency keys use a 15 minute
+  bucket. Re-verified: four queued rows, all four recoverable in the studio.
+- **ISSUE-003 fixed (`2b5380e`).** Removed the decorative heart glyph from both
+  member home states and an em dash placeholder from the matches list. A
+  repository-wide scan now finds no emoji, glyph entities, or em/en dashes in
+  `src/`.
+- **The two "known dev-only flakes" were environmental and are resolved.**
+  `test:journey:application` and `test:launch:roles:e2e` both pass reliably
+  against a production build (`npm start`) rather than the Turbopack dev
+  server. Run them with `MEMBER_E2E_BASE_URL` / `ROLE_E2E_BASE_URL` set.
+- New `scripts/seed-qa-full.ts` (local-database-only) seeds operators, members,
+  applicants, a live introduction, dinners, and a coaching engagement so QA
+  reviews populated states.
+- Open configuration item, not a code defect: `OPERATOR_INBOX` is unset in Fly,
+  so dinner and coaching leads reach `josh@shiftsupportnetwork.com` rather than
+  the operator on duty.
+
+## 2026-07-26 (previous entry)
 
 ## 2026-07-26: redesign + lifecycle emails + intake + photos + matches history
 - **Landing redesign toward Raya restraint.** The hero is now a dark ink field
