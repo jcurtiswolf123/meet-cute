@@ -105,7 +105,7 @@ export default async function MatchesHistory() {
                               {m.personA.name.split(" ")[0]} &amp; {m.personB.name.split(" ")[0]}
                             </p>
                             <p className="truncate text-xs text-muted">
-                              {m.personA.city || m.personB.city || "—"} ·{" "}
+                              {m.personA.city || m.personB.city || "No city"} ·{" "}
                               {m.connectedAt ? `Connected ${fmt(m.connectedAt)}` : `Started ${fmt(m.createdAt)}`}
                             </p>
                           </div>
