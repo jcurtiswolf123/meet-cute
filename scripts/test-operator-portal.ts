@@ -259,10 +259,17 @@ async function main() {
         name: `Revoke operator access for ${ordinaryOperator.name}`,
       })
       .click();
-    await superPage.getByRole("button", { name: "Confirm revoke" }).click();
+    // The confirm control only exists after the client component re-renders, and
+    // the revoke itself is a server action plus a redirect. On a loaded CI runner
+    // both are slow enough that clicking blind, or waiting the default 30s for
+    // the flash, fails a build that has nothing wrong with it. Wait for the
+    // control explicitly and give the round trip room.
+    const confirmRevoke = superPage.getByRole("button", { name: "Confirm revoke" });
+    await confirmRevoke.waitFor({ state: "visible" });
+    await confirmRevoke.click();
     await superPage
       .getByText(`Studio access was revoked for ${ordinaryOperator.name}.`)
-      .waitFor();
+      .waitFor({ timeout: 60_000 });
     const revoked = await prisma.person.findUniqueOrThrow({
       where: { id: ordinaryOperator.id },
     });
