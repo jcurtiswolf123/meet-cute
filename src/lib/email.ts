@@ -326,20 +326,17 @@ export function eventInviteEmail(args: {
   const first = name.split(" ")[0];
   const subject = `You're invited: ${theme} (${city})`;
   const text = `Hi ${first},\n\nYou're invited to a Meet Cute dinner.\n\n${theme}\n${when}\n${venue}, ${city}\n\nSign in to see details: ${link}\n\nReply to this email to RSVP or with any questions.`;
-  const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#2a2320">
-    <h1 style="font-size:22px;font-weight:500;color:#7a1f2b">Meet Cute</h1>
-    <p style="font-size:15px;line-height:1.6">Hi ${esc(first)}, you're invited to a Meet Cute dinner.</p>
-    <div style="margin:16px 0;padding:16px;border:1px solid #ece6df;border-radius:12px">
-      <p style="margin:0;font-size:18px;font-weight:500">${esc(theme)}</p>
-      <p style="margin:6px 0 0;font-size:14px;color:#6b625c">${esc(when)}</p>
-      <p style="margin:2px 0 0;font-size:14px;color:#6b625c">${esc(venue)}, ${esc(city)}</p>
-    </div>
-    <p style="margin:24px 0">
-      <a href="${encodeURI(link)}" style="background:#7a1f2b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">View &amp; RSVP</a>
-    </p>
-    <p style="font-size:12px;color:#8a817c">Reply to this email to RSVP or with any questions.</p>
-  </div>`;
-  return { subject, html, text };
+  const inner =
+    h1("You're invited to dinner.") +
+    p(`Hi ${esc(first)}, a seat has opened at a Meet Cute dinner.`) +
+    `<div style="margin:16px 0;padding:16px;border:1px solid ${BRAND.line};border-radius:12px;background:${BRAND.cream}">
+      <p style="margin:0;font-family:${SERIF};font-size:18px;color:${BRAND.ink}">${esc(theme)}</p>
+      <p style="margin:6px 0 0;font-family:${SANS};font-size:14px;color:${BRAND.muted}">${esc(when)}</p>
+      <p style="margin:2px 0 0;font-family:${SANS};font-size:14px;color:${BRAND.muted}">${esc(venue)}, ${esc(city)}</p>
+    </div>` +
+    `<p style="margin:24px 0 0">${emailButton("View & RSVP", link)}</p>` +
+    small("Reply to this email to RSVP or with any questions.");
+  return { subject, html: emailShell(inner, `${theme} - ${when}`), text };
 }
 
 // Warm introduction email sent to BOTH people the moment a match becomes mutual.
@@ -378,23 +375,22 @@ export function connectionEmail(args: {
   const reachRows: string[] = [];
   if (args.otherEmail)
     reachRows.push(
-      `<p style="margin:2px 0;font-size:14px;color:#382a20"><span style="color:#7d6f62">Email</span> ${esc(args.otherEmail)}</p>`,
+      `<p style="margin:2px 0;font-family:${SANS};font-size:14px;color:${BRAND.ink}"><span style="color:${BRAND.muted}">Email</span> ${esc(args.otherEmail)}</p>`,
     );
   const reachHtml = reachRows.length
     ? reachRows.join("")
-    : `<p style="margin:2px 0;font-size:14px;color:#7d6f62">Just reply to this email and we will pass it along.</p>`;
+    : `<p style="margin:2px 0;font-family:${SANS};font-size:14px;color:${BRAND.muted}">Just reply to this email and we will pass it along.</p>`;
 
-  const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#382a20">
-    <h1 style="font-size:22px;font-weight:500;color:#d76a45">Meet Cute</h1>
-    <p style="font-size:15px;line-height:1.6">Hi ${esc(first)}, you and <strong>${esc(otherFirst)}</strong> both said yes to an introduction${args.city ? ` in ${esc(args.city)}` : ""}.</p>
-    <div style="margin:16px 0;padding:16px;border:1px solid #ecdcc7;border-radius:12px;background:#fffdf8">
-      <p style="margin:0 0 6px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#7d6f62">How to reach ${esc(otherFirst)}</p>
+  const inner =
+    h1(`You and ${esc(otherFirst)} said yes.`) +
+    p(`Hi ${esc(first)}, you and <strong>${esc(otherFirst)}</strong> both said yes to an introduction${args.city ? ` in ${esc(args.city)}` : ""}.`) +
+    `<div style="margin:16px 0;padding:16px;border:1px solid ${BRAND.line};border-radius:12px;background:${BRAND.cream}">
+      <p style="margin:0 0 6px;font-family:${SANS};font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.muted}">How to reach ${esc(otherFirst)}</p>
       ${reachHtml}
-    </div>
-    <p style="font-size:15px;line-height:1.6;color:#382a20">${esc(note)}</p>
-    <p style="font-size:12px;color:#8a817c">Warmly, Meet Cute. Reply to this email any time if you would like a hand.</p>
-  </div>`;
-  return { subject, html, text };
+    </div>` +
+    p(esc(note)) +
+    small("Reply to this email any time if you would like a hand.");
+  return { subject, html: emailShell(inner, `Here's how to reach ${otherFirst}.`), text };
 }
 
 // First email of the double opt-in. Sent to ONE person when a match is made. It
@@ -423,17 +419,16 @@ export function matchInviteEmail(args: {
     `If you both say yes, we'll connect you. If either passes, nothing happens and no one is told.\n\n` +
     `Warmly,\nMeet Cute`;
 
-  const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#382a20">
-    <h1 style="font-size:22px;font-weight:500;color:#d76a45">Meet Cute</h1>
-    <p style="font-size:15px;line-height:1.6">Hi ${esc(first)}, we think you and <strong>${esc(otherFirst)}</strong>${args.city ? ` in ${esc(args.city)}` : ""} could hit it off.</p>
-    ${headline ? `<p style="margin:12px 0;padding:12px 16px;border-left:3px solid #d76a45;font-size:15px;font-style:italic;color:#5c4f45">&ldquo;${esc(headline)}&rdquo;</p>` : ""}
-    <p style="margin:20px 0">
-      <a href="${encodeURI(args.profileUrl)}" style="background:#d76a45;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">See ${esc(otherFirst)}&rsquo;s profile &amp; decide</a>
-    </p>
-    <p style="font-size:15px;line-height:1.6">Want the introduction? <strong>Reply Y</strong> for yes or <strong>N</strong> to pass, or use the buttons on the page.</p>
-    <p style="font-size:13px;line-height:1.6;color:#8a817c">If you both say yes, we&rsquo;ll connect you. If either passes, nothing happens and no one is told.</p>
-  </div>`;
-  return { subject, html, text };
+  const inner =
+    h1(`Meet ${esc(otherFirst)}.`) +
+    p(`Hi ${esc(first)}, we think you and <strong>${esc(otherFirst)}</strong>${args.city ? ` in ${esc(args.city)}` : ""} could hit it off.`) +
+    (headline
+      ? `<p style="margin:12px 0;padding:12px 16px;border-left:2px solid ${BRAND.oxblood};font-family:${SERIF};font-size:16px;font-style:italic;color:${BRAND.muted}">&ldquo;${esc(headline)}&rdquo;</p>`
+      : "") +
+    `<p style="margin:22px 0">${emailButton(`See ${otherFirst}'s profile & decide`, args.profileUrl)}</p>` +
+    p(`Want the introduction? <strong>Reply Y</strong> for yes or <strong>N</strong> to pass, or use the buttons on the page.`) +
+    small("If you both say yes, we'll connect you. If either passes, nothing happens and no one is told.");
+  return { subject, html: emailShell(inner, `An introduction to ${otherFirst}.`), text };
 }
 
 // Second email of the double opt-in, sent to BOTH people at once (a single send
@@ -455,13 +450,12 @@ export function matchThreadEmail(args: {
     `Just hit reply-all to say hello and find a time this week. A short first message goes a long way.\n\n` +
     `Warmly,\nMeet Cute`;
 
-  const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#382a20">
-    <h1 style="font-size:22px;font-weight:500;color:#d76a45">Meet Cute</h1>
-    <p style="font-size:15px;line-height:1.6">Hi <strong>${esc(aFirst)}</strong> and <strong>${esc(bFirst)}</strong>: you both said yes to an introduction${args.city ? ` in ${esc(args.city)}` : ""}, so here you are on one thread.</p>
-    <p style="font-size:15px;line-height:1.6">Just hit <strong>reply-all</strong> to say hello and find a time this week. A short first message goes a long way.</p>
-    <p style="font-size:12px;color:#8a817c">Warmly, Meet Cute. Reply any time if you would like a hand.</p>
-  </div>`;
-  return { subject, html, text };
+  const inner =
+    h1("You both said yes.") +
+    p(`Hi <strong>${esc(aFirst)}</strong> and <strong>${esc(bFirst)}</strong> - you both said yes to an introduction${args.city ? ` in ${esc(args.city)}` : ""}, so here you are on one thread.`) +
+    p(`Just hit <strong>reply-all</strong> to say hello and find a time this week. A short first message goes a long way.`) +
+    small("Reply any time if you would like a hand.");
+  return { subject, html: emailShell(inner, `${aFirst} and ${bFirst}, meet each other.`), text };
 }
 
 export function magicLinkEmail(link: string): { subject: string; html: string; text: string } {

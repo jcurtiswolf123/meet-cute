@@ -20,6 +20,11 @@ const PAGE_CONTEXT: Array<{
     icon: "message",
   },
   {
+    matches: (pathname) => pathname.startsWith("/studio/matches"),
+    label: "Matches",
+    icon: "heart",
+  },
+  {
     matches: (pathname) => pathname.startsWith("/studio/person/"),
     label: "Member profile",
     icon: "user",
