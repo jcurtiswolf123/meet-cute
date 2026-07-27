@@ -2,7 +2,127 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-24 (operator walkthrough delivered to Jess)
+Last updated: 2026-07-27 (production readiness QA: three defects fixed, all gates green)
+
+## 2026-07-27: production readiness QA and fixes
+- Full QA against an isolated local PostgreSQL 18 database and a production
+  build. Report: `docs/QA-2026-07-27.md`.
+- All gates green: typecheck, lint, build, ten test suites, zero dependency
+  vulnerabilities, zero Semgrep findings, zero tracked secrets, zero console
+  errors across twenty routes, no horizontal overflow at 390 px, and no drift
+  between the migrations and `schema.prisma`.
+- **ISSUE-001 fixed (`d0aacb8`).** `Reveal` server-rendered its children at
+  `opacity: 0`, so with JavaScript unavailable the homepage showed the hero and
+  then six blank bands, including the closing call to action. Reveal wrappers
+  are now tagged `data-reveal` and a `<noscript>` style in the root layout
+  forces them visible. Re-verified with `javaScriptEnabled: false`: 15 hidden
+  elements before, 0 after. The scroll animation is unchanged.
+- **ISSUE-002 fixed (`10064a4`).** `requestDinnerSeat` and `requestCoaching`
+  sent both emails inline, swallowed failures, and still showed "Request
+  received." An anonymous lead was destroyed outright when the provider
+  rejected the send: two submissions produced eight provider errors and zero
+  stored records. All three intake emails now queue through the `DeliveryJob`
+  outbox, so they retry and any permanent failure lands in the operator's
+  Delivery failures panel with a Retry action. Idempotency keys use a 15 minute
+  bucket. Re-verified: four queued rows, all four recoverable in the studio.
+- **ISSUE-003 fixed (`2b5380e`).** Removed the decorative heart glyph from both
+  member home states and an em dash placeholder from the matches list. A
+  repository-wide scan now finds no emoji, glyph entities, or em/en dashes in
+  `src/`.
+- **The two "known dev-only flakes" were environmental and are resolved.**
+  `test:journey:application` and `test:launch:roles:e2e` both pass reliably
+  against a production build (`npm start`) rather than the Turbopack dev
+  server. Run them with `MEMBER_E2E_BASE_URL` / `ROLE_E2E_BASE_URL` set.
+- New `scripts/seed-qa-full.ts` (local-database-only) seeds operators, members,
+  applicants, a live introduction, dinners, and a coaching engagement so QA
+  reviews populated states.
+- Open configuration item, not a code defect: `OPERATOR_INBOX` is unset in Fly,
+  so dinner and coaching leads reach `josh@shiftsupportnetwork.com` rather than
+  the operator on duty.
+
+## 2026-07-26 (previous entry)
+
+## 2026-07-26: redesign + lifecycle emails + intake + photos + matches history
+- **Landing redesign toward Raya restraint.** The hero is now a dark ink field
+  with a cream Instrument-serif headline (`components/Hero.tsx`), the header
+  supports a `light` overlay treatment for the dark hero
+  (`components/SiteHeader.tsx`), the homepage rhythm alternates ink -> cream and
+  gained a Coaching teaser (`src/app/page.tsx`). No hero photography or gradients
+  (per `DESIGN.md`); type and negative space carry it.
+- **Lifecycle emails (new `email.ts` brand shell + 4 templates).** All wrapped in
+  one restrained shell (cream canvas, ink text, oxblood accent):
+  - `applicationReceivedEmail` - sent immediately on application submit
+    (`completeApplication`).
+  - `applicationApprovedEmail` - "you're in, you'll start getting matches" queued
+    through the outbox when an operator approves an applicant (`setMemberStatus`
+    -> `setNonOperatorMemberStatus` now returns the recipient).
+  - `matchReminderEmail` - "reminder to meet"; new operator action `remindToMeet`
+    (email + SMS) surfaced on the connected conversation view.
+  - `matchFeedbackEmail` - "how was your Meet Cute"; `askForFeedback` now emails
+    both sides in addition to texting.
+  - `operatorLeadEmail` / `requestReceivedEmail` back the intake flows below.
+- **Dinner + coaching intake.** `requestDinnerSeat` and `requestCoaching` server
+  actions notify the operator inbox and confirm to the requester (IP
+  rate-limited). Signed-in members requesting a dinner also land on that dinner's
+  guest list. `/dinners` has an inline "Request a seat" form per dinner; `/coaching`
+  has an "Apply for coaching" form (dating vs couples).
+- **Application photo upload.** `apply/PhotoUpload.tsx` posts to the existing
+  `/api/photos` (normalizes/strips EXIF, stores as `pending`), shown prominently
+  above the apply form. Up to 6; inline remove.
+- **Operator "Matches" history.** New `/studio/matches` page (heart nav item)
+  lists every introduction grouped Connected / In progress / Closed - the
+  read-only "people I've matched" ledger complementing the Directory composer.
+- **QA (local isolated Postgres):** typecheck + lint clean; production build
+  green (route `/studio/matches` present). Suites passing: operator roles, match
+  email journey, delivery outbox. Public pages screenshotted (dark hero,
+  coaching intake). Authed pages verified 200 with expected content via minted
+  sessions: `/studio/matches` (empty state + grouped rows), `/studio` (Make a
+  match), `/apply` (photo uploader + full form, confirmed via a11y snapshot, no
+  console errors).
+- **Known dev-only flake (unchanged, not a regression):** the member-application
+  Playwright e2e (`test:journey:application`) times out on `getByLabel('First
+  name')` against the Turbopack dev server. Verified environmental by reproducing
+  the identical failure with the pre-change apply page stashed; the signed-in form
+  renders correctly under manual/browser QA.
+
+## 2026-07-26: match directly from the Directory + auto-email QA
+- The Studio Directory (`/studio`) now carries a collapsible "Make a match"
+  composer, so an operator can introduce two members without leaving the roster.
+  Matchmaking still exists but is no longer the only entry point. The composer
+  lists every active member who has an authorized channel (email, or a textable
+  phone with SMS consent).
+- Relaxed the `createIntroduction` gate: an operator introducing two people is
+  itself the readiness decision, so it no longer requires the member-app
+  `openToMatch` opt-in. That flag is a member's self-serve pause switch; gating
+  operator intros on it made every approved-but-not-yet-opted-in member
+  unmatchable. Consent is unchanged - each person still has to answer Y to the
+  double opt-in email before anyone is connected. Only active roster membership
+  is required. Creating an intro now revalidates `/studio` too.
+- Auto-emails after a match were verified end to end against an isolated local
+  PostgreSQL database, on two active members who had never toggled
+  `openToMatch`:
+  - The moment the match is made, two double opt-in invite emails go out, one
+    per person ("You've been matched with ...").
+  - On mutual Y, exactly one joint connection thread email is sent ("... you
+    both said yes") and the match moves to `connected`.
+  - A decline closes the introduction with no connection email.
+  `scripts/demo-match-emails.ts` is the reusable, local-only harness that prints
+  every queued email (recipient, subject, body) for this walkthrough.
+- QA on the isolated local DB (all green): match email journey, introduction
+  race, delivery outbox, operator roles, and the full member application journey
+  (signup token, email-first opt-in and pause, profile creation,
+  operator-visible profile). Type checking is clean.
+- Known dev-only flake: the operator-portal Playwright e2e
+  (`test:launch:roles:e2e`) intermittently times out waiting for the sidebar
+  hover under Turbopack HMR. The Directory itself was visually reviewed and the
+  make-a-match composer confirmed present with the expected member list.
+
+## 2026-07-26: operator walkthrough resent
+- Recovered the original July 24 email from conversation history and resent the
+  same 1,308-character body, subject, and eight-page PDF attachment to
+  `jesswolflord@gmail.com` from `josh@shiftsupportnetwork.com`.
+- The authenticated sender returned `SENT`. The new delivery log records status
+  `sent`, the intended recipient, and timestamp `2026-07-26T08:44:22`.
 
 ## 2026-07-24: operator walkthrough delivered
 - Replaced the short operator notes with a detailed guide covering member

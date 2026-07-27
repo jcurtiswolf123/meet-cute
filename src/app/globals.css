@@ -7,6 +7,7 @@
 }
 
 html {
+  scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -14,50 +15,54 @@ html {
 body {
   background-color: theme("colors.cream");
   color: theme("colors.ink");
-  /* Warm daylight canvas: two soft sunlit pools (terracotta + rose) so the cream
-     never reads as a flat sheet. Fixed so it stays put as content scrolls. */
-  background-image:
-    radial-gradient(60% 50% at 12% 0%, rgba(215, 106, 69, 0.07), transparent 70%),
-    radial-gradient(55% 45% at 100% 6%, rgba(207, 106, 113, 0.06), transparent 70%);
-  background-attachment: fixed;
 }
 
 ::selection {
-  background-color: theme("colors.ember.soft");
-  color: theme("colors.espresso.deep");
+  background-color: theme("colors.claret.soft");
+  color: theme("colors.ink");
 }
 
 @layer components {
   .container-mc {
-    @apply mx-auto w-full max-w-6xl px-6;
+    @apply mx-auto w-full max-w-7xl px-6 sm:px-8 lg:px-10;
   }
+
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition duration-200 ease-soft;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition duration-200 ease-soft;
   }
+
   .btn-primary {
-    /* Warm terracotta with cream text: a friendly, hand-warmed CTA that owns the
-       page without shouting. Deepens on hover. */
-    @apply btn bg-ember text-cream font-semibold shadow-[0_8px_20px_-10px_rgba(182,77,44,0.55)] transition duration-200 hover:bg-ember-deep active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ember;
+    @apply btn bg-ink text-cream hover:bg-claret active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-claret;
   }
+
   .btn-ghost {
-    @apply btn border border-line bg-transparent text-ink transition duration-200 hover:border-ember/50 hover:bg-paper/60 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink;
+    @apply btn border border-line bg-transparent text-ink hover:border-ink hover:bg-panel active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink;
   }
+
+  .text-link {
+    @apply inline-flex min-h-11 items-center border-b border-ink text-sm font-semibold text-ink transition-colors duration-200 hover:border-claret hover:text-claret visited:border-claret visited:text-claret;
+  }
+
   .card {
-    @apply rounded-xl2 border border-line bg-panel shadow-card;
+    @apply rounded-lg border border-line bg-panel shadow-card;
   }
-  /* Eyebrow labels: the "concierge stamp" - mono, small-caps, wide-tracked, ember. */
+
   .label {
-    @apply font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-ember-deep;
+    @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-claret;
   }
+
+  .public-label {
+    @apply text-xs font-semibold uppercase tracking-[0.16em];
+  }
+
   .field {
-    @apply w-full rounded-lg border border-line bg-panel px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted/70 focus:border-ember/60 focus:bg-cream;
+    @apply w-full rounded-md border border-line bg-panel px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted/70 focus:border-ink focus:bg-cream;
   }
+
   .pill {
     @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 text-xs text-muted;
   }
 
-  /* Disabled actions read as clearly inactive, never as a washed-out ghost of
-     the live button (low-contrast claret looked broken, not disabled). */
   .btn:disabled,
   .btn-primary:disabled,
   .btn-ghost:disabled {
@@ -65,153 +70,160 @@ body {
     transform: none;
   }
 
-  /* Editorial ledger: one hairline-divided strip with large Fraunces numerals,
-     instead of a row of identical floating boxes (the dashboard "AI tell").
-     Mark the lead cell with .ledger-cell-lead to tint it claret. */
   .ledger {
-    @apply flex flex-col divide-y divide-line overflow-hidden rounded-xl2 border border-line bg-panel shadow-card sm:flex-row sm:divide-x sm:divide-y-0;
+    @apply flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-line bg-panel shadow-card sm:flex-row sm:divide-x sm:divide-y-0;
   }
+
   .ledger-cell {
     @apply flex flex-1 flex-col gap-1 px-5 py-4;
   }
+
   .ledger-num {
-    @apply font-display text-3xl font-medium leading-none text-ink tabular-nums;
+    @apply font-display text-3xl font-normal leading-none text-ink tabular-nums;
   }
+
   .ledger-label {
-    @apply text-[11px] font-medium uppercase tracking-[0.14em] text-muted;
+    @apply text-[11px] font-medium uppercase tracking-[0.12em] text-muted;
   }
+
   .ledger-cell-lead {
-    @apply bg-ember/[0.07];
+    @apply bg-claret/[0.05];
   }
+
   .ledger-cell-lead .ledger-num {
-    @apply text-ember;
+    @apply text-claret;
   }
 
-  /* A primary card carries a thin claret top-rule to break the
-     all-identical-cards monotony and signal "this is the main action". */
   .card-feature {
-    @apply card relative overflow-hidden;
-  }
-  .card-feature::before {
-    content: "";
-    @apply absolute inset-x-0 top-0 h-[3px];
-    background-image: linear-gradient(
-      90deg,
-      theme("colors.ember.DEFAULT"),
-      theme("colors.claret.DEFAULT"),
-      theme("colors.ember.soft")
-    );
+    @apply card relative overflow-hidden border-t-2 border-t-claret;
   }
 
-  /* Editorial roster table: hairline rows, roomy cells, small-caps header,
-     warm hover. Replaces the boxed-in default-table look. */
   .roster {
     @apply w-full text-sm;
   }
+
   .roster thead th {
     @apply border-b border-line px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.12em] text-muted;
   }
+
   .roster tbody td {
     @apply px-4 py-3.5 align-top;
   }
+
   .roster tbody tr {
     @apply border-b border-line/60 transition-colors duration-150;
   }
+
   .roster tbody tr:last-child {
     @apply border-b-0;
   }
+
   .roster tbody tr:hover {
     @apply bg-cream/70;
   }
 }
 
-@keyframes fadeup {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.intro-seal {
+  position: absolute;
+  right: -6rem;
+  top: 8rem;
+  display: flex;
+  width: 31rem;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid theme("colors.line");
+  border-radius: 9999px;
+  color: theme("colors.line");
+  pointer-events: none;
 }
-.animate-fadeup { animation: fadeup 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.intro-seal::after {
+  content: "";
+  position: absolute;
+  inset: 2.25rem;
+  border: 1px solid theme("colors.line");
+  border-radius: inherit;
+}
+
+.intro-seal-number {
+  font-family: var(--font-display);
+  font-size: 12rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.06em;
+}
+
+.intro-seal-copy {
+  position: absolute;
+  bottom: 5.75rem;
+  z-index: 1;
+  color: theme("colors.muted");
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+@keyframes fadeup {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeup {
+  animation: fadeup 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 
 @keyframes shimmer {
-  100% { transform: translateX(100%); }
+  100% {
+    transform: translateX(100%);
+  }
 }
+
 .skeleton {
   position: relative;
   overflow: hidden;
-  background-color: theme("colors.paper");
   border-radius: 0.5rem;
+  background-color: theme("colors.paper");
 }
+
 .skeleton::after {
   content: "";
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(244, 236, 226, 0.08), transparent);
+  background: linear-gradient(90deg, transparent, rgba(244, 241, 234, 0.7), transparent);
   animation: shimmer 1.4s infinite;
 }
 
-/* accessible focus ring on interactive elements */
-a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-  outline: 2px solid theme("colors.ember.DEFAULT");
-  outline-offset: 2px;
-  border-radius: 6px;
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid theme("colors.claret.DEFAULT");
+  outline-offset: 4px;
+}
+
+@media (max-width: 767px) {
+  .intro-seal {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fadeup { animation: none; }
-  .skeleton::after { animation: none; }
-}
+  html {
+    scroll-behavior: auto;
+  }
 
-/* Cinematic hero: warm ambient motion behind the headline, used as the video
-   poster / fallback so the hero looks alive even before a video asset exists. */
-@keyframes auroraShift {
-  0%   { transform: translate3d(-4%, -2%, 0) scale(1.1)  rotate(0deg); }
-  50%  { transform: translate3d(4%, 3%, 0)   scale(1.25) rotate(6deg); }
-  100% { transform: translate3d(-4%, -2%, 0) scale(1.1)  rotate(0deg); }
-}
-.hero-aurora { position: relative; overflow: hidden; background: #0c0809; }
-.hero-aurora::before {
-  content: "";
-  position: absolute;
-  inset: -25%;
-  background:
-    radial-gradient(38% 48% at 22% 34%, rgba(230, 169, 78, 0.50), transparent 62%),
-    radial-gradient(42% 52% at 80% 62%, rgba(214, 83, 107, 0.40), transparent 60%),
-    radial-gradient(46% 56% at 60% 20%, rgba(240, 200, 137, 0.26), transparent 60%);
-  filter: blur(48px);
-  animation: auroraShift 26s ease-in-out infinite;
-}
-/* fine film grain to kill banding and read "cinematic" */
-.hero-aurora::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.06;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  pointer-events: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-aurora::before { animation: none; }
-}
-
-/* Standalone film-grain overlay for the full-bleed hero. Same fractal noise as
-   the aurora, exposed as a utility so it can sit over the background video. */
-.film-grain::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.07;
-  mix-blend-mode: soft-light;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  pointer-events: none;
-}
-
-/* Very slow cinematic push-in on the hero video: a living frame, not a static
-   still. Disabled under reduced motion. */
-@keyframes heroKenBurns {
-  from { transform: scale(1.06); }
-  to   { transform: scale(1.14); }
-}
-.hero-kenburns { animation: heroKenBurns 32s ease-in-out infinite alternate; }
-@media (prefers-reduced-motion: reduce) {
-  .hero-kenburns { animation: none; transform: scale(1.02); }
+  .animate-fadeup,
+  .skeleton::after {
+    animation: none;
+  }
 }

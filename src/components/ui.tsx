@@ -1,12 +1,15 @@
 import Link from "next/link";
 
-export function Logo({ subtle = false }: { subtle?: boolean; light?: boolean }) {
+export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link href="/" className="inline-flex items-baseline">
-      <span className="font-display text-xl font-medium tracking-tight text-ink">
-        Meet Cute
-      </span>
-      {!subtle && <span className="sr-only">home</span>}
+    <Link
+      href="/"
+      className={`inline-flex items-center text-[13px] font-semibold uppercase tracking-[0.19em] ${
+        light ? "text-cream" : "text-ink"
+      }`}
+      aria-label="Meet Cute home"
+    >
+      Meet Cute
     </Link>
   );
 }

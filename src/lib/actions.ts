@@ -16,7 +16,16 @@ import {
   normalizeEmail,
   purgeExpiredAuth,
 } from "./auth";
-import { sendEmail, magicLinkEmail } from "./email";
+import {
+  sendEmail,
+  magicLinkEmail,
+  applicationReceivedEmail,
+  applicationApprovedEmail,
+  matchReminderEmail,
+  matchFeedbackEmail,
+  operatorLeadEmail,
+  requestReceivedEmail,
+} from "./email";
 import {
   normalizePhone,
   normalizeInstagram,
@@ -38,6 +47,7 @@ import { allowMemberDemoLogin, allowOperatorDemoLogin } from "./demo-login";
 import {
   makeDeliveryKey,
   queueConversationDelivery,
+  queueEmailDelivery,
   queueSmsDelivery,
   retryFailedDeliveryJob,
 } from "./delivery";
@@ -506,6 +516,27 @@ export async function completeApplication(
       recommendation: recommendation || null,
     },
   });
+
+  // Confirm receipt. Queued rather than sent inline so a provider hiccup retries
+  // instead of silently dropping the applicant's only confirmation. The
+  // application itself is already committed above, so this never blocks it.
+  if (email.includes("@")) {
+    try {
+      const msg = applicationReceivedEmail({ name, city });
+      await queueEmailDelivery({
+        kind: "application_received",
+        to: email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        personId: me!.id,
+        idempotencyKey: makeDeliveryKey("application_received", me!.id),
+      });
+    } catch (error) {
+      console.error(`[apply] could not queue confirmation: ${(error as Error).message}`);
+    }
+  }
+
   redirect("/apply/thanks");
 }
 
@@ -614,7 +645,29 @@ export async function setMemberStatus(formData: FormData) {
   const action = String(formData.get("action") || "");
   if (!id || !["approve", "decline"].includes(action)) throw new Error("invalid status change");
 
-  await setNonOperatorMemberStatus(op.id, id, action as "approve" | "decline");
+  const change = await setNonOperatorMemberStatus(op.id, id, action as "approve" | "decline");
+
+  // Welcome the new member: "you're in, you'll start getting matches." Queued
+  // through the outbox so a provider hiccup retries instead of stranding the
+  // approval. Best-effort - the status change already committed.
+  if (change.action === "approve" && change.email) {
+    try {
+      const base = (process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com").replace(/\/$/, "");
+      const msg = applicationApprovedEmail({ name: change.name, appUrl: `${base}/app` });
+      await queueEmailDelivery({
+        kind: "application_approved",
+        to: change.email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        idempotencyKey: makeDeliveryKey("application-approved", id, change.email),
+        personId: id,
+      });
+    } catch (error) {
+      console.error(`[studio] approval email failed: ${(error as Error).message}`);
+    }
+  }
+
   revalidatePath("/studio");
 }
 
@@ -945,8 +998,14 @@ export async function createIntroduction(formData: FormData) {
     prisma.person.findUnique({ where: { id: bId }, select: { id: true, name: true, phone: true, email: true, instagram: true, smsConsentAt: true, openToMatch: true, status: true } }),
   ]);
   if (!a || !b) throw new Error("One of those people no longer exists.");
-  if (a.status !== "active" || b.status !== "active" || !a.openToMatch || !b.openToMatch) {
-    throw new Error("Both people must be approved and ready to match.");
+  // An operator explicitly introducing two people IS the readiness decision, so
+  // this does not require the member-app `openToMatch` opt-in: that flag is a
+  // member's self-serve pause switch, and gating operator intros on it left every
+  // approved-but-not-yet-opted-in member unmatchable. The real consent point is
+  // unchanged - each person still has to answer Y to the double opt-in email
+  // before anyone is connected. We only require an active roster member here.
+  if (a.status !== "active" || b.status !== "active") {
+    throw new Error("Both people must be approved members before you can introduce them.");
   }
   // Email is the baseline opt-in channel (double opt-in link + Y/N reply); SMS is
   // sent only with separate SMS consent. Require one authorized channel each.
@@ -1055,6 +1114,7 @@ export async function createIntroduction(formData: FormData) {
     logIntroMessage({ matchId: intro.id, body: `Queued an invite for ${a.name.split(" ")[0]} to meet ${b.name.split(" ")[0]}.`, author: "bot", kind: "invite" }),
     logIntroMessage({ matchId: intro.id, body: `Queued an invite for ${b.name.split(" ")[0]} to meet ${a.name.split(" ")[0]}.`, author: "bot", kind: "invite" }),
   ]);
+  revalidatePath("/studio");
   revalidatePath("/studio/matchmaking");
   revalidatePath("/studio/conversations");
 }
@@ -1255,39 +1315,104 @@ export async function askForFeedback(formData: FormData) {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
-      personA: { select: { name: true, phone: true, smsConsentAt: true } },
-      personB: { select: { name: true, phone: true, smsConsentAt: true } },
+      personA: { select: { name: true, email: true, phone: true, smsConsentAt: true } },
+      personB: { select: { name: true, email: true, phone: true, smsConsentAt: true } },
     },
   });
   if (!match) throw new Error("No such introduction.");
 
   const jobs: Promise<unknown>[] = [];
   const window = deliveryWindow();
-  if (match.personA.phone && match.personA.smsConsentAt) {
-    jobs.push(queueSmsDelivery({
-      kind: "feedback_request",
-      to: match.personA.phone,
-      body: feedbackRequestSMS({ toName: match.personA.name, otherName: match.personB.name, operatorName: op.name }),
-      idempotencyKey: makeDeliveryKey("feedback", matchId, match.personAId, window),
-      matchId,
-      personId: match.personAId,
-    }));
-  }
-  if (match.personB.phone && match.personB.smsConsentAt) {
-    jobs.push(queueSmsDelivery({
-      kind: "feedback_request",
-      to: match.personB.phone,
-      body: feedbackRequestSMS({ toName: match.personB.name, otherName: match.personA.name, operatorName: op.name }),
-      idempotencyKey: makeDeliveryKey("feedback", matchId, match.personBId, window),
-      matchId,
-      personId: match.personBId,
-    }));
+  const sides = [
+    { me: match.personA, other: match.personB, id: match.personAId },
+    { me: match.personB, other: match.personA, id: match.personBId },
+  ];
+  for (const { me, other, id } of sides) {
+    // Email is the baseline "how was your Meet Cute?" channel; SMS only with consent.
+    if (me.email) {
+      const msg = matchFeedbackEmail({ toName: me.name, otherName: other.name });
+      jobs.push(queueEmailDelivery({
+        kind: "match_feedback_email",
+        to: me.email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        idempotencyKey: makeDeliveryKey("feedback-email", matchId, id, window),
+        matchId,
+        personId: id,
+      }));
+    }
+    if (me.phone && me.smsConsentAt) {
+      jobs.push(queueSmsDelivery({
+        kind: "feedback_request",
+        to: me.phone,
+        body: feedbackRequestSMS({ toName: me.name, otherName: other.name, operatorName: op.name }),
+        idempotencyKey: makeDeliveryKey("feedback", matchId, id, window),
+        matchId,
+        personId: id,
+      }));
+    }
   }
   await Promise.all(jobs);
   await prisma.match.update({
     where: { id: matchId },
     data: { followUpAt: new Date(Date.now() + 7 * 24 * 3600 * 1000) },
   });
+  revalidatePath("/studio/matchmaking");
+  revalidatePath(`/studio/conversations/${matchId}`);
+}
+
+// Operator: nudge a connected pair to actually meet ("reminder to meet"). Emails
+// each side (baseline) and texts anyone who consented to SMS. Idempotent within a
+// 5-minute window so a double click does not double-send.
+export async function remindToMeet(formData: FormData) {
+  const op = await requireOperator();
+  if (!op) throw new Error("operators only");
+  const matchId = String(formData.get("matchId") || "");
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      personA: { select: { name: true, email: true, phone: true, smsConsentAt: true, city: true } },
+      personB: { select: { name: true, email: true, phone: true, smsConsentAt: true, city: true } },
+    },
+  });
+  if (!match) throw new Error("No such introduction.");
+
+  const city = match.personA.city || match.personB.city || null;
+  const window = deliveryWindow();
+  const jobs: Promise<unknown>[] = [];
+  const sides = [
+    { me: match.personA, other: match.personB, id: match.personAId },
+    { me: match.personB, other: match.personA, id: match.personBId },
+  ];
+  for (const { me, other, id } of sides) {
+    if (me.email) {
+      const msg = matchReminderEmail({ toName: me.name, otherName: other.name, city });
+      jobs.push(queueEmailDelivery({
+        kind: "match_reminder_email",
+        to: me.email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        idempotencyKey: makeDeliveryKey("meet-reminder-email", matchId, id, window),
+        matchId,
+        personId: id,
+      }));
+    }
+    if (me.phone && me.smsConsentAt) {
+      jobs.push(queueSmsDelivery({
+        kind: "meet_reminder_sms",
+        to: me.phone,
+        body: `Hi ${me.name.split(" ")[0]}, a nudge from Meet Cute: you and ${other.name.split(" ")[0]} both said yes. Reply to your intro thread and find a time this week.`,
+        idempotencyKey: makeDeliveryKey("meet-reminder-sms", matchId, id, window),
+        matchId,
+        personId: id,
+      }));
+    }
+  }
+  if (jobs.length === 0) throw new Error("Neither person has an email or text channel on file.");
+  await Promise.all(jobs);
+  await logIntroMessage({ matchId, body: "Sent a reminder to meet to both people.", author: "operator", kind: "operator" });
   revalidatePath("/studio/matchmaking");
   revalidatePath(`/studio/conversations/${matchId}`);
 }
@@ -1395,4 +1520,143 @@ export async function messagePerson(formData: FormData) {
   // Log it so the thread is auditable from the person's record.
   await prisma.note.create({ data: { subjectId: personId, authorId: op.id, body: `[SMS queued] ${message}`, kind: "general" } });
   revalidatePath("/studio/matchmaking");
+}
+
+// --- public intake: dinner seat + coaching requests -------------------------
+//
+// Lightweight lead capture from the public marketing pages. Both notify the
+// operator inbox and send the requester a confirmation, so a "Request a seat" or
+// "Apply for coaching" click is a real, acknowledged action rather than a link to
+// the generic apply form. Signed-in members also get their interest recorded on
+// the dinner guest list.
+
+function operatorInbox(): string {
+  return process.env.OPERATOR_INBOX || process.env.RESEND_REPLY_TO || "josh@shiftsupportnetwork.com";
+}
+
+// Coarse time bucket used in intake idempotency keys. Double-submitting the same
+// form collapses into one queued email, while a genuine later request from the
+// same person still gets through.
+function requestBucket(): string {
+  return String(Math.floor(Date.now() / (15 * 60 * 1000)));
+}
+
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  const xff = h.get("x-forwarded-for");
+  return (
+    h.get("fly-client-ip") ||
+    (xff ? xff.split(",").map((s) => s.trim()).filter(Boolean).at(-1) : "") ||
+    h.get("x-real-ip") ||
+    "anon"
+  ).trim();
+}
+
+export async function requestDinnerSeat(formData: FormData) {
+  const dinnerId = String(formData.get("dinnerId") || "");
+  const note = String(formData.get("note") || "").trim().slice(0, 600);
+  const me = await getCurrentPerson();
+
+  const ip = await clientIp();
+  if (!(await rateLimit(`dinnerreq:ip:${ip}`, 15, 60 * 60 * 1000)).ok) {
+    redirect("/dinners?requested=1");
+  }
+
+  const name = (me?.name || String(formData.get("name") || "")).trim().slice(0, 80);
+  const email = normalizeEmail(me?.email || String(formData.get("email") || ""));
+  if (!name || !email.includes("@")) redirect("/dinners?error=missing");
+
+  const dinner = dinnerId ? await prisma.dinner.findUnique({ where: { id: dinnerId } }) : null;
+  const context = dinner
+    ? `${dinner.theme || "Meet Cute Dinner"} - ${dinner.city}, ${dinner.date.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`
+    : "an upcoming Meet Cute dinner";
+
+  // Signed-in member: record their interest on the guest list so it surfaces in
+  // the operator's event view. The operator still confirms the actual seat.
+  if (me && dinner) {
+    await prisma.dinnerAttendee.upsert({
+      where: { dinnerId_personId: { dinnerId: dinner.id, personId: me.id } },
+      create: { dinnerId: dinner.id, personId: me.id, status: "invited" },
+      update: {},
+    });
+  }
+
+  // Queue through the delivery outbox rather than sending inline. A direct send
+  // that fails would lose the lead outright: the requester is told a matchmaker
+  // will follow up, but nothing is recorded anywhere. Queued jobs retry and
+  // surface to operators when they end up failing.
+  const bucket = requestBucket();
+  const lead = operatorLeadEmail({ kind: "dinner", name, email, detail: note, context });
+  const ack = requestReceivedEmail({ name, kind: "dinner", context });
+  try {
+    await queueEmailDelivery({
+      kind: "dinner_request_lead",
+      to: operatorInbox(),
+      subject: lead.subject,
+      html: lead.html,
+      text: lead.text,
+      replyTo: email,
+      idempotencyKey: makeDeliveryKey("dinner_lead", dinner?.id || "none", email, bucket),
+    });
+    await queueEmailDelivery({
+      kind: "dinner_request_ack",
+      to: email,
+      subject: ack.subject,
+      html: ack.html,
+      text: ack.text,
+      idempotencyKey: makeDeliveryKey("dinner_ack", dinner?.id || "none", email, bucket),
+    });
+  } catch (error) {
+    console.error(`[dinner-request] could not queue request: ${(error as Error).message}`);
+    redirect("/dinners?error=send");
+  }
+
+  revalidatePath("/dinners");
+  redirect("/dinners?requested=1");
+}
+
+export async function requestCoaching(formData: FormData) {
+  const me = await getCurrentPerson();
+  const typeRaw = String(formData.get("type") || "dating");
+  const type = typeRaw === "couples" ? "couples" : "dating";
+  const note = String(formData.get("note") || "").trim().slice(0, 600);
+
+  const ip = await clientIp();
+  if (!(await rateLimit(`coachreq:ip:${ip}`, 15, 60 * 60 * 1000)).ok) {
+    redirect("/coaching?requested=1");
+  }
+
+  const name = (me?.name || String(formData.get("name") || "")).trim().slice(0, 80);
+  const email = normalizeEmail(me?.email || String(formData.get("email") || ""));
+  if (!name || !email.includes("@")) redirect("/coaching?error=missing");
+
+  const context = type === "couples" ? "Couples coaching" : "Dating coaching";
+  // Queued for the same reason as the dinner request above: a failed inline send
+  // would silently drop the lead after telling the requester we had it.
+  const bucket = requestBucket();
+  const lead = operatorLeadEmail({ kind: "coaching", name, email, detail: note, context });
+  const ack = requestReceivedEmail({ name, kind: "coaching", context });
+  try {
+    await queueEmailDelivery({
+      kind: "coaching_request_lead",
+      to: operatorInbox(),
+      subject: lead.subject,
+      html: lead.html,
+      text: lead.text,
+      replyTo: email,
+      idempotencyKey: makeDeliveryKey("coaching_lead", type, email, bucket),
+    });
+    await queueEmailDelivery({
+      kind: "coaching_request_ack",
+      to: email,
+      subject: ack.subject,
+      html: ack.html,
+      text: ack.text,
+      idempotencyKey: makeDeliveryKey("coaching_ack", type, email, bucket),
+    });
+  } catch (error) {
+    console.error(`[coaching-request] could not queue request: ${(error as Error).message}`);
+    redirect("/coaching?error=send");
+  }
+  redirect("/coaching?requested=1");
 }

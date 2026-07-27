@@ -1,28 +1,46 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
 
-// Shared footer. Carries the secondary nav so mobile users (where the header
-// collapses those links) still have a path to Dinners, Coaching, and Sign in.
 export function SiteFooter() {
   return (
-    <footer className="border-t border-line bg-cream">
-      <div className="container-mc flex flex-col gap-8 py-section-md sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Logo subtle />
-          <nav aria-label="Footer navigation" className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
-            <Link href="/dinners" className="-my-1 py-1 transition-colors hover:text-ink">Dinners</Link>
-            <Link href="/coaching" className="-my-1 py-1 transition-colors hover:text-ink">Coaching</Link>
-            <Link href="/login" className="-my-1 py-1 transition-colors hover:text-ink">Sign in</Link>
-            <Link href="/studio/login" className="-my-1 py-1 transition-colors hover:text-ink">Studio</Link>
-            <Link href="/apply" className="-my-1 py-1 transition-colors hover:text-ink">Apply</Link>
-            <Link href="/privacy" className="-my-1 py-1 transition-colors hover:text-ink">Privacy Policy</Link>
-            <Link href="/terms" className="-my-1 py-1 transition-colors hover:text-ink">Terms of Service</Link>
+    <footer className="bg-ink text-cream">
+      <div className="container-mc grid gap-16 py-16 md:grid-cols-12 md:py-section-md">
+        <div className="md:col-span-5">
+          <Logo light />
+          <p className="mt-6 max-w-[28ch] font-display text-3xl leading-tight text-cream/85">
+            Private introductions for people ready to meet in real life.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-10 text-sm md:col-span-5 md:col-start-8">
+          <nav aria-label="Footer navigation" className="flex flex-col items-start gap-3 text-cream/65">
+            <Link href="/dinners" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">
+              Dinners
+            </Link>
+            <Link href="/coaching" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">
+              Coaching
+            </Link>
+            <Link href="/login" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">
+              Member sign in
+            </Link>
+            <Link href="/apply" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">
+              Apply
+            </Link>
+          </nav>
+          <nav aria-label="Legal navigation" className="flex flex-col items-start gap-3 text-cream/65">
+            <Link href="/privacy" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">
+              Privacy
+            </Link>
+            <Link href="/terms" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">
+              Terms
+            </Link>
           </nav>
         </div>
-        <div className="text-sm text-muted sm:text-right">
-          <p className="font-medium text-ink">NYC &middot; San Francisco</p>
-          <p className="mt-1">&copy; {new Date().getFullYear()} Meet Cute</p>
-        </div>
+      </div>
+
+      <div className="container-mc flex flex-col gap-3 border-t border-cream/15 py-6 text-xs text-cream/55 sm:flex-row sm:items-center sm:justify-between">
+        <p>New York + San Francisco</p>
+        <p>&copy; {new Date().getFullYear()} Meet Cute</p>
       </div>
     </footer>
   );

@@ -13,8 +13,8 @@ export default async function Home() {
   if (!me.openToMatch) {
     return (
       <div className="mx-auto max-w-xl animate-fadeup px-4 py-16 text-center">
-        <div className="font-display text-6xl font-light text-claret/20">&#9829;</div>
-        <h1 className="mt-8 font-display text-4xl font-medium">Ready to meet someone?</h1>
+        <p className="label text-claret">Your membership</p>
+        <h1 className="mt-6 font-display text-4xl font-medium">Ready to meet someone?</h1>
         <p className="mx-auto mt-4 max-w-md text-lg leading-relaxed text-muted">
           Opt in and your matchmaker starts looking for the right introduction for you. If they find
           one, Meet Cute will email you a private introduction. You can say yes or pass privately,
@@ -36,8 +36,8 @@ export default async function Home() {
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
-      <div className="font-display text-6xl font-light text-claret/20">&#9829;</div>
-      <h1 className="mt-8 font-display text-4xl font-medium">You are on the list.</h1>
+      <p className="label text-claret">Your membership</p>
+      <h1 className="mt-6 font-display text-4xl font-medium">You are on the list.</h1>
       <p className="mx-auto mt-4 max-w-md text-lg leading-relaxed text-muted">
         Your matchmaker is looking for your next introduction. When they find a fit, Meet Cute will
         email you a private introduction. You can decide privately from the email or profile page. A
