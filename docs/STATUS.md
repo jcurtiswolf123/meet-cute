@@ -2,7 +2,89 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-24 (operator walkthrough delivered to Jess)
+Last updated: 2026-07-26 (Raya-leaning redesign + lifecycle emails, dinner/coaching intake, photo upload, matches history)
+
+## 2026-07-26: redesign + lifecycle emails + intake + photos + matches history
+- **Landing redesign toward Raya restraint.** The hero is now a dark ink field
+  with a cream Instrument-serif headline (`components/Hero.tsx`), the header
+  supports a `light` overlay treatment for the dark hero
+  (`components/SiteHeader.tsx`), the homepage rhythm alternates ink -> cream and
+  gained a Coaching teaser (`src/app/page.tsx`). No hero photography or gradients
+  (per `DESIGN.md`); type and negative space carry it.
+- **Lifecycle emails (new `email.ts` brand shell + 4 templates).** All wrapped in
+  one restrained shell (cream canvas, ink text, oxblood accent):
+  - `applicationReceivedEmail` - sent immediately on application submit
+    (`completeApplication`).
+  - `applicationApprovedEmail` - "you're in, you'll start getting matches" queued
+    through the outbox when an operator approves an applicant (`setMemberStatus`
+    -> `setNonOperatorMemberStatus` now returns the recipient).
+  - `matchReminderEmail` - "reminder to meet"; new operator action `remindToMeet`
+    (email + SMS) surfaced on the connected conversation view.
+  - `matchFeedbackEmail` - "how was your Meet Cute"; `askForFeedback` now emails
+    both sides in addition to texting.
+  - `operatorLeadEmail` / `requestReceivedEmail` back the intake flows below.
+- **Dinner + coaching intake.** `requestDinnerSeat` and `requestCoaching` server
+  actions notify the operator inbox and confirm to the requester (IP
+  rate-limited). Signed-in members requesting a dinner also land on that dinner's
+  guest list. `/dinners` has an inline "Request a seat" form per dinner; `/coaching`
+  has an "Apply for coaching" form (dating vs couples).
+- **Application photo upload.** `apply/PhotoUpload.tsx` posts to the existing
+  `/api/photos` (normalizes/strips EXIF, stores as `pending`), shown prominently
+  above the apply form. Up to 6; inline remove.
+- **Operator "Matches" history.** New `/studio/matches` page (heart nav item)
+  lists every introduction grouped Connected / In progress / Closed - the
+  read-only "people I've matched" ledger complementing the Directory composer.
+- **QA (local isolated Postgres):** typecheck + lint clean; production build
+  green (route `/studio/matches` present). Suites passing: operator roles, match
+  email journey, delivery outbox. Public pages screenshotted (dark hero,
+  coaching intake). Authed pages verified 200 with expected content via minted
+  sessions: `/studio/matches` (empty state + grouped rows), `/studio` (Make a
+  match), `/apply` (photo uploader + full form, confirmed via a11y snapshot, no
+  console errors).
+- **Known dev-only flake (unchanged, not a regression):** the member-application
+  Playwright e2e (`test:journey:application`) times out on `getByLabel('First
+  name')` against the Turbopack dev server. Verified environmental by reproducing
+  the identical failure with the pre-change apply page stashed; the signed-in form
+  renders correctly under manual/browser QA.
+
+## 2026-07-26: match directly from the Directory + auto-email QA
+- The Studio Directory (`/studio`) now carries a collapsible "Make a match"
+  composer, so an operator can introduce two members without leaving the roster.
+  Matchmaking still exists but is no longer the only entry point. The composer
+  lists every active member who has an authorized channel (email, or a textable
+  phone with SMS consent).
+- Relaxed the `createIntroduction` gate: an operator introducing two people is
+  itself the readiness decision, so it no longer requires the member-app
+  `openToMatch` opt-in. That flag is a member's self-serve pause switch; gating
+  operator intros on it made every approved-but-not-yet-opted-in member
+  unmatchable. Consent is unchanged - each person still has to answer Y to the
+  double opt-in email before anyone is connected. Only active roster membership
+  is required. Creating an intro now revalidates `/studio` too.
+- Auto-emails after a match were verified end to end against an isolated local
+  PostgreSQL database, on two active members who had never toggled
+  `openToMatch`:
+  - The moment the match is made, two double opt-in invite emails go out, one
+    per person ("You've been matched with ...").
+  - On mutual Y, exactly one joint connection thread email is sent ("... you
+    both said yes") and the match moves to `connected`.
+  - A decline closes the introduction with no connection email.
+  `scripts/demo-match-emails.ts` is the reusable, local-only harness that prints
+  every queued email (recipient, subject, body) for this walkthrough.
+- QA on the isolated local DB (all green): match email journey, introduction
+  race, delivery outbox, operator roles, and the full member application journey
+  (signup token, email-first opt-in and pause, profile creation,
+  operator-visible profile). Type checking is clean.
+- Known dev-only flake: the operator-portal Playwright e2e
+  (`test:launch:roles:e2e`) intermittently times out waiting for the sidebar
+  hover under Turbopack HMR. The Directory itself was visually reviewed and the
+  make-a-match composer confirmed present with the expected member list.
+
+## 2026-07-26: operator walkthrough resent
+- Recovered the original July 24 email from conversation history and resent the
+  same 1,308-character body, subject, and eight-page PDF attachment to
+  `jesswolflord@gmail.com` from `josh@shiftsupportnetwork.com`.
+- The authenticated sender returned `SENT`. The new delivery log records status
+  `sent`, the intended recipient, and timestamp `2026-07-26T08:44:22`.
 
 ## 2026-07-24: operator walkthrough delivered
 - Replaced the short operator notes with a detailed guide covering member

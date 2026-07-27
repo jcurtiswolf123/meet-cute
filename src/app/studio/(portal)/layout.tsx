@@ -10,6 +10,7 @@ const STUDIO_SECTIONS: SidebarSection[] = [
     items: [
       { href: "/studio/matchmaking", label: "Matchmaking", icon: "sparkles" },
       { href: "/studio/conversations", label: "Conversations", icon: "message" },
+      { href: "/studio/matches", label: "Matches", icon: "heart" },
       { href: "/studio", label: "Directory", icon: "users" },
       { href: "/studio/pipeline", label: "Status", icon: "columns" },
     ],

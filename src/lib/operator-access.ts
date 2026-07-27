@@ -88,11 +88,17 @@ export async function revokeOperatorAccount(actorId: string, targetId: string) {
   });
 }
 
+export type MemberStatusChange = {
+  action: "approve" | "decline";
+  email: string | null;
+  name: string;
+};
+
 export async function setNonOperatorMemberStatus(
   actorId: string,
   targetId: string,
   action: "approve" | "decline",
-) {
+): Promise<MemberStatusChange> {
   return prisma.$transaction(async (tx) => {
     const actor = await tx.person.findUnique({
       where: { id: actorId },
@@ -113,5 +119,12 @@ export async function setNonOperatorMemberStatus(
     if (action === "decline") {
       await tx.session.deleteMany({ where: { personId: targetId } });
     }
+    // Return the recipient so the caller can send the welcome email outside the
+    // transaction (never send mail while holding a DB lock).
+    const person = await tx.person.findUnique({
+      where: { id: targetId },
+      select: { email: true, name: true },
+    });
+    return { action, email: person?.email ?? null, name: person?.name ?? "" };
   });
 }

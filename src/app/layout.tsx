@@ -1,23 +1,19 @@
 import type { Metadata } from "next";
-import { Fraunces, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-// "Warm Daylight" type system. Fraunces is a soft, warm, high-optical-contrast
-// old-style serif with real personality (gentle wedge serifs, friendly curves)
-// that reads inviting rather than icy-formal. Hanken Grotesk is the warm humanist
-// body grotesque. JetBrains Mono sets the small-caps eyebrow labels.
-const display = Fraunces({
+const display = Instrument_Serif({
   subsets: ["latin"],
-  style: "normal",
+  weight: "400",
   variable: "--font-display",
   display: "optional",
 });
 
-const sans = Hanken_Grotesk({
+const sans = Instrument_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
-  display: "optional",
+  display: "swap",
 });
 
 const mono = JetBrains_Mono({
@@ -30,17 +26,17 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://meet-cute.fly.dev"),
   title: {
-    default: "Meet Cute - premium matchmaking",
+    default: "Meet Cute - private matchmaking",
     template: "%s · Meet Cute",
   },
-  description: "We help you meet, date, and stay together. Curated introductions, by invitation only. NYC and SF.",
+  description:
+    "Private, one-to-one introductions made by a real matchmaker in New York and San Francisco.",
   openGraph: {
-    title: "Meet Cute - premium matchmaking",
-    description: "We help you meet, date, and stay together. By introduction only.",
+    title: "Meet Cute - private matchmaking",
+    description: "Meet someone worth knowing. One private introduction at a time.",
     type: "website",
-    images: [{ url: "/og.jpg", width: 1408, height: 768, alt: "Two people laughing over coffee" }],
   },
-  twitter: { card: "summary_large_image", images: ["/og.jpg"] },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { Avatar } from "@/components/ui";
 import { retryDeliveryJob, setMemberStatus } from "@/lib/actions";
+import { IntroComposer } from "./matchmaking/IntroComposer";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function Roster({
 }: {
   searchParams: Promise<{ q?: string; city?: string; gender?: string; sort?: string }>;
 }) {
-  await requireOperatorPage();
+  const me = await requireOperatorPage();
   const sp = await searchParams;
   const q = (sp.q ?? "").toLowerCase();
 
@@ -45,6 +46,25 @@ export default async function Roster({
   if (sp.sort === "vouches") enriched.sort((a, b) => b.vouches - a.vouches);
   else if (sp.sort === "stale") enriched.sort((a, b) => (a.lastSuggested?.getTime() ?? 0) - (b.lastSuggested?.getTime() ?? 0));
   else enriched.sort((a, b) => a.p.name.localeCompare(b.p.name));
+
+  // People the operator can introduce straight from the directory. Anyone active
+  // with an authorized channel (an email, or a textable phone plus SMS consent)
+  // qualifies - the double opt-in email is the member's consent point, so this
+  // intentionally does not wait on the member-app `openToMatch` toggle. The list
+  // reuses the already-fetched scalar fields, so no extra query is needed.
+  const composerPeople = people
+    .filter((p) => p.email || (p.phone && p.smsConsentAt))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      email: p.email,
+      phone: p.phone,
+      canText: !!p.smsConsentAt,
+      city: p.city,
+      instagram: p.instagram,
+      blurb: (p.bio || p.lookingFor || "").trim(),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   // metrics
   // Accept rate is measured within the application funnel: of people who actually
@@ -116,6 +136,18 @@ export default async function Roster({
           <div className="ledger-label">Together</div>
         </div>
       </div>
+
+      {/* Make a match without leaving the directory. Pick two members, add a
+          line about each, and send the double opt-in introductions in one step. */}
+      <details open className="mt-6">
+        <summary className="cursor-pointer list-none">
+          <span className="label text-claret">Make a match</span>
+          <span className="ml-2 text-sm text-muted">Introduce two members straight from the roster.</span>
+        </summary>
+        <div className="mt-3">
+          <IntroComposer people={composerPeople} operatorName={me.name} />
+        </div>
+      </details>
 
       {failedDeliveries.length > 0 && (
         <section

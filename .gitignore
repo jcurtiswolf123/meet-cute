@@ -20,3 +20,6 @@ prisma/*.db
 tsconfig.tsbuildinfo
 
 graphify-out/
+
+# playwright-mcp browser artifacts (local QA)
+.playwright-mcp/

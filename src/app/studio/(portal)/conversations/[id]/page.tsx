@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { conversationHealth, toneClass, relativeAge } from "@/lib/conversation-health";
-import { messageGroup, resendIntro, closeIntroduction, askForFeedback } from "@/lib/actions";
+import { messageGroup, resendIntro, closeIntroduction, askForFeedback, remindToMeet } from "@/lib/actions";
 import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
@@ -142,12 +142,20 @@ export default async function ConversationDetail({ params }: { params: Promise<{
       {/* operator quick actions, scoped to the intro's stage */}
       <div className="flex flex-wrap items-center gap-3">
         {isConnected && (
-          <form action={askForFeedback}>
-            <input type="hidden" name="matchId" value={match.id} />
-            <SubmitButton className="btn-ghost text-sm" pendingText="Texting...">
-              Ask how it went
-            </SubmitButton>
-          </form>
+          <>
+            <form action={remindToMeet}>
+              <input type="hidden" name="matchId" value={match.id} />
+              <SubmitButton className="btn-ghost text-sm" pendingText="Sending...">
+                Remind them to meet
+              </SubmitButton>
+            </form>
+            <form action={askForFeedback}>
+              <input type="hidden" name="matchId" value={match.id} />
+              <SubmitButton className="btn-ghost text-sm" pendingText="Sending...">
+                Ask how it went
+              </SubmitButton>
+            </form>
+          </>
         )}
         {isPending && (
           <>

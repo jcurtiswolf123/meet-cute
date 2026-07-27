@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "nodejs";
-export const alt = "Meet Cute - premium matchmaking";
+export const alt = "Meet Cute - private matchmaking";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -15,7 +15,7 @@ export default async function OG() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: "#fbf5ec",
+          background: "#f4f1ea",
           padding: "72px",
           fontFamily: "Georgia, serif",
         }}
@@ -24,8 +24,12 @@ export default async function OG() {
           style={{
             display: "flex",
             alignItems: "center",
-            fontSize: 34,
-            color: "#382a20",
+            color: "#171714",
+            fontFamily: "Arial, sans-serif",
+            fontSize: 22,
+            fontWeight: 700,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
           }}
         >
           Meet Cute
@@ -36,24 +40,23 @@ export default async function OG() {
               display: "flex",
               flexWrap: "wrap",
               fontSize: 78,
-              color: "#382a20",
+              color: "#171714",
               lineHeight: 1.05,
               maxWidth: 980,
             }}
           >
-            <span>We help you&nbsp;</span>
-            <span style={{ color: "#d76a45", fontStyle: "italic" }}>meet</span>
-            <span>, date, and stay together.</span>
+            <span>Meet someone worth knowing.</span>
           </div>
           <div
             style={{
               display: "flex",
               fontSize: 30,
-              color: "#7d6f62",
+              color: "#67635d",
               marginTop: 24,
+              fontFamily: "Arial, sans-serif",
             }}
           >
-            Premium matchmaking, by introduction only. NYC + SF.
+            Private matchmaking. One introduction at a time. NYC + SF.
           </div>
         </div>
       </div>
