@@ -517,14 +517,23 @@ export async function completeApplication(
     },
   });
 
-  // Confirm receipt immediately. Best-effort: a mail hiccup must never block the
-  // application from being recorded (we already committed above).
+  // Confirm receipt. Queued rather than sent inline so a provider hiccup retries
+  // instead of silently dropping the applicant's only confirmation. The
+  // application itself is already committed above, so this never blocks it.
   if (email.includes("@")) {
     try {
       const msg = applicationReceivedEmail({ name, city });
-      await sendEmail({ to: email, subject: msg.subject, html: msg.html, text: msg.text });
+      await queueEmailDelivery({
+        kind: "application_received",
+        to: email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        personId: me!.id,
+        idempotencyKey: makeDeliveryKey("application_received", me!.id),
+      });
     } catch (error) {
-      console.error(`[apply] confirmation email failed: ${(error as Error).message}`);
+      console.error(`[apply] could not queue confirmation: ${(error as Error).message}`);
     }
   }
 
@@ -1525,6 +1534,13 @@ function operatorInbox(): string {
   return process.env.OPERATOR_INBOX || process.env.RESEND_REPLY_TO || "josh@shiftsupportnetwork.com";
 }
 
+// Coarse time bucket used in intake idempotency keys. Double-submitting the same
+// form collapses into one queued email, while a genuine later request from the
+// same person still gets through.
+function requestBucket(): string {
+  return String(Math.floor(Date.now() / (15 * 60 * 1000)));
+}
+
 async function clientIp(): Promise<string> {
   const h = await headers();
   const xff = h.get("x-forwarded-for");
@@ -1565,13 +1581,34 @@ export async function requestDinnerSeat(formData: FormData) {
     });
   }
 
+  // Queue through the delivery outbox rather than sending inline. A direct send
+  // that fails would lose the lead outright: the requester is told a matchmaker
+  // will follow up, but nothing is recorded anywhere. Queued jobs retry and
+  // surface to operators when they end up failing.
+  const bucket = requestBucket();
+  const lead = operatorLeadEmail({ kind: "dinner", name, email, detail: note, context });
+  const ack = requestReceivedEmail({ name, kind: "dinner", context });
   try {
-    const lead = operatorLeadEmail({ kind: "dinner", name, email, detail: note, context });
-    await sendEmail({ to: operatorInbox(), subject: lead.subject, html: lead.html, text: lead.text });
-    const ack = requestReceivedEmail({ name, kind: "dinner", context });
-    await sendEmail({ to: email, subject: ack.subject, html: ack.html, text: ack.text });
+    await queueEmailDelivery({
+      kind: "dinner_request_lead",
+      to: operatorInbox(),
+      subject: lead.subject,
+      html: lead.html,
+      text: lead.text,
+      replyTo: email,
+      idempotencyKey: makeDeliveryKey("dinner_lead", dinner?.id || "none", email, bucket),
+    });
+    await queueEmailDelivery({
+      kind: "dinner_request_ack",
+      to: email,
+      subject: ack.subject,
+      html: ack.html,
+      text: ack.text,
+      idempotencyKey: makeDeliveryKey("dinner_ack", dinner?.id || "none", email, bucket),
+    });
   } catch (error) {
-    console.error(`[dinner-request] email failed: ${(error as Error).message}`);
+    console.error(`[dinner-request] could not queue request: ${(error as Error).message}`);
+    redirect("/dinners?error=send");
   }
 
   revalidatePath("/dinners");
@@ -1594,13 +1631,32 @@ export async function requestCoaching(formData: FormData) {
   if (!name || !email.includes("@")) redirect("/coaching?error=missing");
 
   const context = type === "couples" ? "Couples coaching" : "Dating coaching";
+  // Queued for the same reason as the dinner request above: a failed inline send
+  // would silently drop the lead after telling the requester we had it.
+  const bucket = requestBucket();
+  const lead = operatorLeadEmail({ kind: "coaching", name, email, detail: note, context });
+  const ack = requestReceivedEmail({ name, kind: "coaching", context });
   try {
-    const lead = operatorLeadEmail({ kind: "coaching", name, email, detail: note, context });
-    await sendEmail({ to: operatorInbox(), subject: lead.subject, html: lead.html, text: lead.text });
-    const ack = requestReceivedEmail({ name, kind: "coaching", context });
-    await sendEmail({ to: email, subject: ack.subject, html: ack.html, text: ack.text });
+    await queueEmailDelivery({
+      kind: "coaching_request_lead",
+      to: operatorInbox(),
+      subject: lead.subject,
+      html: lead.html,
+      text: lead.text,
+      replyTo: email,
+      idempotencyKey: makeDeliveryKey("coaching_lead", type, email, bucket),
+    });
+    await queueEmailDelivery({
+      kind: "coaching_request_ack",
+      to: email,
+      subject: ack.subject,
+      html: ack.html,
+      text: ack.text,
+      idempotencyKey: makeDeliveryKey("coaching_ack", type, email, bucket),
+    });
   } catch (error) {
-    console.error(`[coaching-request] email failed: ${(error as Error).message}`);
+    console.error(`[coaching-request] could not queue request: ${(error as Error).message}`);
+    redirect("/coaching?error=send");
   }
   redirect("/coaching?requested=1");
 }
