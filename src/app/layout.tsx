@@ -42,6 +42,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+      <head>
+        {/* Scroll reveals render at opacity 0 and are animated in by the client
+            bundle. Without JavaScript nothing would ever reveal them, leaving the
+            marketing pages blank below the hero, so force them visible instead. */}
+        <noscript>
+          <style>{"[data-reveal]{opacity:1!important;transform:none!important}"}</style>
+        </noscript>
+      </head>
       <body className="font-sans antialiased">
         {children}
       </body>

@@ -20,7 +20,11 @@ export function Reveal({
   const reduce = useReducedMotion();
   if (reduce) return <div className={className}>{children}</div>;
   return (
+    // data-reveal is the hook the <noscript> fallback in the root layout uses to
+    // force this content visible. The server renders opacity:0 here, so without
+    // that fallback a browser with JavaScript disabled would show an empty page.
     <motion.div
+      data-reveal=""
       className={className}
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
