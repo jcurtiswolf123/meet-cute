@@ -34,6 +34,9 @@ export function SiteFooter() {
             <Link href="/terms" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">
               Terms
             </Link>
+            <Link href="/sms-opt-in" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">
+              SMS opt-in
+            </Link>
           </nav>
         </div>
       </div>

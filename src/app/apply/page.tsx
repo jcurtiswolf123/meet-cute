@@ -40,6 +40,16 @@ export default async function Apply() {
                 Sign in
               </Link>
             </p>
+            {/* The consent step lives inside the signed-in form, so link the
+                public, sign-in-free view of it here for anyone (including
+                carrier and registry reviewers) who cannot get past this wall. */}
+            <p className="text-center text-xs text-muted">
+              Want to see how we ask permission to text you first?{" "}
+              <Link href="/sms-opt-in" className="text-claret underline">
+                Read our SMS opt-in
+              </Link>
+              .
+            </p>
           </form>
         </div>
       </main>
