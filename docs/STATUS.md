@@ -30,14 +30,29 @@ Shipped and verified live:
   text field hostile at once. Two double-escaped headlines fixed ("Ben &amp;amp;
   Jerry").
 
-Still open, explicitly not started:
+Redesign pass, also shipped and verified:
 
-- **The redesign proper.** The console is neutral but the page canvas and metric
-  ledger still inherit the warm cream, and the layout has not been restructured
-  against the Twenty / Raya reference. This is the bulk of the design ask.
-- **Logo.** Not generated.
-- **Page-by-page design QA.** Only the Directory was reviewed after the restyle.
-  Pre-change screenshots of every studio page are in the session scratchpad.
+- **The console is fully greyscale.** The shell served the warm marketing
+  surfaces (`bg-paper` canvas, serif numerals, a claret top rule on the feature
+  card) and the shared chrome kept the serif in the sidebar wordmark, its
+  collapsed initial, and the avatar, so every page still rendered it. Canvas is
+  now white on a neutral page, numerals are sans with tabular figures, and the
+  two alert blocks trade their claret wash for a dark left rule on near-white.
+  Emphasis comes from position, weight, and a rule rather than hue, which is
+  what keeps a dense console readable across a working day.
+- **Verified across all seven studio pages:** no `.font-display` anywhere, no
+  runtime errors, no horizontal overflow. The public marketing site still
+  renders the serif, which is deliberate and was left alone.
+- **Three logo candidates** in `public/brand/`, monochrome, none wired in. The
+  arcs mark is the recommendation. They are raster generations and need
+  redrawing as SVG before shipping.
+
+Still open:
+
+- **Layout restructuring.** The console is now visually coherent but the
+  information architecture is unchanged: the Directory still stacks metrics,
+  composer, failures, filters, and table in one column. Making the flow more
+  intuitive is a structural job, not a palette one, and has not been done.
 - **Spam placement.** Still blocked on the Cloudflare MX record below. Nothing
   further is actionable in code.
 
