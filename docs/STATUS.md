@@ -47,6 +47,25 @@ Redesign pass, also shipped and verified:
   arcs mark is the recommendation. They are raster generations and need
   redrawing as SVG before shipping.
 
+Design review completed 2026-07-29:
+
+- **Contrast, focus, keyboard all pass.** 29/29 focusable elements have a
+  visible focus indicator, no positive `tabindex`, and no real contrast
+  failures. Two findings from that audit were faults in the audit itself, not
+  the UI: a contrast "failure" where the checker treated a 6%-alpha fill as
+  solid, and two "empty page" results where it read before the server component
+  resolved.
+- **Empty states already exist** on Matches, Conversations, Events, Delivery,
+  and Pipeline. They read as missing only because those pages had data.
+- **The last accent colour is gone.** The Together cell kept an inline
+  `bg-sage` tint that the `.studio-shell` override could not reach.
+- **A dead introduction link no longer 404s.** Tokens rotate when an
+  introduction is re-sent, expire on their own, and are removed when a match
+  closes, so clicking an older link is normal. All three cases answered with the
+  generic "We couldn't find that page", which reads as a broken site to the one
+  audience that arrives straight from an inbox with no session. Each now renders
+  a branded page naming which case it is, and offers the member app and sign-in.
+
 Still open:
 
 - **Layout restructuring.** The console is now visually coherent but the
