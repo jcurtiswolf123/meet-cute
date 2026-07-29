@@ -44,7 +44,7 @@ export default async function Team({
       </div>
 
       {me.isSuperAdmin && result.invite === "sent" && (
-        <p className="rounded-xl border border-sage/30 bg-[#f5f5f6] px-4 py-3 text-sm text-ink">
+        <p className="rounded-xl border border-ink/25 bg-[#f5f5f6] px-4 py-3 text-sm text-ink">
           {result.operator || "The operator"} was added and the sign-in link was sent.
         </p>
       )}
@@ -61,7 +61,7 @@ export default async function Team({
         </p>
       )}
       {me.isSuperAdmin && result.access === "revoked" && (
-        <p className="rounded-xl border border-sage/30 bg-[#f5f5f6] px-4 py-3 text-sm text-ink">
+        <p className="rounded-xl border border-ink/25 bg-[#f5f5f6] px-4 py-3 text-sm text-ink">
           Studio access was revoked for {result.operator || "the operator"}.
         </p>
       )}

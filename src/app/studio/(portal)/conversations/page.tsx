@@ -68,7 +68,7 @@ export default async function Conversations({
       </div>
 
       {(sp.resent !== undefined || sp.closed !== undefined) && (
-        <div className="rounded-xl border border-sage/30 bg-[#f5f5f6] px-4 py-3 text-sm text-ink">
+        <div className="rounded-xl border border-ink/25 bg-[#f5f5f6] px-4 py-3 text-sm text-ink">
           {sp.resent !== undefined && <span>Resent {sp.resent} stalled {Number(sp.resent) === 1 ? "intro" : "intros"}. </span>}
           {sp.closed !== undefined && <span>Closed {sp.closed} expired {Number(sp.closed) === 1 ? "intro" : "intros"}.</span>}
         </div>
@@ -130,7 +130,7 @@ export default async function Conversations({
                   <td className="px-4 py-3 font-medium text-ink">
                     {firstName(m.personA.name)} + {firstName(m.personB.name)}
                     {m.conversationSid && (
-                      <span className="ml-2 inline-flex items-center rounded-full border border-sage/30 bg-[#f5f5f6] px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink">
+                      <span className="ml-2 inline-flex items-center rounded-full border border-ink/25 bg-[#f5f5f6] px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink">
                         group
                       </span>
                     )}

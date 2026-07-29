@@ -20,7 +20,7 @@ const FILTERS = [
 ] as const;
 
 const STATUS_TONE: Record<string, string> = {
-  sent: "border-sage/30 bg-[#f5f5f6] text-ink",
+  sent: "border-ink/25 bg-[#f5f5f6] text-ink",
   pending: "border-[#e3e3e6] bg-[#fafafa] text-ink",
   processing: "border-[#e3e3e6] bg-[#fafafa] text-ink",
   failed: "border-[#e3e3e6] bg-[#fafafa] text-ink",
@@ -187,7 +187,7 @@ export default async function DeliveryLog({
                       role="status"
                       className={`mt-1.5 rounded-lg border px-3 py-1.5 text-xs ${
                         checked.ok && checked.lastEvent === "delivered"
-                          ? "border-sage/30 bg-[#f5f5f6] text-ink"
+                          ? "border-ink/25 bg-[#f5f5f6] text-ink"
                           : "border-[#e3e3e6] bg-[#fafafa] text-ink"
                       }`}
                     >

@@ -25,7 +25,7 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 function toneFor(stage: string): string {
-  if (stage === "connected") return "border-sage/30 bg-[#f5f5f6] text-ink";
+  if (stage === "connected") return "border-ink/25 bg-[#f5f5f6] text-ink";
   if (stage === "exit") return "border-line bg-[#fafafa] text-muted";
   return "border-[#e3e3e6] bg-[#fafafa] text-ink";
 }

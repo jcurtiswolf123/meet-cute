@@ -142,7 +142,7 @@ export default async function PersonPage({
         {p.bio && <p className="mt-5 text-sm leading-relaxed">{p.bio}</p>}
 
         {(p.recommendation || p.voucherName) && (
-          <div className="mt-5 rounded-xl border border-sage/30 bg-[#f5f5f6] p-4">
+          <div className="mt-5 rounded-xl border border-ink/25 bg-[#f5f5f6] p-4">
             <p className="label text-ink">Recommendation</p>
             {p.recommendation && <p className="mt-1.5 text-sm italic leading-relaxed text-ink/85">&ldquo;{p.recommendation}&rdquo;</p>}
             {p.voucherName && (
