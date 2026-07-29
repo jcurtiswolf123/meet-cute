@@ -205,7 +205,11 @@ async function main() {
     await memberLink.click();
     await operatorPage.waitForURL(new RegExp(`/studio/person/${member.id}$`));
     await operatorPage.getByText("Journey Voucher", { exact: true }).waitFor();
+    // Scoped to the profile's own "Looking for" box. The page also seeds the
+    // introduction composer from this field, so an unscoped exact match now
+    // resolves to two elements.
     await operatorPage
+      .locator('[data-field="Looking for"]')
       .getByText("A thoughtful relationship with someone curious and kind.", {
         exact: true,
       })

@@ -46,6 +46,8 @@ npm run build
 
 ## Context map (read these for state)
 - `docs/STATUS.md` : current state, what's next, blockers
+- `docs/EMAIL-TESTING.md` : how to test the reply-by-email match path, including
+  against real inboxes
 - `docs/DECISIONS.md` : why things are the way they are
 - `docs/TASKS.md` : backlog and in-progress work
 

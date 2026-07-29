@@ -303,7 +303,10 @@ export default async function PersonPage({
 
 function Box({ label, body }: { label: string; body: string }) {
   return (
-    <div className="rounded-lg border border-line bg-panel p-3">
+    // data-field names the box so a test can assert on the profile's own copy
+    // rather than any other place the same sentence appears on the page (the
+    // introduction composer seeds its About box from the same field).
+    <div data-field={label} className="rounded-lg border border-line bg-panel p-3">
       <p className="label">{label}</p>
       <p className="mt-1 text-sm">{body}</p>
     </div>

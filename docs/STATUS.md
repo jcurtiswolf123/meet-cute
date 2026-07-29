@@ -93,6 +93,17 @@ test invite trains that mailbox against the sender. Treat the placement result
 as directional; the malformed header and the missing MX are objective defects
 regardless.
 
+**Scored objectively after the header fix: mail-tester gives the live invite
+9.3/10.** Authentication, formatting, blocklists, and links all clean. The only
+real deduction is `-0.8 FROM_FMBLA_NEWDOM28`, the From domain having been
+registered in the last 14 to 28 days, which ages out on its own. So the message
+itself is not the problem, which leaves domain age and the missing MX.
+
+`docs/EMAIL-TESTING.md` is the runbook for all of this: the three test layers,
+how to drive real inboxes with `LIVE_E2E_TO`, how to tell "the reply never
+arrived" apart from "the parser declined to decide", and how to check inbox
+placement rather than mere provider acceptance.
+
 ## 2026-07-27: production readiness QA and fixes
 - Full QA against an isolated local PostgreSQL 18 database and a production
   build. Report: `docs/QA-2026-07-27.md`.

@@ -35,18 +35,40 @@ const NAME_PREFIX = "ZZ QA Do Not Contact";
 
 const prisma = new PrismaClient();
 
-function aliasFor(side: "a" | "b"): string {
-  return `${localPart}+${TAG}-${side}@${mailDomain}`;
+/** Where the two invites go.
+ *
+ *  The default is two plus-aliases of one operator mailbox, which is enough to
+ *  exercise the decision path and needs no extra accounts. Set LIVE_E2E_TO to a
+ *  comma-separated pair to use genuinely separate inboxes instead, which is the
+ *  only way to see how a given provider renders and files the message:
+ *
+ *    LIVE_E2E_TO="you@gmail.com,you@outlook.com"
+ *
+ *  Both addresses must be ones you control. This sends real mail. */
+function recipients(): [string, string] {
+  const configured = (process.env.LIVE_E2E_TO || "")
+    .split(",")
+    .map((address) => address.trim())
+    .filter(Boolean);
+  if (!configured.length) {
+    return [`${localPart}+${TAG}-a@${mailDomain}`, `${localPart}+${TAG}-b@${mailDomain}`];
+  }
+  if (configured.length !== 2) {
+    throw new Error(`LIVE_E2E_TO needs exactly two addresses, got ${configured.length}`);
+  }
+  return [configured[0], configured[1]];
 }
 
 async function setup() {
   const stamp = new Date().toISOString().replace(/\D/g, "").slice(0, 14);
+  const to = recipients();
+  console.log(`sending to ${to[0]} and ${to[1]}`);
   const people = await Promise.all(
-    (["a", "b"] as const).map((side) =>
+    (["a", "b"] as const).map((side, index) =>
       prisma.person.create({
         data: {
           name: `${NAME_PREFIX} ${side.toUpperCase()} ${stamp}`,
-          email: aliasFor(side),
+          email: to[index],
           city: "New York",
           headline: "Automated reply-path check. Not a member.",
           status: "active",
