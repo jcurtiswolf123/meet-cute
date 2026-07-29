@@ -66,12 +66,18 @@ Design review completed 2026-07-29:
   audience that arrives straight from an inbox with no session. Each now renders
   a branded page naming which case it is, and offers the member app and sign-in.
 
-Still open:
+**Directory reordered around the operator's session.** It led with metrics and
+buried the two time-sensitive things: a delivery failure means a member never
+received their introduction, and a pending applicant is a person waiting on a
+decision. Both sat below a composer and a ledger that do not change between
+visits. Order is now blockers, then the match composer, then the list, with
+metrics as an ambient strip underneath. No data or query changes.
 
-- **Layout restructuring.** The console is now visually coherent but the
-  information architecture is unchanged: the Directory still stacks metrics,
-  composer, failures, filters, and table in one column. Making the flow more
-  intuitive is a structural job, not a palette one, and has not been done.
+Verified after the reorder: all seven studio pages render, no runtime errors, no
+serif, no horizontal overflow, and every focusable element still has a visible
+focus indicator.
+
+Still open, and blocked on Joshua only:
 - **Spam placement.** Still blocked on the Cloudflare MX record below. Nothing
   further is actionable in code.
 
