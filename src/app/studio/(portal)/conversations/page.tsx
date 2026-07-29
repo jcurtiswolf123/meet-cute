@@ -68,7 +68,7 @@ export default async function Conversations({
       </div>
 
       {(sp.resent !== undefined || sp.closed !== undefined) && (
-        <div className="rounded-xl border border-sage/30 bg-sage/10 px-4 py-3 text-sm text-ink">
+        <div className="rounded-xl border border-sage/30 bg-[#f5f5f6] px-4 py-3 text-sm text-ink">
           {sp.resent !== undefined && <span>Resent {sp.resent} stalled {Number(sp.resent) === 1 ? "intro" : "intros"}. </span>}
           {sp.closed !== undefined && <span>Closed {sp.closed} expired {Number(sp.closed) === 1 ? "intro" : "intros"}.</span>}
         </div>
@@ -88,7 +88,7 @@ export default async function Conversations({
       </div>
 
       {(stalledCount > 0 || expiredCount > 0) && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-paper/60 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-[#fafafa] px-4 py-3">
           <span className="text-xs uppercase tracking-wide text-muted">Bulk actions</span>
           {stalledCount > 0 && (
             <form action={bulkResendStalled}>
@@ -110,12 +110,12 @@ export default async function Conversations({
       {rows.length === 0 ? (
         <div className="card p-8 text-center text-sm text-muted">
           No active conversations yet. Start an introduction from{" "}
-          <Link href="/studio/matchmaking" className="text-claret underline">Matchmaking</Link>.
+          <Link href="/studio/matchmaking" className="text-ink underline">Matchmaking</Link>.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl2 border border-line bg-panel">
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="border-b border-line bg-paper/60 text-left text-xs uppercase tracking-wide text-muted">
+            <thead className="border-b border-line bg-[#fafafa] text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">Pair</th>
                 <th className="px-4 py-3 font-medium">Opt-in (A/B)</th>
@@ -126,11 +126,11 @@ export default async function Conversations({
             </thead>
             <tbody>
               {rows.map(({ m, health, lastMessageAt, lastBody }) => (
-                <tr key={m.id} className="border-b border-line/70 hover:bg-cream/60">
+                <tr key={m.id} className="border-b border-line/70 hover:bg-[#f5f5f6]/60">
                   <td className="px-4 py-3 font-medium text-ink">
                     {firstName(m.personA.name)} + {firstName(m.personB.name)}
                     {m.conversationSid && (
-                      <span className="ml-2 inline-flex items-center rounded-full border border-sage/30 bg-sage/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-sage">
+                      <span className="ml-2 inline-flex items-center rounded-full border border-sage/30 bg-[#f5f5f6] px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink">
                         group
                       </span>
                     )}
@@ -153,7 +153,7 @@ export default async function Conversations({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <Link href={`/studio/conversations/${m.id}`} className="text-claret underline underline-offset-2">
+                    <Link href={`/studio/conversations/${m.id}`} className="text-ink underline underline-offset-2">
                       Open
                     </Link>
                   </td>

@@ -54,7 +54,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <Link href="/studio/conversations" className="text-sm text-claret underline underline-offset-2">
+        <Link href="/studio/conversations" className="text-sm text-ink underline underline-offset-2">
           &larr; All conversations
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -97,7 +97,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
                 <li
                   key={msg.id}
                   className={`rounded-xl border p-3 text-sm ${
-                    inbound ? "border-line bg-panel" : "border-sage/25 bg-sage/5"
+                    inbound ? "border-line bg-panel" : "border-sage/25 bg-[#f5f5f6]"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">

@@ -70,7 +70,7 @@ export function IntroComposer({
         {locked ? (
           <div className="block">
             <span className="label">First person</span>
-            <div className="mt-1.5 flex items-center justify-between rounded-lg border border-line bg-paper/60 px-3 py-2 text-sm">
+            <div className="mt-1.5 flex items-center justify-between rounded-lg border border-line bg-[#fafafa] px-3 py-2 text-sm">
               <span className="font-medium text-ink">{locked.name}</span>
               <span className="text-xs text-muted">{locked.city}</span>
             </div>
@@ -113,7 +113,7 @@ export function IntroComposer({
         </label>
 
         {a && b && (
-          <div className="sm:col-span-2 rounded-xl border border-line bg-paper/50 p-3">
+          <div className="sm:col-span-2 rounded-xl border border-line bg-[#fafafa] p-3">
             <p className="label mb-2 text-muted">What goes out</p>
             <div className="space-y-2">
               <p className="text-sm leading-relaxed">
@@ -134,7 +134,7 @@ export function IntroComposer({
         )}
 
         {missingChannel && (
-          <p className="sm:col-span-2 text-sm text-claret">
+          <p className="sm:col-span-2 text-sm text-ink">
             {missingChannel} has no authorized delivery channel. Add an email or record explicit text consent.
           </p>
         )}
@@ -230,7 +230,7 @@ function PersonCombobox({
                 type="button"
                 onMouseEnter={() => setActive(i)}
                 onMouseDown={(e) => { e.preventDefault(); choose(p.id); }}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${i === active ? "bg-cream" : ""}`}
+                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${i === active ? "bg-[#f5f5f6]" : ""}`}
               >
                 <span className="text-ink">{p.name}</span>
                 <span className="text-xs text-muted">{p.city}{p.phone ? "" : " · no phone"}</span>

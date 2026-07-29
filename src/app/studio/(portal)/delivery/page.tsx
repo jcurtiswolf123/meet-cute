@@ -20,11 +20,11 @@ const FILTERS = [
 ] as const;
 
 const STATUS_TONE: Record<string, string> = {
-  sent: "border-sage/30 bg-sage/15 text-sage",
-  pending: "border-claret/25 bg-claret/10 text-claret",
-  processing: "border-claret/25 bg-claret/10 text-claret",
-  failed: "border-claret/40 bg-claret/10 text-claret",
-  cancelled: "border-line bg-paper text-muted",
+  sent: "border-sage/30 bg-[#f5f5f6] text-ink",
+  pending: "border-[#e3e3e6] bg-[#fafafa] text-ink",
+  processing: "border-[#e3e3e6] bg-[#fafafa] text-ink",
+  failed: "border-[#e3e3e6] bg-[#fafafa] text-ink",
+  cancelled: "border-line bg-[#fafafa] text-muted",
 };
 
 function humanizeKind(kind: string): string {
@@ -115,8 +115,8 @@ export default async function DeliveryLog({
           </p>
         </div>
         <div className="ledger">
-          <div className="ledger-cell bg-sage/[0.06]">
-            <div className="ledger-num text-sage">{count("sent")}</div>
+          <div className="ledger-cell bg-[#f5f5f6]">
+            <div className="ledger-num text-ink">{count("sent")}</div>
             <div className="ledger-label">Sent</div>
           </div>
           <div className="ledger-cell">
@@ -136,7 +136,7 @@ export default async function DeliveryLog({
             key={f.key}
             href={f.key === "all" ? "/studio/delivery" : `/studio/delivery?status=${f.key}`}
             className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-              status === f.key ? "border-claret bg-claret text-white" : "border-line text-muted hover:border-claret/40"
+              status === f.key ? "border-ink bg-ink text-white" : "border-line text-muted hover:border-[#e3e3e6]"
             }`}
           >
             {f.label}
@@ -181,14 +181,14 @@ export default async function DeliveryLog({
                       Provider id {job.providerMessageId}
                     </p>
                   )}
-                  {job.lastError && <p className="mt-0.5 text-xs text-claret">{job.lastError}</p>}
+                  {job.lastError && <p className="mt-0.5 text-xs text-ink">{job.lastError}</p>}
                   {checked && checkJob?.id === job.id && (
                     <p
                       role="status"
                       className={`mt-1.5 rounded-lg border px-3 py-1.5 text-xs ${
                         checked.ok && checked.lastEvent === "delivered"
-                          ? "border-sage/30 bg-sage/10 text-sage"
-                          : "border-claret/30 bg-claret/5 text-claret"
+                          ? "border-sage/30 bg-[#f5f5f6] text-ink"
+                          : "border-[#e3e3e6] bg-[#fafafa] text-ink"
                       }`}
                     >
                       {checked.ok
@@ -198,12 +198,12 @@ export default async function DeliveryLog({
                   )}
                   <p className="mt-1 flex flex-wrap gap-3 text-xs">
                     {job.person && (
-                      <Link href={`/studio/person/${job.person.id}`} className="text-claret hover:underline">
+                      <Link href={`/studio/person/${job.person.id}`} className="text-ink hover:underline">
                         {job.person.name}
                       </Link>
                     )}
                     {job.matchId && (
-                      <Link href={`/studio/conversations/${job.matchId}`} className="text-claret hover:underline">
+                      <Link href={`/studio/conversations/${job.matchId}`} className="text-ink hover:underline">
                         Open thread
                       </Link>
                     )}
@@ -212,7 +212,7 @@ export default async function DeliveryLog({
                 <div className="flex shrink-0 items-center gap-3">
                   <span
                     className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-                      STATUS_TONE[job.status] ?? "border-line bg-paper text-muted"
+                      STATUS_TONE[job.status] ?? "border-line bg-[#fafafa] text-muted"
                     }`}
                   >
                     {job.status === "processing" ? "Sending" : job.status.replace(/^\w/, (c) => c.toUpperCase())}
@@ -227,7 +227,7 @@ export default async function DeliveryLog({
                           check: job.id,
                         },
                       }}
-                      className="rounded-full border border-line px-3 py-1 text-xs text-muted hover:border-claret/40 hover:text-claret"
+                      className="rounded-full border border-line px-3 py-1 text-xs text-muted hover:border-[#e3e3e6] hover:text-ink"
                     >
                       Check provider
                     </Link>
@@ -235,7 +235,7 @@ export default async function DeliveryLog({
                   {job.status === "failed" && (
                     <form action={retryDeliveryJob}>
                       <input type="hidden" name="deliveryJobId" value={job.id} />
-                      <button className="rounded-full border border-claret/30 px-3 py-1 text-xs text-claret">
+                      <button className="rounded-full border border-[#e3e3e6] px-3 py-1 text-xs text-ink">
                         Retry
                       </button>
                     </form>

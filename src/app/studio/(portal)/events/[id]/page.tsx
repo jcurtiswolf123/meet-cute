@@ -60,7 +60,7 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-            <button className="rounded-full border border-line px-3 py-1.5 text-xs hover:border-claret/40">Save</button>
+            <button className="rounded-full border border-line px-3 py-1.5 text-xs hover:border-[#e3e3e6]">Save</button>
           </form>
         </div>
         <p className="mt-3 text-sm text-muted">
@@ -82,7 +82,7 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
             <input type="hidden" name="dinnerId" value={event.id} />
             <div className="max-h-80 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
               {eligible.map((m) => (
-                <label key={m.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-paper">
+                <label key={m.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-[#fafafa]">
                   <input type="checkbox" name="memberId" value={m.id} className="h-4 w-4 accent-claret" />
                   <Avatar url={m.photos[0]?.url} name={m.name} size={32} />
                   <span className="text-sm">
@@ -118,11 +118,11 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
                         <option key={v} value={v}>{l}</option>
                       ))}
                     </select>
-                    <button className="rounded-full border border-line px-2.5 py-1 text-xs hover:border-claret/40">Set</button>
+                    <button className="rounded-full border border-line px-2.5 py-1 text-xs hover:border-[#e3e3e6]">Set</button>
                   </form>
                   <form action={removeAttendee}>
                     <input type="hidden" name="attendeeId" value={a.id} />
-                    <button className="rounded-full border border-line px-2.5 py-1 text-xs text-muted hover:border-claret/40 hover:text-claret">Remove</button>
+                    <button className="rounded-full border border-line px-2.5 py-1 text-xs text-muted hover:border-[#e3e3e6] hover:text-ink">Remove</button>
                   </form>
                 </div>
               </li>

@@ -121,16 +121,16 @@ export default async function PersonPage({
                 .filter(Boolean)
                 .join(" · ")}
             </p>
-            <p className="mt-1 text-sm text-claret">{p.headline}</p>
+            <p className="mt-1 text-sm text-ink">{p.headline}</p>
             {(p.instagram || p.linkedin) && (
               <p className="mt-1.5 flex flex-wrap gap-3 text-sm">
                 {p.instagram && (
-                  <a href={p.instagram} target="_blank" rel="noopener noreferrer" className="text-claret underline underline-offset-2 hover:opacity-80">
+                  <a href={p.instagram} target="_blank" rel="noopener noreferrer" className="text-ink underline underline-offset-2 hover:opacity-80">
                     Instagram
                   </a>
                 )}
                 {p.linkedin && (
-                  <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="text-claret underline underline-offset-2 hover:opacity-80">
+                  <a href={p.linkedin} target="_blank" rel="noopener noreferrer" className="text-ink underline underline-offset-2 hover:opacity-80">
                     LinkedIn
                   </a>
                 )}
@@ -142,8 +142,8 @@ export default async function PersonPage({
         {p.bio && <p className="mt-5 text-sm leading-relaxed">{p.bio}</p>}
 
         {(p.recommendation || p.voucherName) && (
-          <div className="mt-5 rounded-xl border border-sage/30 bg-sage/8 p-4">
-            <p className="label text-sage">Recommendation</p>
+          <div className="mt-5 rounded-xl border border-sage/30 bg-[#f5f5f6] p-4">
+            <p className="label text-ink">Recommendation</p>
             {p.recommendation && <p className="mt-1.5 text-sm italic leading-relaxed text-ink/85">&ldquo;{p.recommendation}&rdquo;</p>}
             {p.voucherName && (
               <p className="mt-2 text-xs text-muted">
@@ -197,7 +197,7 @@ export default async function PersonPage({
               <Link href={`/studio/person/${m.other.id}`} className="font-medium hover:underline">{m.other.name}</Link>
               <span className="flex items-center gap-3">
                 <StageBadge stage={m.stage} />
-                <Link href={`/studio/conversations/${m.id}`} className="text-xs text-claret hover:underline">
+                <Link href={`/studio/conversations/${m.id}`} className="text-xs text-ink hover:underline">
                   Open thread
                 </Link>
               </span>
@@ -235,7 +235,7 @@ export default async function PersonPage({
             {suggestNotice && (
               <p
                 role="status"
-                className="mb-2 rounded-lg border border-claret/30 bg-claret/5 px-3 py-2 text-xs text-claret"
+                className="mb-2 rounded-lg border border-[#e3e3e6] bg-[#fafafa] px-3 py-2 text-xs text-ink"
               >
                 {suggestNotice}
               </p>
@@ -243,13 +243,13 @@ export default async function PersonPage({
             <div className="space-y-2">
               {candidates.map((c) => (
                 <form key={c.p.id} action={createSuggestion.bind(null, id, c.p.id, `Co-pilot suggested: fit ${c.score.toFixed(2)}, ${c.vouches} vouches.`)}>
-                  <button className="flex w-full items-center gap-2 rounded-lg border border-line p-2 text-left text-sm transition hover:border-claret/40">
+                  <button className="flex w-full items-center gap-2 rounded-lg border border-line p-2 text-left text-sm transition hover:border-[#e3e3e6]">
                     <Avatar url={undefined} name={c.p.name} size={32} />
                     <span className="flex-1">
                       <span className="block font-medium">{c.p.name}</span>
                       <span className="block text-xs text-muted">fit {c.score.toFixed(2)} · {c.vouches} vouches</span>
                     </span>
-                    <span className="text-claret">+</span>
+                    <span className="text-ink">+</span>
                   </button>
                 </form>
               ))}

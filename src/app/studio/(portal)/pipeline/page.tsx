@@ -78,7 +78,7 @@ export default async function Pipeline() {
         {STAGES.map(([key, label]) => {
           const col = matches.filter((m) => m.stage === key);
           return (
-            <div key={key} className="rounded-xl2 bg-paper/50 p-2">
+            <div key={key} className="rounded-xl2 bg-[#fafafa] p-2">
               <div className="flex items-center justify-between px-2 py-1.5">
                 <span className="text-xs font-medium uppercase tracking-wide text-muted">{label}</span>
                 <span className="text-xs text-muted">{col.length}</span>
@@ -95,16 +95,16 @@ export default async function Pipeline() {
                     </div>
                     <div className="mt-0.5 text-[11px] text-muted">{m.personA.city}</div>
                     {m.thread?.state === "handoff" && (
-                      <div className="mt-1 text-[11px] font-medium text-claret">needs you</div>
+                      <div className="mt-1 text-[11px] font-medium text-ink">needs you</div>
                     )}
                     {m.thread?.confirmedSlot && (
-                      <div className="mt-1 text-[11px] text-sage">
+                      <div className="mt-1 text-[11px] text-ink">
                         {m.thread.confirmedSlot.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </div>
                     )}
                     <div className="mt-2 flex gap-2">
-                      <Link href={`/studio/person/${m.personA.id}`} className="text-[11px] text-claret hover:underline">{m.personA.name.split(" ")[0]}</Link>
-                      <Link href={`/studio/person/${m.personB.id}`} className="text-[11px] text-claret hover:underline">{m.personB.name.split(" ")[0]}</Link>
+                      <Link href={`/studio/person/${m.personA.id}`} className="text-[11px] text-ink hover:underline">{m.personA.name.split(" ")[0]}</Link>
+                      <Link href={`/studio/person/${m.personB.id}`} className="text-[11px] text-ink hover:underline">{m.personB.name.split(" ")[0]}</Link>
                     </div>
                   </div>
                 ))}

@@ -44,12 +44,12 @@ export default async function Team({
       </div>
 
       {me.isSuperAdmin && result.invite === "sent" && (
-        <p className="rounded-xl border border-sage/30 bg-sage/10 px-4 py-3 text-sm text-sage">
+        <p className="rounded-xl border border-sage/30 bg-[#f5f5f6] px-4 py-3 text-sm text-ink">
           {result.operator || "The operator"} was added and the sign-in link was sent.
         </p>
       )}
       {me.isSuperAdmin && result.invite === "failed" && (
-        <p className="rounded-xl border border-claret/30 bg-claret/5 px-4 py-3 text-sm text-claret">
+        <p className="rounded-xl border border-[#e3e3e6] bg-[#fafafa] px-4 py-3 text-sm text-ink">
           {result.operator || "The operator"} was added, but the invitation email failed. Ask them
           to request a link from the operator sign-in page.
         </p>
@@ -61,7 +61,7 @@ export default async function Team({
         </p>
       )}
       {me.isSuperAdmin && result.access === "revoked" && (
-        <p className="rounded-xl border border-sage/30 bg-sage/10 px-4 py-3 text-sm text-sage">
+        <p className="rounded-xl border border-sage/30 bg-[#f5f5f6] px-4 py-3 text-sm text-ink">
           Studio access was revoked for {result.operator || "the operator"}.
         </p>
       )}
@@ -137,7 +137,7 @@ export default async function Team({
                       {o.name}
                       {isMe && <span className="ml-2 text-xs text-muted">(you)</span>}
                       {o.isSuperAdmin && (
-                        <span className="ml-2 rounded-full bg-sage/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sage">
+                        <span className="ml-2 rounded-full bg-[#f5f5f6] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink">
                           Super admin
                         </span>
                       )}
@@ -156,7 +156,7 @@ export default async function Team({
                     triggerAriaLabel={`Revoke operator access for ${o.name}`}
                     confirmLabel="Confirm revoke"
                     pendingText="Revoking..."
-                    buttonClassName="rounded-full border border-line px-3 py-1 text-xs hover:border-claret/40 hover:text-claret"
+                    buttonClassName="rounded-full border border-line px-3 py-1 text-xs hover:border-[#e3e3e6] hover:text-ink"
                   >
                     <input type="hidden" name="personId" value={o.id} />
                   </ConfirmActionForm>

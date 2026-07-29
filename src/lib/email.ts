@@ -211,7 +211,7 @@ function emailShell(inner: string, preheader = ""): string {
     <tr><td align="center" style="padding:32px 16px">
       <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:${BRAND.cream}">
         <tr><td style="padding:4px 4px 20px">
-          <span style="font-family:${SANS};font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:${BRAND.ink}">Meet&nbsp;Cute</span>
+          <span style="font-family:${SANS};font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:${BRAND.ink}">Meet-Cute</span>
         </td></tr>
         <tr><td style="background:#ffffff;border:1px solid ${BRAND.line};border-radius:14px;padding:32px">
           ${inner}
@@ -625,7 +625,7 @@ export function magicLinkEmail(link: string): { subject: string; html: string; t
   const subject = "Your Meet Cute sign-in link";
   const text = `Sign in to Meet Cute:\n${link}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;
   const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#2a2320">
-    <h1 style="font-size:22px;font-weight:500;color:#7a1f2b">Meet Cute</h1>
+    <h1 style="font-size:22px;font-weight:500;color:#7a1f2b">Meet-Cute</h1>
     <p style="font-size:15px;line-height:1.6">Tap to sign in. This link expires in 15 minutes and can be used once.</p>
     <p style="margin:24px 0">
       <a href="${encodeURI(link)}" style="background:#7a1f2b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">Sign in to Meet Cute</a>

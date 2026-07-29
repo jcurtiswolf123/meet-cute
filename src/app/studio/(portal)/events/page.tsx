@@ -72,7 +72,7 @@ export default async function Events() {
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {upcoming.map((e) => (
-              <Link key={e.id} href={`/studio/events/${e.id}`} className="card block p-5 transition hover:border-claret/40">
+              <Link key={e.id} href={`/studio/events/${e.id}`} className="card block p-5 transition hover:border-[#e3e3e6]">
                 <div className="flex items-center justify-between">
                   <span className="pill">{e.city}</span>
                   <span className="text-xs text-muted">
@@ -84,7 +84,7 @@ export default async function Events() {
                   {e.date.toLocaleString("en-US", { weekday: "short", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}
                   {" · "}{e.venue}
                 </p>
-                <span className="mt-3 inline-block text-xs font-medium text-claret">Manage invitees →</span>
+                <span className="mt-3 inline-block text-xs font-medium text-ink">Manage invitees →</span>
               </Link>
             ))}
           </div>

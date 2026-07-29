@@ -7,9 +7,9 @@ export function Logo({ light = false }: { light?: boolean }) {
       className={`inline-flex items-center text-[13px] font-semibold uppercase tracking-[0.19em] ${
         light ? "text-cream" : "text-ink"
       }`}
-      aria-label="Meet Cute home"
+      aria-label="Meet-Cute home"
     >
-      Meet Cute
+      Meet-Cute
     </Link>
   );
 }

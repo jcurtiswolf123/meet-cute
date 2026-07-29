@@ -21,13 +21,13 @@ type Decision = "pending" | "yes" | "pass";
 function statusFor(m: { stage: string; aDecision: string; bDecision: string; personA: { name: string }; personB: { name: string } }) {
   const a = m.aDecision as Decision;
   const b = m.bDecision as Decision;
-  if (m.stage === "connected") return { label: "Connected", tone: "bg-sage/15 text-sage border-sage/30" };
+  if (m.stage === "connected") return { label: "Connected", tone: "bg-[#f5f5f6] text-ink border-sage/30" };
   if (m.stage === "exit") {
     const passer = a === "pass" ? firstName(m.personA.name) : b === "pass" ? firstName(m.personB.name) : null;
-    return { label: passer ? `${passer} passed` : "Closed", tone: "bg-paper text-muted border-line" };
+    return { label: passer ? `${passer} passed` : "Closed", tone: "bg-[#fafafa] text-muted border-line" };
   }
-  if (a === "yes" && b === "pending") return { label: `${firstName(m.personA.name)} said yes`, tone: "bg-claret/10 text-claret border-claret/25" };
-  if (b === "yes" && a === "pending") return { label: `${firstName(m.personB.name)} said yes`, tone: "bg-claret/10 text-claret border-claret/25" };
+  if (a === "yes" && b === "pending") return { label: `${firstName(m.personA.name)} said yes`, tone: "bg-[#fafafa] text-ink border-[#e3e3e6]" };
+  if (b === "yes" && a === "pending") return { label: `${firstName(m.personB.name)} said yes`, tone: "bg-[#fafafa] text-ink border-[#e3e3e6]" };
   return { label: "Awaiting both", tone: "bg-champagne/20 text-ink border-champagne/40" };
 }
 
@@ -175,7 +175,7 @@ export default async function Matchmaking() {
                         {s.label}
                       </span>
                       {m.followUpAt && (
-                        <span className="inline-flex items-center rounded-full border border-line bg-paper px-2.5 py-0.5 text-xs text-muted">
+                        <span className="inline-flex items-center rounded-full border border-line bg-[#fafafa] px-2.5 py-0.5 text-xs text-muted">
                           Follow up {m.followUpAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </span>
                       )}
@@ -183,7 +183,7 @@ export default async function Matchmaking() {
                     {m.rationale && <p className="mt-1 max-w-prose text-xs text-muted">{m.rationale}</p>}
                     {m.notes.length > 0 && (
                       <div className="mt-2 space-y-1 border-l-2 border-sage/40 pl-3">
-                        <p className="label text-sage">Feedback</p>
+                        <p className="label text-ink">Feedback</p>
                         {m.notes.map((n) => (
                           <p key={n.id} className="text-xs text-ink/80">
                             &ldquo;{n.body}&rdquo;{" "}
@@ -208,7 +208,7 @@ export default async function Matchmaking() {
                         </form>
                         <form action={connectIntroNow}>
                           <input type="hidden" name="matchId" value={m.id} />
-                          <button className="rounded-full bg-claret px-3 py-1 text-xs font-medium text-white">Connect now</button>
+                          <button className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">Connect now</button>
                         </form>
                         <form action={closeIntroduction}>
                           <input type="hidden" name="matchId" value={m.id} />
@@ -220,7 +220,7 @@ export default async function Matchmaking() {
                       <>
                         <form action={askForFeedback}>
                           <input type="hidden" name="matchId" value={m.id} />
-                          <button className="rounded-full bg-claret px-3 py-1 text-xs font-medium text-white">Ask for feedback</button>
+                          <button className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">Ask for feedback</button>
                         </form>
                         <form action={setIntroFollowUp}>
                           <input type="hidden" name="matchId" value={m.id} />
@@ -263,13 +263,13 @@ export default async function Matchmaking() {
                     <span className="flex items-center gap-2">
                       {p.name}
                       {p.openToMatch && (
-                        <span className="inline-flex items-center rounded-full border border-sage/30 bg-sage/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sage">
+                        <span className="inline-flex items-center rounded-full border border-sage/30 bg-[#f5f5f6] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink">
                           Ready
                         </span>
                       )}
                     </span>
                   </td>
-                  <td className="text-muted">{p.phone || <span className="text-claret">add a phone</span>}</td>
+                  <td className="text-muted">{p.phone || <span className="text-ink">add a phone</span>}</td>
                   <td className="text-muted">{p.city}</td>
                   <td>
                     <SocialLinks instagram={p.instagram} linkedin={p.linkedin} />
@@ -299,12 +299,12 @@ function SocialLinks({ instagram, linkedin }: { instagram: string | null; linked
   return (
     <span className="flex flex-wrap gap-2 text-xs">
       {instagram && (
-        <a href={instagram} target="_blank" rel="noopener noreferrer" className="text-claret underline underline-offset-2 hover:opacity-80">
+        <a href={instagram} target="_blank" rel="noopener noreferrer" className="text-ink underline underline-offset-2 hover:opacity-80">
           Instagram
         </a>
       )}
       {linkedin && (
-        <a href={linkedin} target="_blank" rel="noopener noreferrer" className="text-claret underline underline-offset-2 hover:opacity-80">
+        <a href={linkedin} target="_blank" rel="noopener noreferrer" className="text-ink underline underline-offset-2 hover:opacity-80">
           LinkedIn
         </a>
       )}

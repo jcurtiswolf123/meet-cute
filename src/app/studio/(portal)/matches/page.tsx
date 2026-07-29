@@ -25,9 +25,9 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 function toneFor(stage: string): string {
-  if (stage === "connected") return "border-sage/30 bg-sage/15 text-sage";
-  if (stage === "exit") return "border-line bg-paper text-muted";
-  return "border-claret/25 bg-claret/10 text-claret";
+  if (stage === "connected") return "border-sage/30 bg-[#f5f5f6] text-ink";
+  if (stage === "exit") return "border-line bg-[#fafafa] text-muted";
+  return "border-[#e3e3e6] bg-[#fafafa] text-ink";
 }
 
 // Pinned to New York: the server clock is UTC in production, so an evening
@@ -79,7 +79,7 @@ export default async function MatchesHistory() {
         <div className="card mt-8 p-10 text-center">
           <p className="text-sm text-muted">
             No introductions yet. Make your first match from the{" "}
-            <Link href="/studio" className="text-claret underline">
+            <Link href="/studio" className="text-ink underline">
               Directory
             </Link>
             .
@@ -102,7 +102,7 @@ export default async function MatchesHistory() {
                   {rows.map((m) => (
                     <li
                       key={m.id}
-                      className="flex flex-wrap items-center justify-between gap-4 px-4 py-3.5 transition-colors hover:bg-cream/70"
+                      className="flex flex-wrap items-center justify-between gap-4 px-4 py-3.5 transition-colors hover:bg-[#f5f5f6]/70"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex -space-x-2">
@@ -111,11 +111,11 @@ export default async function MatchesHistory() {
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium text-ink">
-                            <Link href={`/studio/person/${m.personA.id}`} className="hover:text-claret hover:underline">
+                            <Link href={`/studio/person/${m.personA.id}`} className="hover:text-ink hover:underline">
                               {m.personA.name}
                             </Link>
                             <span className="text-muted"> &amp; </span>
-                            <Link href={`/studio/person/${m.personB.id}`} className="hover:text-claret hover:underline">
+                            <Link href={`/studio/person/${m.personB.id}`} className="hover:text-ink hover:underline">
                               {m.personB.name}
                             </Link>
                           </p>
@@ -133,7 +133,7 @@ export default async function MatchesHistory() {
                         </span>
                         <Link
                           href={`/studio/conversations/${m.id}`}
-                          className="text-xs text-claret hover:underline"
+                          className="text-xs text-ink hover:underline"
                         >
                           Open thread
                         </Link>
