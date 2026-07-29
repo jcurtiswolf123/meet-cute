@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import * as Sentry from "@sentry/nextjs";
 import { recordInviteDecision } from "@/lib/introductions";
+import { decisionFromReply } from "@/lib/reply-parse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,8 +23,6 @@ export const dynamic = "force-dynamic";
 // webhook). The /i/[token] Yes/Pass buttons work with none of this configured;
 // this endpoint adds the reply-by-email path.
 
-const YES = /^\s*(y|ye|yes|yeah|yep|yup|sure|ok|okay|absolutely|sounds good|do it)\b/i;
-const NO = /^\s*(n|no|nope|nah|pass|decline)\b/i;
 const SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 
 // Verify a Svix/Resend webhook signature. Fails closed in production when the
@@ -63,7 +62,12 @@ function verifySignature(secret: string | undefined, req: NextRequest, rawBody: 
 }
 
 // Pull the invite token out of any `r+<token>@domain` recipient address.
-function tokenFromRecipients(to: unknown, expectedDomain: string): string | null {
+// RESEND_INBOUND_DOMAIN may list several domains, comma-separated. Accepting
+// more than one is what makes changing the reply address safe: invites already
+// in a member's inbox carry the old Reply-To, and a reply to an unlisted domain
+// is dropped as "no token", so the old domain has to stay accepted until every
+// outstanding invite is decided or expired.
+function tokenFromRecipients(to: unknown, expectedDomains: string[]): string | null {
   const addrs: string[] = [];
   const push = (v: unknown) => {
     if (typeof v === "string") addrs.push(v);
@@ -76,28 +80,25 @@ function tokenFromRecipients(to: unknown, expectedDomain: string): string | null
   else push(to);
   for (const a of addrs) {
     const m = a.match(/r\+([A-Za-z0-9_-]+)@([A-Za-z0-9.-]+)/i);
-    if (m && m[2]?.toLowerCase() === expectedDomain) return m[1];
+    if (m && expectedDomains.includes(m[2]?.toLowerCase())) return m[1];
   }
   return null;
 }
 
-// First meaningful line of a reply: skip blank lines and quoted history
-// ("> ..." or "On ... wrote:"), so "Y" on its own line above the quote wins.
-function firstReplyLine(text: string): string {
-  for (const line of text.split(/\r?\n/)) {
-    const t = line.trim();
-    if (!t) continue;
-    if (t.startsWith(">")) break;
-    if (/^On .*wrote:$/i.test(t)) break;
-    return t;
-  }
-  return "";
+/** Every domain whose `r+<token>@` replies we accept. The first entry is the one
+ *  new invites are sent from (see inviteReplyAddress); the rest are legacy
+ *  addresses kept alive for invites already in flight. */
+function inboundDomains(): string[] {
+  return (process.env.RESEND_INBOUND_DOMAIN || "")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 // Fetch the full received message (the webhook carries metadata only) so we can
 // read the reply body. Provider or database failures throw so Resend retries the
 // signed webhook. The decision transition is atomic, so a retry is safe.
-async function fetchReceivedText(emailId: string): Promise<string> {
+async function fetchReceivedBody(emailId: string): Promise<{ text: string; html: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key || !emailId) throw new Error("received email fetch is not configured");
   try {
@@ -116,9 +117,10 @@ async function fetchReceivedText(emailId: string): Promise<string> {
       throw new Error(`receiving fetch returned ${res.status}`);
     }
     const j = (await res.json()) as { text?: string; html?: string };
-    if (j.text) return j.text;
-    // Fall back to a stripped-tags version of the HTML if there is no text part.
-    return (j.html || "").replace(/<[^>]+>/g, " ");
+    // Both parts are returned. The parser prefers text and falls back to HTML,
+    // which it converts with the quote containers removed rather than by
+    // flattening every tag into a single line.
+    return { text: j.text || "", html: j.html || "" };
   } catch (e) {
     console.error(`[email:inbound] receiving fetch threw: ${(e as Error).message}`);
     throw e;
@@ -144,29 +146,27 @@ export async function POST(req: NextRequest) {
     // Route on the recipient token FIRST (it is in the metadata). No token means
     // this message is not one of our invite replies, so we return without ever
     // fetching the body, keeping other projects' inbound mail untouched.
-    const inboundDomain = (process.env.RESEND_INBOUND_DOMAIN || "").trim().toLowerCase();
-    if (!inboundDomain) return new Response("inbound domain not configured", { status: 503 });
+    const domains = inboundDomains();
+    if (!domains.length) return new Response("inbound domain not configured", { status: 503 });
     const token =
-      tokenFromRecipients(data.to, inboundDomain) ||
-      tokenFromRecipients(data.reply_to, inboundDomain) ||
-      tokenFromRecipients(
-        (data.headers as Record<string, unknown> | undefined)?.["to"],
-        inboundDomain,
-      );
+      tokenFromRecipients(data.to, domains) ||
+      tokenFromRecipients(data.reply_to, domains) ||
+      tokenFromRecipients((data.headers as Record<string, unknown> | undefined)?.["to"], domains);
     if (!token) return new Response("no token", { status: 200 });
 
-    // Body only for our own messages. Prefer any inline text, else fetch it.
+    // Body only for our own messages. Prefer any inline parts, else fetch them.
     let bodyText = String(data.text ?? "");
-    if (!bodyText) {
+    let bodyHtml = String(data.html ?? "");
+    if (!bodyText.trim() && !bodyHtml.trim()) {
       const emailId = String(data.email_id ?? data.id ?? "");
-      bodyText = await fetchReceivedText(emailId);
+      ({ text: bodyText, html: bodyHtml } = await fetchReceivedBody(emailId));
     }
 
-    const first = firstReplyLine(bodyText);
-    let decision: "yes" | "pass" | null = null;
-    if (YES.test(first)) decision = "yes";
-    else if (NO.test(first)) decision = "pass";
-    if (!decision) return new Response("no decision", { status: 200 }); // ambiguous, ignore
+    // Anything ambiguous, automated, or empty comes back null and is ignored:
+    // the invite's Yes/Pass buttons remain, and the match stays pending. Never
+    // downgrade an unreadable reply to a decision.
+    const decision = decisionFromReply(bodyText, bodyHtml);
+    if (!decision) return new Response("no decision", { status: 200 });
 
     await recordInviteDecision(token, decision);
     return new Response("ok", { status: 200 });

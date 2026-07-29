@@ -165,6 +165,31 @@ async function main() {
     assert.equal(foreignDomainReply.status, 200);
     assert.equal(await foreignDomainReply.text(), "no token");
 
+    // A legacy reply domain stays accepted while invites carrying its Reply-To
+    // are still outstanding, but invites are only ever sent from the first one.
+    // Without this, changing the reply address silently drops in-flight replies.
+    const singleDomain = process.env.RESEND_INBOUND_DOMAIN!;
+    process.env.RESEND_INBOUND_DOMAIN = `new.meetcute.test, ${singleDomain}`;
+    assert.match(
+      introductions.inviteReplyAddress("sample-token")!,
+      /@new\.meetcute\.test>$/,
+      "new invites must use the first configured domain",
+    );
+    const legacyDomainReply = await inbound.POST(
+      signedInboundRequest({
+        token: yesAToken,
+        text: "Maybe? Let me think about it",
+        domain: singleDomain,
+      }),
+    );
+    assert.equal(legacyDomainReply.status, 200);
+    assert.equal(
+      await legacyDomainReply.text(),
+      "no decision",
+      "a legacy-domain reply must reach the parser, and 'maybe' decides nothing",
+    );
+    process.env.RESEND_INBOUND_DOMAIN = singleDomain;
+
     globalThis.fetch = async (input) => {
       assert.match(String(input), /api\.resend\.com\/emails\/receiving\/journey-received-a$/);
       return new Response(JSON.stringify({ text: "Y\n\nOn the earlier email..." }), {
