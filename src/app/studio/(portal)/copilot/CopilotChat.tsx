@@ -104,7 +104,7 @@ export default function CopilotChat() {
         )}
       </div>
       <p className="mt-1 text-sm text-muted">
-        Your command line for the platform. Ask about the roster, or tell it to match people, invite
+        Your command line for the platform. Ask about the list, or tell it to match people, invite
         members to events, create dinners, log notes, and more. Typed commands run for real.
       </p>
 

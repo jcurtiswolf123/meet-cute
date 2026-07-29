@@ -133,8 +133,6 @@ async function main() {
         createdById: jess.id,
         stage: "suggested",
         rationale: "Both build things for a living and both want the same pace of life.",
-        aboutPersonA: "Runs a design studio in Brooklyn\nMarathoner\nCooks most nights",
-        aboutPersonB: "Second-time fintech founder\nTrail runner\nBig reader",
       },
     });
   }

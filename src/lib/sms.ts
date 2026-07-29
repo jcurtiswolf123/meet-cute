@@ -298,49 +298,23 @@ function first(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
 }
 
-/** Turn an operator's newline-separated "about" text into inline SMS bullets.
- *  "Works in finance\nLives in Brooklyn" -> "- Works in finance - Lives in Brooklyn".
- *  Strips any bullet character the operator typed and drops empty lines. Returns
- *  "" when there is nothing to show. SMS is plain text, so we use "- " markers.
- *  Mirrored inline in IntroComposer.tsx (this module is server-only). */
-export function aboutBullets(about?: string | null): string {
-  if (!about) return "";
-  const lines = about
-    .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*[-•*]\s*/, "").trim())
-    .filter(Boolean);
-  return lines.map((l) => `- ${l}`).join(" ");
-}
-
 /** "Want an intro?" text sent to each side when the operator starts an intro.
- *  `about` is the bullet text describing the OTHER person (shown to this
- *  recipient); `blurb` is the optional extra one-liner (Match.rationale). */
+ *  Email is the channel that carries the introduction: it holds the other
+ *  person's whole profile, written by them. A text cannot, so this is a nudge to
+ *  the same token-gated page. Nobody is described to anybody here. */
 export function introInviteSMS(args: {
   toName: string;
   otherName: string;
-  about?: string | null;
-  otherInstagram?: string | null;
-  blurb?: string | null;
-  operatorName: string;
+  profileUrl: string;
 }): string {
-  const me = first(args.operatorName);
-  const them = first(args.otherName);
-  const bullets = aboutBullets(args.about);
-  // The recipient can size the other person up on Instagram before deciding.
-  const ig = normalizeInstagram(args.otherInstagram);
-  const blurb = args.blurb?.trim();
   return [
-    `Hi ${first(args.toName)}, it's ${me} (your matchmaker).`,
-    `I think you'd hit it off with ${them}.`,
-    bullets ? `A bit about them: ${bullets}.` : null,
-    ig ? `Take a look: ${ig}.` : null,
-    blurb ? blurb : null,
-    `Want me to introduce you two? Reply Y for yes or N for no.`,
+    `Hi ${first(args.toName)}, it's Meet Cute.`,
+    `We'd like to introduce you to ${first(args.otherName)}.`,
+    `Their profile, in their words: ${args.profileUrl}`,
+    `Reply Y for yes or N to pass.`,
     // Carrier-required opt-out disclosure on the first message a recipient gets.
     `Reply STOP to opt out.`,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  ].join(" ");
 }
 
 /** First message dropped into the 3-way group thread once both say yes. */

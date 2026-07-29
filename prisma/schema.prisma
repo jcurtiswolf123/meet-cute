@@ -229,10 +229,14 @@ model Match {
   aDecision String @default("pending") // pending | yes | pass
   bDecision String @default("pending")
 
-  rationale     String? // optional one-liner extra: why they'd hit it off
-  // SMS intro bullets describing each person, newline-separated (one bullet per
-  // line). aboutPersonA describes A and is shown to B in B's invite text;
-  // aboutPersonB describes B and is shown to A. Rendered as "- " bullets in SMS.
+  // The matchmaker's one optional line, shown to both. It is about the PAIRING,
+  // never a description of either person: each member is presented to the other
+  // in their own profile words (Person.bio / lookingFor / prompts / recommendation).
+  rationale     String?
+  // DEPRECATED, no longer read or written. These held operator-authored bullets
+  // describing each person for the old SMS-first invite. Introductions now carry
+  // the member's own profile, so nothing writes here. Kept as dead columns rather
+  // than dropped so existing rows survive; remove in a planned migration.
   aboutPersonA  String?
   aboutPersonB  String?
   lastActorId   String?

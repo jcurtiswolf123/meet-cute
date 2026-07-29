@@ -10,57 +10,25 @@ type Person = {
   phone: string | null;
   canText: boolean;
   city: string;
-  instagram: string | null;
-  blurb?: string;
 };
 
 function first(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
 }
 
-// Mirrors aboutBullets/introInviteSMS in src/lib/sms.ts so the operator sees
-// exactly what each recipient will get. Kept inline because sms.ts is
-// server-only (imports crypto).
-function aboutBullets(about: string): string {
-  const lines = about
-    .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*[-•*]\s*/, "").trim())
-    .filter(Boolean);
-  return lines.map((l) => `- ${l}`).join(" ");
-}
-
-function previewText(
-  toName: string,
-  otherName: string,
-  about: string,
-  otherInstagram: string | null,
-  blurb: string,
-  operatorName: string,
-): string {
-  const bullets = aboutBullets(about);
-  // Person.instagram is stored canonical (normalizeInstagram), so render as-is.
-  const ig = otherInstagram?.trim() || null;
-  return [
-    `Hi ${first(toName)}, it's ${first(operatorName)} (your matchmaker).`,
-    `I think you'd hit it off with ${first(otherName)}.`,
-    bullets ? `A bit about them: ${bullets}.` : null,
-    ig ? `Take a look: ${ig}.` : null,
-    blurb.trim() ? blurb.trim() : null,
-    `Want me to introduce you two? Reply Y for yes or N for no.`,
-  ]
-    .filter(Boolean)
-    .join(" ");
+// Which channels a person will actually be reached on. Email carries the whole
+// profile; a text is only ever a nudge to the same page, and only with consent.
+function channelsFor(p: Person): string {
+  return [p.email ? "email" : null, p.phone && p.canText ? "text" : null].filter(Boolean).join(" and ");
 }
 
 export function IntroComposer({
   people,
-  operatorName,
   lockedAId,
   title = "New introduction",
-  intro = "Pick two approved people who are ready to match. Everyone gets an email invite when available. A text is added only for people who separately opted in to SMS.",
+  intro = "Pick two approved people who are ready to match. Each one gets the other's profile by email, in that person's own words. A text nudge is added only for people who separately opted in to SMS.",
 }: {
   people: Person[];
-  operatorName: string;
   // When set, the first person is fixed (the profile the operator is standing
   // on) and only the second person is chosen. Used by the person page so an
   // operator can match someone with anyone on the roster, not just the ranked
@@ -72,27 +40,10 @@ export function IntroComposer({
   const locked = lockedAId ? people.find((p) => p.id === lockedAId) : undefined;
   const [aId, setAId] = useState(locked?.id ?? "");
   const [bId, setBId] = useState("");
-  const [aboutA, setAboutA] = useState((locked?.blurb ?? "").trim());
-  const [aboutB, setAboutB] = useState("");
   const [blurb, setBlurb] = useState("");
 
   const a = useMemo(() => people.find((p) => p.id === aId), [people, aId]);
   const b = useMemo(() => people.find((p) => p.id === bId), [people, bId]);
-
-  // Selecting a person seeds their "about" box from what we already know (bio /
-  // what they're looking for), but only when the box is still empty, so the
-  // operator never loses anything they typed.
-  function selectPerson(side: "a" | "b", id: string) {
-    const person = people.find((p) => p.id === id);
-    const seed = (person?.blurb ?? "").trim();
-    if (side === "a") {
-      setAId(id);
-      if (seed && !aboutA.trim()) setAboutA(seed);
-    } else {
-      setBId(id);
-      if (seed && !aboutB.trim()) setAboutB(seed);
-    }
-  }
 
   const missingChannel =
     (a && !a.email && !(a.phone && a.canText) ? a.name : null) ||
@@ -132,7 +83,7 @@ export function IntroComposer({
             people={people}
             value={aId}
             excludeId={bId}
-            onChange={(id) => selectPerson("a", id)}
+            onChange={setAId}
           />
         )}
         <PersonCombobox
@@ -141,45 +92,11 @@ export function IntroComposer({
           people={people}
           value={bId}
           excludeId={aId}
-          onChange={(id) => selectPerson("b", id)}
+          onChange={setBId}
         />
 
-        <label className="block">
-          <span className="label">
-            About {a ? first(a.name) : "the first person"}
-            {a && b ? ` (shown to ${first(b.name)})` : ""}
-          </span>
-          <textarea
-            name="aboutA"
-            value={aboutA}
-            onChange={(e) => setAboutA(e.target.value)}
-            rows={3}
-            maxLength={1000}
-            placeholder={"Works in finance\nLives in Brooklyn\nLoves climbing"}
-            className="field mt-1.5"
-          />
-          <span className="mt-1 block text-xs text-muted">One bullet per line.</span>
-        </label>
-
-        <label className="block">
-          <span className="label">
-            About {b ? first(b.name) : "the second person"}
-            {a && b ? ` (shown to ${first(a.name)})` : ""}
-          </span>
-          <textarea
-            name="aboutB"
-            value={aboutB}
-            onChange={(e) => setAboutB(e.target.value)}
-            rows={3}
-            maxLength={1000}
-            placeholder={"Runs a design studio\nGrew up in Chicago\nMarathoner"}
-            className="field mt-1.5"
-          />
-          <span className="mt-1 block text-xs text-muted">One bullet per line.</span>
-        </label>
-
         <label className="block sm:col-span-2">
-          <span className="label">Optional one-liner (added after the bullets)</span>
+          <span className="label">Why this pairing (optional)</span>
           <textarea
             name="blurb"
             value={blurb}
@@ -189,30 +106,27 @@ export function IntroComposer({
             placeholder="You're both into climbing and just moved to Brooklyn - thought you'd click."
             className="field mt-1.5"
           />
+          <span className="mt-1 block text-xs text-muted">
+            Both people see this line. Write about the pairing, not about either person: they each
+            introduce themselves through their own profile.
+          </span>
         </label>
 
-        {(a || b) && (
+        {a && b && (
           <div className="sm:col-span-2 rounded-xl border border-line bg-paper/50 p-3">
-            <p className="label mb-2 text-muted">Preview</p>
+            <p className="label mb-2 text-muted">What goes out</p>
             <div className="space-y-2">
-              {a && b && (
-                <p className="text-sm leading-relaxed">
-                  <span className="font-medium">
-                    To {first(a.name)} via {[a.email ? "email" : null, a.phone && a.canText ? "SMS" : null].filter(Boolean).join(" and ")}:
-                  </span>{" "}
-                  {a.phone && a.canText
-                    ? previewText(a.name, b.name, aboutB, b.instagram, blurb, operatorName)
-                    : `Email invite with ${first(b.name)}'s profile and Yes or Pass choices.`}
-                </p>
-              )}
-              {a && b && (
-                <p className="text-sm leading-relaxed">
-                  <span className="font-medium">
-                    To {first(b.name)} via {[b.email ? "email" : null, b.phone && b.canText ? "SMS" : null].filter(Boolean).join(" and ")}:
-                  </span>{" "}
-                  {b.phone && b.canText
-                    ? previewText(b.name, a.name, aboutA, a.instagram, blurb, operatorName)
-                    : `Email invite with ${first(a.name)}'s profile and Yes or Pass choices.`}
+              <p className="text-sm leading-relaxed">
+                <span className="font-medium">To {first(a.name)} via {channelsFor(a)}:</span>{" "}
+                {first(b.name)}&rsquo;s profile as {first(b.name)} wrote it, with Yes or Pass.
+              </p>
+              <p className="text-sm leading-relaxed">
+                <span className="font-medium">To {first(b.name)} via {channelsFor(b)}:</span>{" "}
+                {first(a.name)}&rsquo;s profile as {first(a.name)} wrote it, with Yes or Pass.
+              </p>
+              {blurb.trim() && (
+                <p className="text-sm leading-relaxed text-muted">
+                  Both also see your note: &ldquo;{blurb.trim()}&rdquo;
                 </p>
               )}
             </div>

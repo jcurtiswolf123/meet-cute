@@ -30,7 +30,6 @@ import {
   normalizePhone,
   normalizeInstagram,
   normalizeLinkedin,
-  introInviteSMS,
   feedbackRequestSMS,
 } from "./sms";
 import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInvites, recordInviteDecision } from "./introductions";
@@ -992,11 +991,10 @@ export async function createIntroduction(formData: FormData) {
 
   const aId = String(formData.get("personAId") || "");
   const bId = String(formData.get("personBId") || "");
+  // The one line the matchmaker writes, and it is about the PAIRING ("you're
+  // both climbers who just moved to Brooklyn"), never a description of either
+  // person. Each member is presented in their own profile words.
   const blurb = String(formData.get("blurb") || "").trim().slice(0, 1000) || null;
-  // Bullet text describing each person: aboutA describes A (shown to B), aboutB
-  // describes B (shown to A). Newline-separated; each line becomes an SMS bullet.
-  const aboutA = String(formData.get("aboutA") || "").trim().slice(0, 1000) || null;
-  const aboutB = String(formData.get("aboutB") || "").trim().slice(0, 1000) || null;
   if (!aId || !bId) throw new Error("Pick two people.");
   if (aId === bId) throw new Error("Pick two different people.");
 
@@ -1031,7 +1029,6 @@ export async function createIntroduction(formData: FormData) {
   });
   if (blocked) throw new Error("Cannot connect: a block exists between these two.");
 
-  const nonce = newDeliveryNonce();
   // Reuse the existing row when re-introducing a pair that previously closed or
   // connected: the (personAId, personBId) unique constraint means a blind create
   // would crash (P2002) or, in reverse order, create a duplicate the webhook
@@ -1039,7 +1036,6 @@ export async function createIntroduction(formData: FormData) {
   const intro = await prisma.$transaction(async (tx) => {
     let row: { id: string; personAId: string };
     if (existing) {
-      const aIsExistingA = existing.personAId === aId;
       await tx.deliveryJob.deleteMany({ where: { matchId: existing.id } });
       row = await tx.match.update({
         where: { id: existing.id },
@@ -1053,8 +1049,6 @@ export async function createIntroduction(formData: FormData) {
           exitReason: null,
           lastActorId: null,
           rationale: blurb,
-          aboutPersonA: aIsExistingA ? aboutA : aboutB,
-          aboutPersonB: aIsExistingA ? aboutB : aboutA,
           notifiedAAt: null,
           notifiedBAt: null,
         },
@@ -1068,51 +1062,13 @@ export async function createIntroduction(formData: FormData) {
           createdById: op.id,
           stage: "invited",
           rationale: blurb,
-          aboutPersonA: aboutA,
-          aboutPersonB: aboutB,
         },
         select: { id: true, personAId: true },
       });
     }
 
-    if (a.phone && a.smsConsentAt) {
-      const side = row.personAId === a.id ? "a" : "b";
-      await queueSmsDelivery({
-        kind: `intro_invite_${side}_sms`,
-        to: a.phone,
-        body: introInviteSMS({
-          toName: a.name,
-          otherName: b.name,
-          about: aboutB,
-          otherInstagram: b.instagram,
-          blurb,
-          operatorName: op.name,
-        }),
-        idempotencyKey: makeDeliveryKey("intro-invite", row.id, a.id, nonce, "sms"),
-        matchId: row.id,
-        personId: a.id,
-        db: tx,
-      });
-    }
-    if (b.phone && b.smsConsentAt) {
-      const side = row.personAId === b.id ? "a" : "b";
-      await queueSmsDelivery({
-        kind: `intro_invite_${side}_sms`,
-        to: b.phone,
-        body: introInviteSMS({
-          toName: b.name,
-          otherName: a.name,
-          about: aboutA,
-          otherInstagram: a.instagram,
-          blurb,
-          operatorName: op.name,
-        }),
-        idempotencyKey: makeDeliveryKey("intro-invite", row.id, b.id, nonce, "sms"),
-        matchId: row.id,
-        personId: b.id,
-        db: tx,
-      });
-    }
+    // One call queues both channels: the email carrying each person's own
+    // profile, and, for anyone who consented to texts, a nudge to the same page.
     await sendEmailInvites(row.id, { db: tx, throwOnError: true });
     return row;
   });
@@ -1131,46 +1087,16 @@ export async function createIntroduction(formData: FormData) {
   revalidatePath(`/studio/person/${bId}`);
 }
 
-// Operator: re-send the "want an intro?" text to whoever hasn't replied yet.
+// Operator: re-send the invitation to whoever hasn't replied yet. Rotating the
+// token supersedes the pending email and text for that side, and rebuilds both
+// from the member's current profile rather than a stale copy.
 export async function resendIntro(formData: FormData) {
   const op = await requireOperator();
   if (!op) throw new Error("operators only");
   const matchId = String(formData.get("matchId") || "");
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    include: {
-      personA: { select: { name: true, phone: true, instagram: true, smsConsentAt: true } },
-      personB: { select: { name: true, phone: true, instagram: true, smsConsentAt: true } },
-    },
-  });
+  const match = await prisma.match.findUnique({ where: { id: matchId }, select: { id: true } });
   if (!match) throw new Error("No such introduction.");
 
-  const jobs: Promise<unknown>[] = [];
-  const window = deliveryWindow();
-  // Reuse the about bullets stored when the intro was created: A sees B (aboutB,
-  // personB.instagram).
-  if (match.aDecision === "pending" && match.personA.phone && match.personA.smsConsentAt) {
-    jobs.push(queueSmsDelivery({
-      kind: "intro_invite_a_sms",
-      to: match.personA.phone,
-      body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, otherInstagram: match.personB.instagram, blurb: match.rationale, operatorName: op.name }),
-      idempotencyKey: makeDeliveryKey("intro-resend", matchId, match.personAId, window, "sms"),
-      matchId,
-      personId: match.personAId,
-    }));
-  }
-  if (match.bDecision === "pending" && match.personB.phone && match.personB.smsConsentAt) {
-    jobs.push(queueSmsDelivery({
-      kind: "intro_invite_b_sms",
-      to: match.personB.phone,
-      body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, otherInstagram: match.personA.instagram, blurb: match.rationale, operatorName: op.name }),
-      idempotencyKey: makeDeliveryKey("intro-resend", matchId, match.personBId, window, "sms"),
-      matchId,
-      personId: match.personBId,
-    }));
-  }
-  await Promise.all(jobs);
-  // Re-send the email double opt-in to whoever is still pending (rotates token).
   await sendEmailInvites(matchId);
   revalidatePath("/studio/matchmaking");
   revalidatePath("/studio/conversations");
@@ -1216,50 +1142,24 @@ export async function closeIntroduction(formData: FormData) {
   revalidatePath(`/studio/conversations/${matchId}`);
 }
 
-// Operator bulk action: resend the "want an intro?" text to every stalled
-// introduction (no reply for STALLED_DAYS+), texting only the side(s) still
-// pending. Capped so one click can't fan out an unbounded number of sends.
+// Operator bulk action: resend the invitation to every stalled introduction (no
+// reply for STALLED_DAYS+), contacting only the side(s) still pending. Capped so
+// one click can't fan out an unbounded number of sends.
 export async function bulkResendStalled() {
   const op = await requireOperator();
   if (!op) throw new Error("operators only");
 
   const stalled = await prisma.match.findMany({
     where: stalledWhere(),
-    include: {
-      personA: { select: { id: true, name: true, phone: true, instagram: true, smsConsentAt: true } },
-      personB: { select: { id: true, name: true, phone: true, instagram: true, smsConsentAt: true } },
-    },
+    select: { id: true },
     orderBy: { notifiedAAt: "asc" },
     take: 50,
   });
 
-  const window = deliveryWindow();
   let resent = 0;
   for (const match of stalled) {
-    const jobs: Promise<unknown>[] = [];
-    if (match.aDecision === "pending" && match.personA.phone && match.personA.smsConsentAt) {
-      jobs.push(queueSmsDelivery({
-        kind: "intro_invite_a_sms",
-        to: match.personA.phone,
-        body: introInviteSMS({ toName: match.personA.name, otherName: match.personB.name, about: match.aboutPersonB, otherInstagram: match.personB.instagram, blurb: match.rationale, operatorName: op.name }),
-        idempotencyKey: makeDeliveryKey("intro-bulk-resend", match.id, match.personA.id, window, "sms"),
-        matchId: match.id,
-        personId: match.personA.id,
-      }));
-    }
-    if (match.bDecision === "pending" && match.personB.phone && match.personB.smsConsentAt) {
-      jobs.push(queueSmsDelivery({
-        kind: "intro_invite_b_sms",
-        to: match.personB.phone,
-        body: introInviteSMS({ toName: match.personB.name, otherName: match.personA.name, about: match.aboutPersonA, otherInstagram: match.personA.instagram, blurb: match.rationale, operatorName: op.name }),
-        idempotencyKey: makeDeliveryKey("intro-bulk-resend", match.id, match.personB.id, window, "sms"),
-        matchId: match.id,
-        personId: match.personB.id,
-      }));
-    }
-    await Promise.all(jobs);
-    const emails = await sendEmailInvites(match.id);
-    if (jobs.length > 0 || emails > 0) {
+    const queued = await sendEmailInvites(match.id);
+    if (queued > 0) {
       await logIntroMessage({ matchId: match.id, body: "Queued another intro invitation for each person still waiting to decide.", author: "operator", kind: "operator" });
       resent += 1;
     }

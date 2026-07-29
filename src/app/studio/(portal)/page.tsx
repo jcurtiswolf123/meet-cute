@@ -12,7 +12,7 @@ export default async function Roster({
 }: {
   searchParams: Promise<{ q?: string; city?: string; gender?: string; sort?: string }>;
 }) {
-  const me = await requireOperatorPage();
+  await requireOperatorPage();
   const sp = await searchParams;
   const q = (sp.q ?? "").toLowerCase();
 
@@ -61,8 +61,6 @@ export default async function Roster({
       phone: p.phone,
       canText: !!p.smsConsentAt,
       city: p.city,
-      instagram: p.instagram,
-      blurb: (p.bio || p.lookingFor || "").trim(),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -114,13 +112,13 @@ export default async function Roster({
     <div>
       <div className="mb-5">
         <h1 className="font-display text-2xl font-medium">Directory</h1>
-        <p className="mt-1 text-sm text-muted">Everyone on the roster, with new applicants to review at a glance.</p>
+        <p className="mt-1 text-sm text-muted">Everyone on the list, with new applicants to review at a glance.</p>
       </div>
       {/* Metrics ledger: "Together" (the north-star outcome) carries the sage accent */}
       <div className="ledger">
         <div className="ledger-cell">
           <div className="ledger-num">{people.length}</div>
-          <div className="ledger-label">On roster</div>
+          <div className="ledger-label">On list</div>
         </div>
         <div className="ledger-cell">
           <div className="ledger-num">{applicants ? `${Math.round((accepted / applicants) * 100)}%` : "-"}</div>
@@ -142,10 +140,10 @@ export default async function Roster({
       <details open className="mt-6">
         <summary className="cursor-pointer list-none">
           <span className="label text-claret">Make a match</span>
-          <span className="ml-2 text-sm text-muted">Introduce two members straight from the roster.</span>
+          <span className="ml-2 text-sm text-muted">Introduce two members straight from the list.</span>
         </summary>
         <div className="mt-3">
-          <IntroComposer people={composerPeople} operatorName={me.name} />
+          <IntroComposer people={composerPeople} />
         </div>
       </details>
 
@@ -191,7 +189,7 @@ export default async function Roster({
       {pendingApplicants.length > 0 && (
         <div className="mt-6 rounded-xl2 border border-claret/25 bg-claret/5 p-5">
           <p className="label text-claret">New applicants ({pendingApplicants.length})</p>
-          <p className="mt-1 text-sm text-muted">Review and approve to add them to the roster.</p>
+          <p className="mt-1 text-sm text-muted">Review and approve to add them to the list.</p>
           <ul className="mt-4 space-y-2">
             {pendingApplicants.map((a) => (
               <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel px-4 py-2.5">

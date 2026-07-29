@@ -85,6 +85,11 @@ async function main() {
         openToMatch: true,
         appliedAt: new Date(),
         agreedTosAt: new Date(),
+        // Self-written profile: the invite email must carry THIS, not anything
+        // an operator typed about them.
+        headline: `Headline of ${label}`,
+        bio: `Own words of ${label}`,
+        lookingFor: `Looking for by ${label}`,
       },
     });
     people.push(person.id);
@@ -142,7 +147,25 @@ async function main() {
     );
     for (const capture of inviteDeliveries) {
       assert.match(String(capture.payload.replyTo), /^Meet Cute <r\+[A-Za-z0-9_-]+@/);
-      assert.match(String(capture.payload.html), /profile &amp; decide/i);
+      assert.match(String(capture.payload.html), /Yes, introduce us/i);
+    }
+    // Each side's email carries the OTHER person's own profile words inline, so
+    // the decision can be made without opening the link.
+    for (const [me, other] of [
+      [yesA, yesB],
+      [yesB, yesA],
+    ] as const) {
+      const capture = inviteDeliveries.find(
+        (c) => String((c.payload.to as string[])[0]) === me.email,
+      )!;
+      const html = String(capture.payload.html);
+      const text = String(capture.payload.text);
+      for (const own of [other.headline!, other.bio!, other.lookingFor!]) {
+        assert.ok(html.includes(own), `invite to ${me.name} is missing "${own}"`);
+        assert.ok(text.includes(own), `invite text to ${me.name} is missing "${own}"`);
+      }
+      // and never the recipient's own profile back at them
+      assert.ok(!html.includes(me.bio!), `invite to ${me.name} echoed their own bio`);
     }
 
     const yesAToken = yesInvites.find((invite) => invite.personId === yesA.id)!.token;

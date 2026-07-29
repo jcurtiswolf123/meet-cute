@@ -117,16 +117,35 @@ function main() {
   // 7. Core match emails must ride the SAME shell after the redesign migration.
   const invite = matchInviteEmail({
     toName: "Maya Rosen",
-    otherName: "Alex Chen",
-    otherHeadline: "Architect who cooks",
-    city: "NYC",
+    other: {
+      name: "Alex Chen",
+      age: 34,
+      neighborhood: "Cobble Hill",
+      city: "NYC",
+      headline: "Architect who cooks",
+      bio: "I draw buildings all day and feed people all night.",
+      lookingFor: "Someone who argues about food.",
+      dealBreakers: "Smoking.",
+      recommendation: "Alex is the most curious person I know.",
+      voucherName: "Priya N.",
+      prompts: [{ question: "A perfect Sunday", answer: "Greenmarket, then nothing." }],
+      photoUrl: "https://hellomeetcute.com/api/invite/tok/photo/p1.webp",
+    },
+    matchmakerNote: "You both moved from Chicago last year.",
     profileUrl: "https://hellomeetcute.com/i/tok",
   });
   assertWellFormed("matchInvite", invite);
   assertOnBrand("matchInvite", invite);
-  assert.match(invite.subject, /matched with Alex/);
+  assert.match(invite.subject, /introduction to Alex/i);
   assert.match(invite.text, /reply Y/i);
   assert.match(invite.html, /hellomeetcute\.com\/i\/tok/);
+  // The profile travels in the email itself, in the member's own words.
+  for (const own of ["I draw buildings all day", "Someone who argues about food", "A perfect Sunday", "most curious person I know"]) {
+    assert.ok(invite.html.includes(own.replace(/'/g, "&#39;")), `matchInvite html is missing "${own}"`);
+    assert.ok(invite.text.includes(own), `matchInvite text is missing "${own}"`);
+  }
+  assert.match(invite.html, /api\/invite\/tok\/photo\/p1\.webp/);
+  assert.match(invite.text, /You both moved from Chicago last year/);
 
   const connection = connectionEmail({
     toName: "Maya Rosen",

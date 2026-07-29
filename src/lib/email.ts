@@ -247,7 +247,7 @@ export function applicationReceivedEmail(args: {
   const text =
     `Hi ${first},\n\n` +
     `Thank you for applying to Meet Cute${place ? ` in ${place}` : ""}. A matchmaker reads every application by hand, so this takes a little time - that is on purpose.\n\n` +
-    `If it is a fit, we will be in touch to welcome you onto the roster and start making introductions. Either way, you will hear from a person, not a form.\n\n` +
+    `If it is a fit, we will be in touch to welcome you onto the list and start making introductions. Either way, you will hear from a person, not a form.\n\n` +
     `Warmly,\nMeet Cute`;
   const inner =
     h1("Thank you for applying.") +
@@ -267,17 +267,17 @@ export function applicationApprovedEmail(args: {
   const subject = "You're in - welcome to Meet Cute";
   const text =
     `Hi ${first},\n\n` +
-    `Good news: you have been accepted onto the Meet Cute roster. Welcome.\n\n` +
+    `Good news: you have been accepted onto the Meet Cute list. Welcome.\n\n` +
     `From here, a matchmaker introduces you to one person at a time - no public profile, no feed, no endless messaging. When we find someone worth meeting, you will get a private introduction by email and decide for yourself.\n\n` +
     `Take a minute to round out your profile and tell us what you are looking for:\n${args.appUrl}\n\n` +
     `Warmly,\nMeet Cute`;
   const inner =
     h1("Welcome to Meet Cute.") +
-    p(`Hi ${esc(first)}, you have been accepted onto the roster. From here a matchmaker introduces you to <strong>one person at a time</strong> - no public profile, no feed, no endless messaging.`) +
+    p(`Hi ${esc(first)}, you have been accepted onto the list. From here a matchmaker introduces you to <strong>one person at a time</strong> - no public profile, no feed, no endless messaging.`) +
     p(`When we find someone worth meeting, you will get a private introduction by email and decide for yourself. If you both say yes, we connect you.`) +
     `<p style="margin:24px 0 0">${emailButton("Round out your profile", args.appUrl)}</p>` +
     small("The more we know about what you are looking for, the better the introductions.");
-  return { subject, html: emailShell(inner, "You've been accepted onto the roster."), text };
+  return { subject, html: emailShell(inner, "You've been accepted onto the list."), text };
 }
 
 // A gentle nudge sent to one side of a connected match who hasn't taken it
@@ -292,12 +292,12 @@ export function matchReminderEmail(args: {
   const subject = `A nudge: find a time with ${otherFirst}`;
   const text =
     `Hi ${first},\n\n` +
-    `Just a friendly nudge - you and ${otherFirst} both said yes${args.city ? ` in ${args.city}` : ""}, and the best introductions turn into a plan while they are still warm.\n\n` +
+    `Just a friendly nudge - you and ${otherFirst} both said yes, and the best introductions turn into a plan while they are still warm.\n\n` +
     `Reply to your intro thread with a day and place this week. A short first message goes a long way.\n\n` +
     `Rooting for you,\nMeet Cute`;
   const inner =
     h1("Don't let this one cool off.") +
-    p(`Hi ${esc(first)}, you and <strong>${esc(otherFirst)}</strong> both said yes${args.city ? ` in ${esc(args.city)}` : ""}. The best introductions turn into a plan while they are still warm.`) +
+    p(`Hi ${esc(first)}, you and <strong>${esc(otherFirst)}</strong> both said yes. The best introductions turn into a plan while they are still warm.`) +
     p(`Reply to your introduction thread with a day and a place this week - a short first message goes a long way.`) +
     small("Want us to help pick a spot? Just reply and ask.");
   return { subject, html: emailShell(inner, `You and ${otherFirst} still haven't set a time.`), text };
@@ -426,7 +426,7 @@ export function connectionEmail(args: {
 
   const text =
     `Hi ${first},\n\n` +
-    `Good news: you and ${otherFirst} both said yes to an introduction${args.city ? ` in ${args.city}` : ""}.\n\n` +
+    `Good news: you and ${otherFirst} both said yes to an introduction.\n\n` +
     `Here is how to reach ${otherFirst}:\n${reachText}\n\n` +
     `${note}\n\n` +
     `Warmly,\nMeet Cute\n\n` +
@@ -445,7 +445,7 @@ export function connectionEmail(args: {
 
   const inner =
     h1(`You and ${esc(otherFirst)} said yes.`) +
-    p(`Hi ${esc(first)}, you and <strong>${esc(otherFirst)}</strong> both said yes to an introduction${args.city ? ` in ${esc(args.city)}` : ""}.`) +
+    p(`Hi ${esc(first)}, you and <strong>${esc(otherFirst)}</strong> both said yes to an introduction.`) +
     `<div style="margin:16px 0;padding:16px;border:1px solid ${BRAND.line};border-radius:12px;background:${BRAND.cream}">
       <p style="margin:0 0 6px;font-family:${SANS};font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.muted}">How to reach ${esc(otherFirst)}</p>
       ${reachHtml}
@@ -460,37 +460,137 @@ export function connectionEmail(args: {
 // Yes/Pass buttons, and invites a plain "Y"/"N" reply (the reply address carries
 // the same token, so the inbound webhook maps the reply back to this exact
 // invite). No contact info is shared yet: that only happens if BOTH say yes.
+/** The other person's profile, exactly as THEY wrote it. Nothing here is
+ *  operator-authored: the matchmaker chooses the pair, the members describe
+ *  themselves. `matchmakerNote` is the one optional operator line, and it is a
+ *  note about the pairing, not a description of either person. */
+export type InviteProfile = {
+  name: string;
+  age?: number | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  lookingFor?: string | null;
+  dealBreakers?: string | null;
+  recommendation?: string | null;
+  voucherName?: string | null;
+  prompts?: { question: string; answer: string }[];
+  photoUrl?: string | null;
+};
+
+/** A labelled block of the member's own words. */
+function profileSection(label: string, body: string): string {
+  return (
+    `<p style="margin:20px 0 4px;font-family:${SANS};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.muted}">${esc(label)}</p>` +
+    `<p style="margin:0;font-family:${SANS};font-size:15px;line-height:1.65;color:${BRAND.ink}">${esc(body)}</p>`
+  );
+}
+
+// The introduction invite. The whole profile travels in the email itself so the
+// recipient can decide without clicking anything; the link exists for the photo,
+// the Yes/Pass buttons, and anyone who prefers a page.
 export function matchInviteEmail(args: {
   toName: string;
-  otherName: string;
-  otherHeadline?: string | null;
-  city?: string | null;
+  other: InviteProfile;
+  matchmakerNote?: string | null;
   profileUrl: string;
 }): { subject: string; html: string; text: string } {
+  const { other } = args;
   const first = (args.toName || "there").split(" ")[0];
-  const otherFirst = (args.otherName || "someone").split(" ")[0];
-  const subject = `You've been matched with ${otherFirst}`;
-  const headline = args.otherHeadline?.trim() ? args.otherHeadline.trim() : null;
+  const otherFirst = (other.name || "someone").split(" ")[0];
+  const subject = `An introduction to ${otherFirst}`;
 
-  const text =
-    `Hi ${first},\n\n` +
-    `We think you and ${otherFirst}${args.city ? ` in ${args.city}` : ""} could hit it off.\n\n` +
-    (headline ? `${otherFirst}: "${headline}"\n\n` : "") +
-    `See ${otherFirst}'s profile and decide:\n${args.profileUrl}\n\n` +
-    `Want the introduction? Just reply Y (yes) or N (no) to this email, or use the buttons on the page.\n\n` +
-    `If you both say yes, we'll connect you. If either passes, nothing happens and no one is told.\n\n` +
-    `Warmly,\nMeet Cute`;
+  const clean = (s: string | null | undefined) => (s?.trim() ? s.trim() : null);
+  const headline = clean(other.headline);
+  const bio = clean(other.bio);
+  const lookingFor = clean(other.lookingFor);
+  const dealBreakers = clean(other.dealBreakers);
+  const recommendation = clean(other.recommendation);
+  const voucherName = clean(other.voucherName);
+  const note = clean(args.matchmakerNote);
+  const prompts = (other.prompts ?? []).filter((q) => q.question?.trim() && q.answer?.trim());
+
+  // "31, Cobble Hill" with every missing piece dropped. City is deliberately
+  // absent: both people were matched inside the same market, so restating it
+  // reads like a listing ("Joshua in NYC") rather than an introduction.
+  const meta = [other.age ? String(other.age) : null, clean(other.neighborhood)]
+    .filter(Boolean)
+    .join(", ");
+
+  const text = [
+    `Hi ${first},`,
+    "",
+    `We'd like to introduce you to ${otherFirst}.`,
+    note ? `\n${note}` : null,
+    "",
+    `${otherFirst}${meta ? ` (${meta})` : ""}`,
+    headline ? `"${headline}"` : null,
+    bio ? `\nAbout\n${bio}` : null,
+    lookingFor ? `\nLooking for\n${lookingFor}` : null,
+    dealBreakers ? `\nDeal-breakers\n${dealBreakers}` : null,
+    recommendation
+      ? `\nRecommendation\n"${recommendation}"${voucherName ? `\nVouched for by ${voucherName}` : ""}`
+      : null,
+    ...prompts.map((q) => `\n${q.question}\n${q.answer}`),
+    "",
+    `Want the introduction? Reply Y (yes) or N (no) to this email, or use the buttons here:`,
+    args.profileUrl,
+    "",
+    `If you both say yes, we'll connect you. If either passes, nothing happens and no one is told.`,
+    "",
+    `Warmly,`,
+    `Meet Cute`,
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+
+  const photo = other.photoUrl
+    ? `<img src="${encodeURI(other.photoUrl)}" width="88" height="88" alt="${esc(otherFirst)}" style="display:block;width:88px;height:88px;border-radius:50%;object-fit:cover;border:1px solid ${BRAND.line}" />`
+    : "";
 
   const inner =
-    h1(`Meet ${esc(otherFirst)}.`) +
-    p(`Hi ${esc(first)}, we think you and <strong>${esc(otherFirst)}</strong>${args.city ? ` in ${esc(args.city)}` : ""} could hit it off.`) +
-    (headline
-      ? `<p style="margin:12px 0;padding:12px 16px;border-left:2px solid ${BRAND.oxblood};font-family:${SERIF};font-size:16px;font-style:italic;color:${BRAND.muted}">&ldquo;${esc(headline)}&rdquo;</p>`
+    h1(`Meet ${otherFirst}.`) +
+    p(`Hi ${esc(first)}, we think you two could hit it off. Everything below is in ${esc(otherFirst)}&rsquo;s own words.`) +
+    (note
+      ? `<p style="margin:0 0 20px;padding:12px 16px;background:${BRAND.paper};border-radius:10px;font-family:${SANS};font-size:14px;line-height:1.6;color:${BRAND.ink}">${esc(note)}</p>`
       : "") +
-    `<p style="margin:22px 0">${emailButton(`See ${otherFirst}'s profile & decide`, args.profileUrl)}</p>` +
-    p(`Want the introduction? <strong>Reply Y</strong> for yes or <strong>N</strong> to pass, or use the buttons on the page.`) +
+    `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid ${BRAND.line};padding-top:8px">
+      <tr>
+        ${photo ? `<td width="88" valign="top" style="padding:20px 16px 0 0">${photo}</td>` : ""}
+        <td valign="top" style="padding-top:20px">
+          <p style="margin:0;font-family:${SERIF};font-size:24px;line-height:1.2;color:${BRAND.ink}">${esc(otherFirst)}</p>
+          ${meta ? `<p style="margin:4px 0 0;font-family:${SANS};font-size:14px;color:${BRAND.muted}">${esc(meta)}</p>` : ""}
+          ${headline ? `<p style="margin:8px 0 0;font-family:${SERIF};font-size:17px;font-style:italic;line-height:1.4;color:${BRAND.oxblood}">${esc(headline)}</p>` : ""}
+        </td>
+      </tr>
+    </table>` +
+    (bio ? profileSection("About", bio) : "") +
+    (lookingFor ? profileSection("Looking for", lookingFor) : "") +
+    (dealBreakers ? profileSection("Deal-breakers", dealBreakers) : "") +
+    (recommendation
+      ? `<p style="margin:20px 0 4px;font-family:${SANS};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.muted}">Recommendation</p>` +
+        `<p style="margin:0;padding:12px 16px;border-left:2px solid ${BRAND.oxblood};font-family:${SERIF};font-size:16px;font-style:italic;line-height:1.55;color:${BRAND.ink}">&ldquo;${esc(recommendation)}&rdquo;</p>` +
+        (voucherName
+          ? `<p style="margin:6px 0 0;font-family:${SANS};font-size:12px;color:${BRAND.muted}">Vouched for by ${esc(voucherName)}</p>`
+          : "")
+      : "") +
+    prompts
+      .map(
+        (q) =>
+          `<p style="margin:20px 0 4px;font-family:${SANS};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.muted}">${esc(q.question)}</p>` +
+          `<p style="margin:0;font-family:${SANS};font-size:15px;line-height:1.65;color:${BRAND.ink}">${esc(q.answer)}</p>`,
+      )
+      .join("") +
+    `<p style="margin:28px 0 16px;padding-top:24px;border-top:1px solid ${BRAND.line}">${emailButton("Yes, introduce us", args.profileUrl)}</p>` +
+    p(`Prefer to answer right here? <strong>Reply Y</strong> for yes or <strong>N</strong> to pass.`) +
     small("If you both say yes, we'll connect you. If either passes, nothing happens and no one is told.");
-  return { subject, html: emailShell(inner, `An introduction to ${otherFirst}.`), text };
+
+  return {
+    subject,
+    html: emailShell(inner, `An introduction to ${otherFirst}, in their own words.`),
+    text,
+  };
 }
 
 // Second email of the double opt-in, sent to BOTH people at once (a single send
@@ -508,13 +608,13 @@ export function matchThreadEmail(args: {
 
   const text =
     `Hi ${aFirst} and ${bFirst},\n\n` +
-    `You both said yes to an introduction${args.city ? ` in ${args.city}` : ""}, so here you are on one thread.\n\n` +
+    `You both said yes to an introduction, so here you are on one thread.\n\n` +
     `Just hit reply-all to say hello and find a time this week. A short first message goes a long way.\n\n` +
     `Warmly,\nMeet Cute`;
 
   const inner =
     h1("You both said yes.") +
-    p(`Hi <strong>${esc(aFirst)}</strong> and <strong>${esc(bFirst)}</strong> - you both said yes to an introduction${args.city ? ` in ${esc(args.city)}` : ""}, so here you are on one thread.`) +
+    p(`Hi <strong>${esc(aFirst)}</strong> and <strong>${esc(bFirst)}</strong> - you both said yes to an introduction, so here you are on one thread.`) +
     p(`Just hit <strong>reply-all</strong> to say hello and find a time this week. A short first message goes a long way.`) +
     small("Reply any time if you would like a hand.");
   return { subject, html: emailShell(inner, `${aFirst} and ${bFirst}, meet each other.`), text };

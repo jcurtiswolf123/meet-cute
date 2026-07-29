@@ -24,7 +24,7 @@ export default async function PersonPage({
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ suggest?: string }>;
 }) {
-  const me = await requireOperatorPage();
+  await requireOperatorPage();
   const { id } = await params;
   const suggestNotice = SUGGEST_MESSAGE[(await searchParams)?.suggest ?? ""];
   const p = await prisma.person.findUnique({
@@ -84,8 +84,6 @@ export default async function PersonPage({
     phone: c.phone,
     canText: !!c.smsConsentAt,
     city: c.city,
-    instagram: c.instagram,
-    blurb: (c.bio || c.lookingFor || "").trim(),
   }));
   // The person can only be the anchor of a new introduction if they are on the
   // roster with a channel of their own.
@@ -176,17 +174,16 @@ export default async function PersonPage({
               <div className="mt-2">
                 <IntroComposer
                   people={composerPeople}
-                  operatorName={me.name}
                   lockedAId={id}
-                  title={`Introduce ${p.name.split(" ")[0]} to anyone on the roster`}
-                  intro="Search the full roster, not just the ranked suggestions. Both people get a private invite and are only connected after they both say yes."
+                  title={`Introduce ${p.name.split(" ")[0]} to anyone on the list`}
+                  intro="Search the full list, not just the ranked suggestions. Both people get a private invite and are only connected after they both say yes."
                 />
               </div>
             ) : (
               <p className="mt-2 text-sm text-muted">
                 {p.status === "active"
                   ? "This person has no authorized delivery channel yet. Add an email or record explicit text consent before introducing them."
-                  : "Approve this person onto the roster before introducing them."}
+                  : "Approve this person onto the list before introducing them."}
               </p>
             )}
           </>

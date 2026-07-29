@@ -8,7 +8,7 @@ const steps = [
   {
     number: "01",
     title: "Tell us who you are.",
-    body: "Apply privately. A matchmaker reads every application and gets to know the people invited onto the roster.",
+    body: "Apply privately. A matchmaker reads every application and gets to know the people invited onto the list.",
   },
   {
     number: "02",
@@ -130,7 +130,7 @@ export default function Home() {
             </Reveal>
             <Reveal className="md:col-span-6 md:col-start-7" delay={0.08}>
               <p className="max-w-[50ch] text-xl leading-8 text-ink">
-                Dating coaching for people on the roster, and couples coaching for the pairs who met
+                Dating coaching for people on the list, and couples coaching for the pairs who met
                 through us and the ones who found each other elsewhere.
               </p>
               <Link href="/coaching" className="text-link mt-9">

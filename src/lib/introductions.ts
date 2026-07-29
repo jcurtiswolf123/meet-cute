@@ -11,10 +11,13 @@ import * as Sentry from "@sentry/nextjs";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { matchInviteEmail } from "./email";
+import { introInviteSMS } from "./sms";
+import { STORED_EXT } from "./uploads";
 import {
   makeDeliveryKey,
   queueConnectionDeliveries,
   queueEmailDelivery,
+  queueSmsDelivery,
 } from "./delivery";
 
 // --- Email double opt-in -----------------------------------------------------
@@ -39,6 +42,13 @@ export function inviteProfileUrl(token: string): string {
   return `${appBaseUrl()}/i/${token}`;
 }
 
+/** Absolute URL for a photo embedded in an invite email. Authorized by the same
+ *  token as the invite itself, so it loads with no session (email clients and
+ *  their image proxies never carry cookies). */
+export function invitePhotoUrl(token: string, photoId: string): string {
+  return `${appBaseUrl()}/api/invite/${token}/photo/${photoId}.${STORED_EXT}`;
+}
+
 /** Reply-To address whose local part carries the invite token, so a plain "Y"/"N"
  *  email reply maps back to the exact invite via the inbound webhook. Requires an
  *  inbound domain routed to /api/email/inbound (Resend Inbound). Returns null when
@@ -57,9 +67,40 @@ function newInviteToken(): string {
   return randomBytes(24).toString("base64url");
 }
 
-/** Mint or refresh each side's MatchInvite and atomically queue the email.
- *  A provider failure is retried by the delivery worker, and sentAt is only
- *  written after the provider accepts the message. */
+// Everything the invite email needs about the person being introduced. All of it
+// is the member's own profile: nobody writes a description of anybody else.
+const invitePersonSelect = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  smsConsentAt: true,
+  headline: true,
+  bio: true,
+  lookingFor: true,
+  dealBreakers: true,
+  recommendation: true,
+  voucherName: true,
+  age: true,
+  neighborhood: true,
+  city: true,
+  photos: {
+    where: { status: "approved" },
+    orderBy: { order: "asc" },
+    take: 1,
+    select: { id: true },
+  },
+  prompts: {
+    orderBy: { order: "asc" },
+    select: { question: true, answer: true },
+  },
+} as const;
+
+/** Mint or refresh each side's MatchInvite and atomically queue the invitation.
+ *  Email carries the whole profile; anyone who separately consented to SMS also
+ *  gets a short nudge pointing at the same token-gated page. A provider failure
+ *  is retried by the delivery worker, and sentAt is only written after the
+ *  provider accepts the message. */
 export async function sendEmailInvites(
   matchId: string,
   options: { db?: Prisma.TransactionClient; throwOnError?: boolean } = {},
@@ -68,12 +109,11 @@ export async function sendEmailInvites(
     const match = await db.match.findUnique({
       where: { id: matchId },
       include: {
-        personA: { select: { id: true, name: true, email: true, headline: true, city: true } },
-        personB: { select: { id: true, name: true, email: true, headline: true, city: true } },
+        personA: { select: invitePersonSelect },
+        personB: { select: invitePersonSelect },
       },
     });
     if (!match) return 0;
-    const city = match.personA.city || match.personB.city || null;
     const sides = [
       { me: match.personA, other: match.personB, pending: match.aDecision === "pending" },
       { me: match.personB, other: match.personA, pending: match.bDecision === "pending" },
@@ -81,7 +121,9 @@ export async function sendEmailInvites(
 
     let queued = 0;
     for (const [index, { me, other, pending }] of sides.entries()) {
-      if (!pending || !me.email) continue;
+      // Someone with neither an email nor text consent has no authorized channel;
+      // createIntroduction rejects that case up front.
+      if (!pending || (!me.email && !(me.phone && me.smsConsentAt))) continue;
       const token = newInviteToken();
       const rotatedAt = new Date();
       const existing = await db.matchInvite.findUnique({
@@ -99,46 +141,86 @@ export async function sendEmailInvites(
           },
         });
       }
+      // Email whenever we have an address, because only email can carry the
+      // profile. SMS alone is the fallback for a phone-only member.
+      const channel = me.email ? "email" : "sms";
       const invite = await db.matchInvite.upsert({
         where: { matchId_personId: { matchId, personId: me.id } },
         create: {
           matchId,
           personId: me.id,
           token,
-          channel: "email",
+          channel,
           sentAt: null,
           createdAt: rotatedAt,
         },
         update: {
           token,
-          channel: "email",
+          channel,
           sentAt: null,
           decidedAt: null,
           createdAt: rotatedAt,
         },
       });
-      const message = matchInviteEmail({
-        toName: me.name,
-        otherName: other.name,
-        otherHeadline: other.headline,
-        city,
-        profileUrl: inviteProfileUrl(token),
-      });
-      await queueEmailDelivery({
-        kind: `intro_invite_${index === 0 ? "a" : "b"}_email`,
-        to: me.email,
-        subject: message.subject,
-        html: message.html,
-        text: message.text,
-        replyTo: inviteReplyAddress(token) ?? undefined,
-        idempotencyKey: makeDeliveryKey("intro-invite", matchId, me.id, token, "email"),
-        matchId,
-        personId: me.id,
-        inviteId: invite.id,
-        inviteToken: token,
-        db,
-      });
-      queued += 1;
+      const side = index === 0 ? "a" : "b";
+      const profileUrl = inviteProfileUrl(token);
+
+      if (me.email) {
+        const message = matchInviteEmail({
+          toName: me.name,
+          other: {
+            name: other.name,
+            age: other.age,
+            neighborhood: other.neighborhood,
+            city: other.city,
+            headline: other.headline,
+            bio: other.bio,
+            lookingFor: other.lookingFor,
+            dealBreakers: other.dealBreakers,
+            recommendation: other.recommendation,
+            voucherName: other.voucherName,
+            prompts: other.prompts,
+            photoUrl: other.photos[0] ? invitePhotoUrl(token, other.photos[0].id) : null,
+          },
+          matchmakerNote: match.rationale,
+          profileUrl,
+        });
+        await queueEmailDelivery({
+          kind: `intro_invite_${side}_email`,
+          to: me.email,
+          subject: message.subject,
+          html: message.html,
+          text: message.text,
+          replyTo: inviteReplyAddress(token) ?? undefined,
+          idempotencyKey: makeDeliveryKey("intro-invite", matchId, me.id, token, "email"),
+          matchId,
+          personId: me.id,
+          inviteId: invite.id,
+          inviteToken: token,
+          db,
+        });
+        queued += 1;
+      }
+
+      // SMS cannot carry a profile, so it is a nudge to the same token-gated
+      // page. Only for people who separately consented to texts.
+      if (me.phone && me.smsConsentAt) {
+        await queueSmsDelivery({
+          kind: `intro_invite_${side}_sms`,
+          to: me.phone,
+          body: introInviteSMS({
+            toName: me.name,
+            otherName: other.name,
+            profileUrl,
+          }),
+          idempotencyKey: makeDeliveryKey("intro-invite", matchId, me.id, token, "sms"),
+          matchId,
+          personId: me.id,
+          inviteId: invite.id,
+          db,
+        });
+        queued += 1;
+      }
     }
     return queued;
   };

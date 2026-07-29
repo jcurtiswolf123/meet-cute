@@ -32,8 +32,7 @@ function statusFor(m: { stage: string; aDecision: string; bDecision: string; per
 }
 
 export default async function Matchmaking() {
-  const me = await requireOperatorPage();
-  const operatorName = me.name;
+  await requireOperatorPage();
 
   const [people, intros] = await Promise.all([
     prisma.person.findMany({
@@ -58,8 +57,8 @@ export default async function Matchmaking() {
   const noPhone = people.filter((p) => !p.phone).length;
 
   // Composer leads with people who've opted in (those are the ones to match).
-  // Carry a starter blurb (their bio, or what they're looking for) so the composer
-  // can prefill the "about" bullets and save the operator retyping what we know.
+  // Only identity and reachability travel here: the invitation itself is built
+  // from each person's own profile at send time, so nothing is copied through.
   const composerPeople = people.filter((p) => p.openToMatch).map((p) => ({
     id: p.id,
     name: p.name,
@@ -67,8 +66,6 @@ export default async function Matchmaking() {
     phone: p.phone,
     canText: !!p.smsConsentAt,
     city: p.city,
-    instagram: p.instagram,
-    blurb: (p.bio || p.lookingFor || "").trim(),
   }));
 
   return (
@@ -96,7 +93,7 @@ export default async function Matchmaking() {
         ))}
       </div>
 
-      <IntroComposer people={composerPeople} operatorName={operatorName} />
+      <IntroComposer people={composerPeople} />
 
       {/* Quick-add a person. Stays open (a server-action submit re-renders and
           would otherwise re-collapse it, re-charging the expand click each add). */}

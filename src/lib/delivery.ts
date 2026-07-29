@@ -119,6 +119,9 @@ export async function queueSmsDelivery(args: {
   idempotencyKey: string;
   matchId?: string | null;
   personId?: string | null;
+  // Set for intro nudges so a re-sent invitation supersedes the pending text the
+  // same way it supersedes the pending email.
+  inviteId?: string | null;
   db?: Prisma.TransactionClient;
 }): Promise<DeliveryJob> {
   return enqueueDelivery(
@@ -130,6 +133,7 @@ export async function queueSmsDelivery(args: {
       idempotencyKey: args.idempotencyKey,
       matchId: args.matchId,
       personId: args.personId,
+      inviteId: args.inviteId,
     },
     args.db,
   );
