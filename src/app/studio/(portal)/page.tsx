@@ -114,40 +114,10 @@ export default async function Roster({
         <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Directory</h1>
         <p className="mt-1 text-sm text-muted">Everyone on the list, with new applicants to review at a glance.</p>
       </div>
-      {/* Metrics ledger. "Together" is the north-star outcome, so it earns weight
-          and a panel tint rather than a colour the rest of the console never uses. */}
-      <div className="ledger">
-        <div className="ledger-cell">
-          <div className="ledger-num">{people.length}</div>
-          <div className="ledger-label">On list</div>
-        </div>
-        <div className="ledger-cell">
-          <div className="ledger-num">{applicants ? `${Math.round((accepted / applicants) * 100)}%` : "-"}</div>
-          <div className="ledger-label">Accept rate</div>
-          <div className="text-[10px] text-muted">target 20-30%</div>
-        </div>
-        <div className="ledger-cell">
-          <div className="ledger-num">{stageCount("suggested") + stageCount("mutual_yes") + stageCount("date_scheduled")}</div>
-          <div className="ledger-label">In pipeline</div>
-        </div>
-        <div className="ledger-cell bg-[#f5f5f6]">
-          <div className="ledger-num font-semibold text-ink">{stageCount("relationship")}</div>
-          <div className="ledger-label">Together</div>
-        </div>
-      </div>
-
-      {/* Make a match without leaving the directory. Pick two members, add a
-          line about each, and send the double opt-in introductions in one step. */}
-      <details open className="mt-6">
-        <summary className="cursor-pointer list-none">
-          <span className="label">Make a match</span>
-          <span className="ml-2 text-sm text-muted">Introduce two members straight from the list.</span>
-        </summary>
-        <div className="mt-3">
-          <IntroComposer people={composerPeople} />
-        </div>
-      </details>
-
+      {/* Order follows what an operator actually does in a session: clear
+          anything blocking first, then make a match, then browse the list.
+          Metrics are ambient context, so they sit under the work rather than
+          above it, where they were the first thing read every single visit. */}
       {failedDeliveries.length > 0 && (
         <section
           className="mt-6 rounded-xl2 border border-[#e3e3e6] border-l-2 border-l-ink bg-[#fafafa] p-5"
@@ -186,7 +156,6 @@ export default async function Roster({
           </ul>
         </section>
       )}
-
       {pendingApplicants.length > 0 && (
         <div className="mt-6 rounded-xl2 border border-[#e3e3e6] border-l-2 border-l-ink bg-[#fafafa] p-5">
           <p className="label !text-ink">New applicants ({pendingApplicants.length})</p>
@@ -224,7 +193,38 @@ export default async function Roster({
           </ul>
         </div>
       )}
-
+      {/* Make a match without leaving the directory. Pick two members, add a
+          line about each, and send the double opt-in introductions in one step. */}
+      <details open className="mt-6">
+        <summary className="cursor-pointer list-none">
+          <span className="text-sm font-semibold text-ink">Make a match</span>
+          <span className="ml-2 text-sm text-muted">Introduce two members straight from the list.</span>
+        </summary>
+        <div className="mt-3">
+          <IntroComposer people={composerPeople} />
+        </div>
+      </details>
+      {/* Metrics ledger. "Together" is the north-star outcome, so it earns weight
+          and a panel tint rather than a colour the rest of the console never uses. */}
+      <div className="ledger mt-8">
+        <div className="ledger-cell">
+          <div className="ledger-num">{people.length}</div>
+          <div className="ledger-label">On list</div>
+        </div>
+        <div className="ledger-cell">
+          <div className="ledger-num">{applicants ? `${Math.round((accepted / applicants) * 100)}%` : "-"}</div>
+          <div className="ledger-label">Accept rate</div>
+          <div className="text-[10px] text-muted">target 20-30%</div>
+        </div>
+        <div className="ledger-cell">
+          <div className="ledger-num">{stageCount("suggested") + stageCount("mutual_yes") + stageCount("date_scheduled")}</div>
+          <div className="ledger-label">In pipeline</div>
+        </div>
+        <div className="ledger-cell bg-[#f5f5f6]">
+          <div className="ledger-num font-semibold text-ink">{stageCount("relationship")}</div>
+          <div className="ledger-label">Together</div>
+        </div>
+      </div>
       <form className="mt-6 flex flex-wrap items-center gap-2" action="/studio">
         <input name="q" aria-label="Search directory" defaultValue={sp.q} placeholder="Search name, headline, what they want..." className="field max-w-xs" />
         <Select label="Filter by city" name="city" value={sp.city} options={[["", "All cities"], ["NYC", "NYC"], ["SF", "SF"]]} />
