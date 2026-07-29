@@ -5,6 +5,54 @@ _Single source of truth for current state. Update at the end of every work sessi
 Last updated: 2026-07-28 (reply-by-email QA: a false "yes" and three dropped
 replies fixed, verified live in production)
 
+## 2026-07-28: match from a profile, linked people, and a visible send log
+
+Three gaps found while running a live introduction from the studio.
+
+- **Match anyone from a profile.** `/studio/person/[id]` offered only the four
+  ranked co-pilot suggestions, so an operator standing on a profile could not
+  introduce that person to anyone else without going back to the Directory. The
+  page now carries the full introduction composer with the first person locked
+  and the whole roster searchable in the second slot. Same eligibility rule as
+  the Directory composer (active member with an email, or a textable phone plus
+  recorded SMS consent) and the same double opt-in. The ranked suggestions stay
+  where they are, for the lightweight "add to pipeline" path.
+- **Matched people link to their profiles.** `/studio/matches` linked only to
+  the conversation, so a name in the ledger was a dead end. Both names are now
+  links, with a separate "Open thread" link, and the profile's match history
+  gained a thread link as well.
+- **The send log is visible.** Nothing in the studio showed whether a message
+  actually went out; the Directory surfaced failures only. New
+  `/studio/delivery` lists every queued message with its state, queue and send
+  times, provider message id, error, and a per-row **Check provider** that asks
+  Resend for that message's last event. Accepted by the provider is not the same
+  as delivered, so the page reports both. Same answer from the terminal:
+  `npm run delivery:status [recipient] [--check]`.
+
+Two display defects fixed alongside: `StageBadge` had no label for the email
+opt-in stages, so a live introduction rendered as the raw enum `invited`; and
+the profile header printed `NYC ·  · operator` for any member with no
+neighborhood or gender, which read as a role rather than a gap.
+
+Verified against an isolated local PostgreSQL 18 database and a production
+build: typecheck, lint, build, the full `test:launch` suite, `test:race`,
+`test:journey:email`, `test:journey:application`, and
+`test:launch:roles:e2e` all pass. The member-application e2e needed one
+assertion scoped to `[data-field="Looking for"]`, because the composer now
+seeds its About box from the same field and an unscoped exact match resolved
+to two elements.
+
+Verified on the live send path: the two invite emails for the Jessica and
+Joshua introduction (queued 2026-07-28 18:38 PT) were accepted by Resend and
+report `delivered` for `jessicaraquelwolf@gmail.com` and
+`admin@shiftsupportnetwork.com`.
+
+Open item, not a code defect: Joshua has three person rows
+(`josh@shiftsupportnetwork.com`, `admin@shiftsupportnetwork.com`, and a
+phone-only row) and the live introduction is against the `admin@` one, so its
+invite is in that inbox rather than `josh@`. Consolidating those rows is a data
+decision, not a code change.
+
 ## 2026-07-28: reply-by-email matching, tested against the real mail path
 
 Everything in the suite stubbed the mail provider, so the seam nobody had tested
