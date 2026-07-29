@@ -195,7 +195,7 @@ export function PortalSidebar({
         >
           <PortalIcon name="menu" />
         </button>
-        <span className="font-display text-base font-medium text-ink">{workspace}</span>
+        <span className="text-base font-semibold tracking-[-0.01em] text-ink">{workspace}</span>
         <Avatar url={avatarUrl} name={userName} size={28} />
       </div>
 
@@ -297,7 +297,7 @@ function SidebarInner({
               : "h-8 w-8 rounded-lg bg-ember text-cream"
           }`}
         >
-          <span className={`font-display leading-none ${twenty ? "text-[12px]" : "text-[15px]"}`}>
+          <span className={`font-semibold leading-none ${twenty ? "text-[12px]" : "text-[15px]"}`}>
             M
           </span>
         </div>
