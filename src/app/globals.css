@@ -227,3 +227,90 @@ textarea:focus-visible {
     animation: none;
   }
 }
+
+/* --- Studio: neutral working palette -------------------------------------
+ *
+ * The public site is warm cream and claret. The operator console is a tool
+ * somebody stares at all day, so it runs greyscale and reserves colour for
+ * the two things that need a decision: a failure, and a completed match.
+ * Scoped to .studio-shell so none of this leaks onto the marketing pages.
+ */
+@layer components {
+  .studio-shell {
+    --studio-ink: #16161a;
+    --studio-muted: #6b6b73;
+    --studio-line: #e3e3e6;
+    --studio-panel: #ffffff;
+    --studio-canvas: #f5f5f6;
+    --studio-accent: #16161a;
+  }
+
+  /* Section eyebrows read as structure, not as an alert. */
+  .studio-shell .label {
+    color: var(--studio-muted);
+    letter-spacing: 0.14em;
+  }
+
+  .studio-shell .card,
+  .studio-shell .card-feature,
+  .studio-shell .ledger {
+    background: var(--studio-panel);
+    border-color: var(--studio-line);
+    box-shadow: none;
+  }
+
+  .studio-shell .field {
+    background: var(--studio-panel);
+    border-color: var(--studio-line);
+  }
+
+  .studio-shell .field:focus {
+    background: var(--studio-panel);
+    border-color: var(--studio-ink);
+    box-shadow: 0 0 0 3px rgba(22, 22, 26, 0.08);
+  }
+
+  .studio-shell .btn-primary {
+    background: var(--studio-accent);
+    color: #ffffff;
+  }
+
+  .studio-shell .btn-primary:hover {
+    background: #2a2a30;
+  }
+
+  /* Tables are the main surface here, so they get the tightest treatment. */
+  .studio-shell .roster thead th {
+    color: var(--studio-muted);
+    border-color: var(--studio-line);
+    background: var(--studio-canvas);
+  }
+
+  .studio-shell .roster tbody td,
+  .studio-shell .roster tbody tr {
+    border-color: var(--studio-line);
+  }
+
+  .studio-shell .roster tbody tr:hover {
+    background: var(--studio-canvas);
+  }
+
+  .studio-shell .ledger-cell {
+    border-color: var(--studio-line);
+  }
+
+  .studio-shell .ledger-num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  .studio-shell .ledger-label {
+    color: var(--studio-muted);
+  }
+
+  .studio-shell .pill {
+    background: var(--studio-canvas);
+    border-color: var(--studio-line);
+    color: var(--studio-muted);
+  }
+}

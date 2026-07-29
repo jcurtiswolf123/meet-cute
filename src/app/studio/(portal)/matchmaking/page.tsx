@@ -71,7 +71,7 @@ export default async function Matchmaking() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-medium">Matchmaking</h1>
+        <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Matchmaking</h1>
         <p className="mt-1 text-sm text-muted">
           Manage private introductions, decisions, and mutual email connections in one place.
         </p>
@@ -98,7 +98,7 @@ export default async function Matchmaking() {
       {/* Quick-add a person. Stays open (a server-action submit re-renders and
           would otherwise re-collapse it, re-charging the expand click each add). */}
       <details open className="card p-5">
-        <summary className="cursor-pointer font-display text-lg font-medium">Add someone to match</summary>
+        <summary className="cursor-pointer font-sans tracking-[-0.012em] text-lg font-medium">Add someone to match</summary>
         <p className="mt-1 text-sm text-muted">
           Add someone only after they ask to be matched. Email is the baseline channel. Texting is optional and needs separate consent.
         </p>
@@ -154,7 +154,7 @@ export default async function Matchmaking() {
 
       {/* Introductions board */}
       <div>
-        <h2 className="font-display text-lg font-medium">Introductions</h2>
+        <h2 className="font-sans tracking-[-0.012em] text-lg font-medium">Introductions</h2>
         {intros.length === 0 ? (
           <div className="card mt-3 p-8 text-center text-sm text-muted">
             No introductions yet. Pick two people above and send your first introduction.
@@ -239,7 +239,7 @@ export default async function Matchmaking() {
 
       {/* People list */}
       <div>
-        <h2 className="font-display text-lg font-medium">People ({people.length})</h2>
+        <h2 className="font-sans tracking-[-0.012em] text-lg font-medium">People ({people.length})</h2>
         <div
           className="mt-3 overflow-x-auto rounded-xl2 border border-line bg-panel shadow-card"
           role="region"

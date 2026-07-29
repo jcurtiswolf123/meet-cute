@@ -107,7 +107,7 @@ export default async function PersonPage({
         <div className="mt-3 flex items-start gap-4">
           <Avatar url={p.photos[0]?.url} name={p.name} size={72} />
           <div>
-            <h1 className="font-display text-3xl font-medium">{p.name}{p.age ? `, ${p.age}` : ""}</h1>
+            <h1 className="font-sans tracking-[-0.012em] text-3xl font-medium">{p.name}{p.age ? `, ${p.age}` : ""}</h1>
             {/* Only join the facts we actually have. The old line printed
                 "NYC ·  · operator" for any member who had not filled in a
                 neighborhood or gender, which read as a role, not a gap. */}

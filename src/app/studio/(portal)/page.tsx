@@ -111,7 +111,7 @@ export default async function Roster({
   return (
     <div>
       <div className="mb-5">
-        <h1 className="font-display text-2xl font-medium">Directory</h1>
+        <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Directory</h1>
         <p className="mt-1 text-sm text-muted">Everyone on the list, with new applicants to review at a glance.</p>
       </div>
       {/* Metrics ledger: "Together" (the north-star outcome) carries the sage accent */}

@@ -58,7 +58,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
           &larr; All conversations
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-2xl font-medium">
+          <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">
             {firstName(match.personA.name)} + {firstName(match.personB.name)}
           </h1>
           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${toneClass(health.tone)}`}>
@@ -86,7 +86,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
 
       {/* transcript */}
       <div>
-        <h2 className="font-display text-lg font-medium">Transcript</h2>
+        <h2 className="font-sans tracking-[-0.012em] text-lg font-medium">Transcript</h2>
         {match.introMessages.length === 0 ? (
           <div className="card mt-3 p-6 text-center text-sm text-muted">No messages logged yet.</div>
         ) : (
@@ -120,7 +120,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
       {/* post-connection feedback the members texted back */}
       {match.notes.length > 0 && (
         <div>
-          <h2 className="font-display text-lg font-medium">Feedback</h2>
+          <h2 className="font-sans tracking-[-0.012em] text-lg font-medium">Feedback</h2>
           <ul className="mt-3 space-y-2">
             {match.notes.map((n) => (
               <li key={n.id} className="rounded-xl border border-champagne/40 bg-champagne/10 p-3 text-sm">

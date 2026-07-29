@@ -30,7 +30,11 @@ export default async function StudioPortalLayout({ children }: { children: React
   const me = await requireOperatorPage();
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-[#f5f5f6] md:flex-row">
+    // studio-shell scopes the neutral working palette. The marketing site keeps
+    // the warm cream and claret; an operator console staring at the same screen
+    // all day wants greyscale with one accent reserved for things that need a
+    // decision.
+    <div className="studio-shell flex h-dvh flex-col overflow-hidden bg-[#f5f5f6] md:flex-row">
       <PortalSidebar
         workspace="Meet Cute"
         subtitle="Studio"

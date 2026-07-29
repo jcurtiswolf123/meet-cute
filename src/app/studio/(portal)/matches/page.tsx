@@ -58,7 +58,7 @@ export default async function MatchesHistory() {
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-medium tracking-tight">Matches</h1>
+          <h1 className="font-sans tracking-[-0.012em] text-3xl font-medium tracking-tight">Matches</h1>
           <p className="mt-1 text-sm text-muted">
             Everyone you have introduced, past and present.
           </p>

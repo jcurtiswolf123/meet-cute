@@ -18,7 +18,7 @@ export default async function Events() {
   return (
     <div className="max-w-4xl space-y-10">
       <div>
-        <h1 className="font-display text-3xl font-medium">Events</h1>
+        <h1 className="font-sans tracking-[-0.012em] text-3xl font-medium">Events</h1>
         <p className="mt-1 text-sm text-muted">
           Curated dinners and gatherings. Create an event, then add invitees from the list in one
           click. They get an email automatically.
@@ -79,7 +79,7 @@ export default async function Events() {
                     {e._count.attendees}/{e.capacity} seats
                   </span>
                 </div>
-                <h3 className="mt-3 font-display text-xl font-medium">{e.theme}</h3>
+                <h3 className="mt-3 font-sans tracking-[-0.012em] text-xl font-medium">{e.theme}</h3>
                 <p className="mt-1 text-sm text-muted">
                   {e.date.toLocaleString("en-US", { weekday: "short", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}
                   {" · "}{e.venue}

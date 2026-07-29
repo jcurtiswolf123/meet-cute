@@ -36,7 +36,7 @@ export default async function Team({
   return (
     <div className="max-w-3xl space-y-10">
       <div>
-        <h1 className="font-display text-3xl font-medium">Team</h1>
+        <h1 className="font-sans tracking-[-0.012em] text-3xl font-medium">Team</h1>
         <p className="mt-1 text-sm text-muted">
           Operators have matchmaking access and sign in with their own email. Super admins
           control operator access, with no shared password.

@@ -53,7 +53,7 @@ export function IntroComposer({
 
   return (
     <div className="card-feature p-5">
-      <h2 className="font-display text-lg font-medium">{title}</h2>
+      <h2 className="font-sans tracking-[-0.012em] text-lg font-medium">{title}</h2>
       <p className="mt-1 text-sm text-muted">{intro}</p>
 
       <form

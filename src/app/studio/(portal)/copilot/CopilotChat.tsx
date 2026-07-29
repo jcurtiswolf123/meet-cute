@@ -96,7 +96,7 @@ export default function CopilotChat() {
   return (
     <div className="mx-auto flex h-[calc(100vh-180px)] max-w-2xl flex-col">
       <div className="flex items-center justify-between">
-        <h1 className="font-display text-2xl font-medium">Co-pilot</h1>
+        <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Co-pilot</h1>
         {live !== null && (
           <span className={`pill ${live ? "border-sage/40 text-sage" : ""}`}>
             {provider || (live ? "AI live" : "local engine")}

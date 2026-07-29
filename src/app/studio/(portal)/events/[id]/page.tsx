@@ -45,7 +45,7 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
         <Link href="/studio/events" className="text-xs text-muted hover:underline">← All events</Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl font-medium">{event.theme}</h1>
+            <h1 className="font-sans tracking-[-0.012em] text-3xl font-medium">{event.theme}</h1>
             <p className="mt-1 text-sm text-muted">
               <span className="pill mr-2">{event.city}</span>
               {event.date.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}

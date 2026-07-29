@@ -60,7 +60,7 @@ export default async function Conversations({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-2xl font-medium">Conversations</h1>
+        <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Conversations</h1>
         <p className="mt-1 text-sm text-muted">
           Every active introduction, who has opted in, and whether it needs you. Open one to read the
           thread and jump in.
@@ -81,7 +81,7 @@ export default async function Conversations({
           { label: "Connected", value: connected },
         ].map((k) => (
           <div key={k.label} className="card p-4">
-            <div className="font-display text-2xl text-ink">{k.value}</div>
+            <div className="font-sans tracking-[-0.012em] text-2xl text-ink">{k.value}</div>
             <div className="mt-0.5 text-xs uppercase tracking-wide text-muted">{k.label}</div>
           </div>
         ))}
