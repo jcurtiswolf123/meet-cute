@@ -16,12 +16,50 @@ export const metadata: Metadata = {
 // Token-gated invite page: the second half of the email double opt-in. Anyone
 // holding the unguessable token sees the OTHER person's profile and can say
 // Yes/Pass. No sign-in: the token IS the authorization, scoped to this one match.
+// An invite link that no longer resolves is a NORMAL thing for a member to
+// click: tokens rotate whenever an introduction is re-sent, expire on their own,
+// and are removed once the introduction closes. Answering that with the generic
+// 404 tells the member the site is broken when nothing is wrong, and it is the
+// one page in the product they reach straight from their inbox with no session.
+// Explain what happened and give them somewhere to go instead.
+function InviteUnavailable({ reason }: { reason: string }) {
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-6 py-16">
+      <p className="public-label text-muted">Meet Cute</p>
+      <h1 className="mt-5 font-display text-3xl font-normal leading-tight text-ink">
+        This introduction link is no longer open.
+      </h1>
+      <p className="mt-4 text-base leading-relaxed text-muted">{reason}</p>
+      <p className="mt-3 text-base leading-relaxed text-muted">
+        Nothing is wrong with your account, and you have not missed anything. Your
+        matchmaker can always send the introduction again.
+      </p>
+      <div className="mt-8 flex flex-wrap gap-3">
+        <a href="/app" className="btn-primary">
+          Go to your account
+        </a>
+        <a href="/login" className="btn-ghost">
+          Sign in
+        </a>
+      </div>
+    </main>
+  );
+}
+
 export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
   const invite = await prisma.matchInvite.findUnique({ where: { token } });
-  if (!invite) notFound();
-  if (inviteIsExpired(invite.createdAt)) notFound();
+  if (!invite) {
+    return (
+      <InviteUnavailable reason="This link has already been replaced by a newer one, or the introduction it belonged to has since closed." />
+    );
+  }
+  if (inviteIsExpired(invite.createdAt)) {
+    return (
+      <InviteUnavailable reason="Introduction links expire after a while, so they cannot be forwarded or reused later." />
+    );
+  }
 
   const match = await prisma.match.findUnique({
     where: { id: invite.matchId },
@@ -31,7 +69,9 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     },
   });
   if (!match || !["invited", "mutual_yes", "connecting", "connected"].includes(match.stage)) {
-    notFound();
+    return (
+      <InviteUnavailable reason="This introduction has already been closed out, so there is nothing left to decide here." />
+    );
   }
 
   // The recipient is invite.personId; they are looking at the OTHER person.
