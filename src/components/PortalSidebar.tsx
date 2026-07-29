@@ -293,7 +293,7 @@ function SidebarInner({
         <div
           className={`flex shrink-0 items-center justify-center ${
             twenty
-              ? "h-6 w-6 rounded-full border border-ember/35 bg-[#fafafa] text-ink"
+              ? "h-6 w-6 rounded-full border border-[#e3e3e6] bg-[#fafafa] text-ink"
               : "h-8 w-8 rounded-lg bg-ember text-cream"
           }`}
         >

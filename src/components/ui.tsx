@@ -40,7 +40,7 @@ export function Avatar({
     />
   ) : (
     <span
-      className="inline-flex items-center justify-center rounded-full bg-paper font-medium text-ink"
+      className="inline-flex items-center justify-center rounded-full bg-[#ecebe8] font-medium text-ink"
       style={{ width: size, height: size, fontSize: size * 0.36 }}
     >
       {initials}
