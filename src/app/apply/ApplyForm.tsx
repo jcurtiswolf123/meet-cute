@@ -128,12 +128,12 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
         />
       </div>
 
-      {/* Community recommendation. Meet Cute is vouched-for: every applicant
+      {/* Community recommendation. Meet-Cute is vouched-for: every applicant
           names someone already in the community who will speak for them. */}
       <fieldset className="space-y-4 rounded-xl border border-line bg-paper/40 p-4">
         <legend className="label px-1">Your recommendation</legend>
         <p className="-mt-1 text-xs text-muted">
-          Meet Cute runs on trust. Name someone already in the community who can vouch for you, and
+          Meet-Cute runs on trust. Name someone already in the community who can vouch for you, and
           share a line in their words. It shows on your profile and tells us more than a bio could.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -203,7 +203,7 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
           <input type="checkbox" name="smsConsent" className="mt-1" />
           <span className="text-muted">
             <span className="font-medium text-ink">Text me my introductions (optional).</span> I agree to
-            receive recurring text messages (SMS) from Meet Cute about my matchmaking introductions at
+            receive recurring text messages (SMS) from Meet-Cute about my matchmaking introductions at
             the mobile number above. Message and data rates may apply; message frequency varies. Consent
             is not a condition of joining. Reply STOP to cancel, HELP for help.
           </span>

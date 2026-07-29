@@ -10,7 +10,7 @@ import { logout } from "@/lib/actions";
 // stacked left rail with a workspace header, small-caps section labels, icon +
 // label rows, an active pill, and a collapse toggle that narrows the rail to
 // icons only (persisted). On mobile it becomes a slide-in drawer opened from a
-// slim top bar. Restyled to the Meet Cute warm palette.
+// slim top bar. Restyled to the Meet-Cute warm palette.
 
 export type SidebarItem = { href: string; label: string; icon: IconName };
 export type SidebarSection = { label?: string; items: SidebarItem[] };

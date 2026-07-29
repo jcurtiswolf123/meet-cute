@@ -24,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex min-h-screen flex-col bg-cream md:flex-row">
       <PortalSidebar
-        workspace="Meet Cute"
+        workspace="Meet-Cute"
         sections={MEMBER_SECTIONS}
         homeHref="/app"
         avatarUrl={me.photos[0]?.url}

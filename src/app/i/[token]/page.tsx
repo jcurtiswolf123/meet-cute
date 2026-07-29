@@ -9,7 +9,7 @@ import { Avatar } from "@/components/ui";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Your Meet Cute introduction",
+  title: "Your Meet-Cute introduction",
   robots: { index: false, follow: false }, // capability link, never indexed
 };
 
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 function InviteUnavailable({ reason }: { reason: string }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-6 py-16">
-      <p className="public-label text-muted">Meet Cute</p>
+      <p className="public-label text-muted">Meet-Cute</p>
       <h1 className="mt-5 font-display text-3xl font-normal leading-tight text-ink">
         This introduction link is no longer open.
       </h1>
@@ -100,7 +100,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
   return (
     <main className="mx-auto max-w-2xl px-5 py-10">
-      <p className="font-display text-2xl font-medium text-ember">Meet Cute</p>
+      <p className="font-display text-2xl font-medium text-ember">Meet-Cute</p>
       <p className="mt-1 text-sm text-muted">An introduction, just for you.</p>
 
       <div className="mt-8 flex items-start gap-5">

@@ -79,7 +79,7 @@ export async function composeGroupIntro(args: {
   const me = first(args.operatorName);
 
   const system = [
-    "You are the Meet Cute matchmaking concierge writing the FIRST message in a 3-way group text between two people who just agreed to be introduced, plus their matchmaker.",
+    "You are the Meet-Cute matchmaking concierge writing the FIRST message in a 3-way group text between two people who just agreed to be introduced, plus their matchmaker.",
     "Write ONE short message (2 to 4 sentences, under 400 characters) that:",
     "1) greets both people by first name and introduces them to each other,",
     "2) shares one warm, specific line about each person using the notes provided,",

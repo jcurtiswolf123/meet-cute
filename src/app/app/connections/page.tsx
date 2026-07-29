@@ -22,7 +22,7 @@ export default async function Connections() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="font-display text-3xl font-medium">Your connections</h1>
-      <p className="mt-1 text-sm text-muted">People you have been introduced to through Meet Cute.</p>
+      <p className="mt-1 text-sm text-muted">People you have been introduced to through Meet-Cute.</p>
 
       {people.length === 0 ? (
         <div className="card mt-8 p-8 text-center text-sm text-muted">

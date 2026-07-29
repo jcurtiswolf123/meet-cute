@@ -64,12 +64,15 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 export function StageBadge({ stage }: { stage: string }) {
+  // Three states, distinguished by weight and fill rather than hue, so the
+  // badge reads the same in the greyscale console as on the warm public pages:
+  // reached the outcome (solid), closed (quiet), still in flight (outlined).
   const tone =
     stage === "relationship" || stage === "connected"
-      ? "bg-sage/15 text-sage border-sage/30"
+      ? "bg-ink text-white border-ink"
       : stage === "exit"
-        ? "bg-paper text-muted border-line"
-        : "bg-claret/10 text-claret border-claret/25";
+        ? "bg-[#f0f0f1] text-muted border-line"
+        : "bg-transparent text-ink border-ink/30";
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${tone}`}

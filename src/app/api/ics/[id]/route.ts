@@ -15,9 +15,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const other = t.match.personAId === me ? t.match.personB : t.match.personA;
   const ics = buildIcs({
     start: t.confirmedSlot,
-    title: `Meet Cute date with ${other.name.split(" ")[0]}`,
-    location: t.venue?.name ?? "Meet Cute",
-    description: "Ask for the Meet Cute table.",
+    title: `Meet-Cute date with ${other.name.split(" ")[0]}`,
+    location: t.venue?.name ?? "Meet-Cute",
+    description: "Ask for the Meet-Cute table.",
     uid: t.id,
   });
   return new Response(ics, {

@@ -103,7 +103,7 @@ export default function Home() {
         <section className="bg-paper">
           <div className="container-mc grid gap-12 py-20 md:grid-cols-12 md:items-end md:py-section-lg">
             <Reveal className="md:col-span-7">
-              <p className="public-label text-muted">Meet Cute dinners</p>
+              <p className="public-label text-muted">Meet-Cute dinners</p>
               <h2 className="mt-5 max-w-[10ch] font-display text-5xl leading-[0.98] tracking-[-0.03em] sm:text-6xl">
                 Start at the table.
               </h2>

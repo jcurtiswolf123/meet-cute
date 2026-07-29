@@ -15,7 +15,7 @@ export function buildIcs(opts: {
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Meet Cute//Concierge//EN",
+    "PRODID:-//Meet-Cute//Concierge//EN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
     `UID:${opts.uid}@meetcute`,

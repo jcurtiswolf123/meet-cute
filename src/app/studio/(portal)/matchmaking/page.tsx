@@ -137,13 +137,13 @@ export default async function Matchmaking() {
           <label className="flex items-start gap-3 text-sm sm:col-span-2">
             <input type="checkbox" name="matchingConsent" required className="mt-1" />
             <span className="text-muted">
-              I confirm this person asked to be added to Meet Cute and is ready to receive matchmaking introductions.
+              I confirm this person asked to be added to Meet-Cute and is ready to receive matchmaking introductions.
             </span>
           </label>
           <label className="flex items-start gap-3 text-sm sm:col-span-2">
             <input type="checkbox" name="smsConsent" className="mt-1" />
             <span className="text-muted">
-              I confirm this person separately agreed to receive Meet Cute text messages at the mobile number above. Message and data rates may apply. Reply STOP to cancel.
+              I confirm this person separately agreed to receive Meet-Cute text messages at the mobile number above. Message and data rates may apply. Reply STOP to cancel.
             </span>
           </label>
           <div className="sm:col-span-2">

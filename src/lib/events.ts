@@ -31,7 +31,7 @@ export async function createEventRecord(e: NewEvent) {
       city,
       date: e.date,
       venue: e.venue.slice(0, 120),
-      theme: e.theme?.slice(0, 120) || "Meet Cute Dinner",
+      theme: e.theme?.slice(0, 120) || "Meet-Cute Dinner",
       capacity: e.capacity && e.capacity > 0 ? Math.min(e.capacity, 100) : 12,
       notes: e.notes?.slice(0, 2000) || null,
       status: "open",
@@ -182,7 +182,7 @@ export async function inviteToEvent(
       try {
         if (!p.email) return; // phone-only matchee: nothing to email
         const { subject, html, text } = eventInviteEmail({
-          name: p.name, theme: dinner.theme || "Meet Cute Dinner", city: dinner.city,
+          name: p.name, theme: dinner.theme || "Meet-Cute Dinner", city: dinner.city,
           venue: dinner.venue, when, link,
         });
         await queueEmailDelivery({

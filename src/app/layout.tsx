@@ -32,13 +32,13 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com",
   ),
   title: {
-    default: "Meet Cute - private matchmaking",
-    template: "%s · Meet Cute",
+    default: "Meet-Cute - private matchmaking",
+    template: "%s · Meet-Cute",
   },
   description:
     "Private, one-to-one introductions made by a real matchmaker in New York and San Francisco.",
   openGraph: {
-    title: "Meet Cute - private matchmaking",
+    title: "Meet-Cute - private matchmaking",
     description: "Meet someone worth knowing. One private introduction at a time.",
     type: "website",
   },
