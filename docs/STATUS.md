@@ -5,6 +5,42 @@ _Single source of truth for current state. Update at the end of every work sessi
 Last updated: 2026-07-28 (introductions now carry each member's own profile;
 the operator no longer writes descriptions of people)
 
+## 2026-07-29: operator console pass
+
+Shipped and verified live:
+
+- **City is out of the match emails.** Both people were matched inside the same
+  market, so "Joshua in NYC" read like a listing rather than an introduction.
+  Gone from the invite meta line and from every "you both said yes in NYC"
+  phrase. Neighbourhood stays, since that is the member's own profile detail.
+- **"Roster" is now "list"** across member-facing and operator-facing copy.
+- **Demo profiles are full.** Headline, bio, looking for, deal-breakers, age,
+  neighbourhood, gender, seeking, a recommendation with voucher, and two
+  prompts, so every block of the invite template actually renders. Every string
+  is prefixed "Demo" so it cannot be mistaken for a real member.
+- **Studio is greyscale.** All 20 serif display headings replaced with the sans
+  stack: on the marketing site the serif is deliberate, in a working tool it
+  reads decorative. A `.studio-shell` scope puts the console on white with
+  tabular figures and reserves colour for the two states that need a decision.
+  The public pages are untouched.
+- **Email injection coverage.** A background review flagged possible stored HTML
+  injection. Investigated: no injection path exists, the flagged line is escaped
+  inside `h1()`. The invite, which carries the most member-supplied text and is
+  delivered to a different member's inbox, now has a test that makes every free
+  text field hostile at once. Two double-escaped headlines fixed ("Ben &amp;amp;
+  Jerry").
+
+Still open, explicitly not started:
+
+- **The redesign proper.** The console is neutral but the page canvas and metric
+  ledger still inherit the warm cream, and the layout has not been restructured
+  against the Twenty / Raya reference. This is the bulk of the design ask.
+- **Logo.** Not generated.
+- **Page-by-page design QA.** Only the Directory was reviewed after the restyle.
+  Pre-change screenshots of every studio page are in the session scratchpad.
+- **Spam placement.** Still blocked on the Cloudflare MX record below. Nothing
+  further is actionable in code.
+
 ## 2026-07-28: the invitation is the profile, in the member's own words
 
 The introduction email used to be a teaser: a name, a headline, and a link. The
