@@ -313,4 +313,40 @@ textarea:focus-visible {
     border-color: var(--studio-line);
     color: var(--studio-muted);
   }
+
+  /* Serif numerals and a claret hairline were the last warm holdovers in the
+   * console. Metrics are data, so they get the sans stack with tabular figures;
+   * the feature card loses its coloured top rule and earns emphasis from
+   * position and weight instead of hue. */
+  .studio-shell .ledger-num {
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    color: var(--studio-ink);
+  }
+
+  .studio-shell .card-feature {
+    border-top-width: 1px;
+    border-top-color: var(--studio-line);
+  }
+
+  .studio-shell .ledger,
+  .studio-shell .ledger > * + * {
+    border-color: var(--studio-line);
+  }
+
+  /* The one outcome worth singling out stays monochrome: heavier, not greener. */
+  .studio-shell .ledger-cell-lead {
+    background: var(--studio-canvas);
+  }
+
+  .studio-shell .ledger-cell-lead .ledger-num {
+    color: var(--studio-ink);
+    font-weight: 600;
+  }
+
+  .studio-shell .divide-line > * + * {
+    border-color: var(--studio-line);
+  }
 }
+

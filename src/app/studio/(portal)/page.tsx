@@ -139,7 +139,7 @@ export default async function Roster({
           line about each, and send the double opt-in introductions in one step. */}
       <details open className="mt-6">
         <summary className="cursor-pointer list-none">
-          <span className="label text-claret">Make a match</span>
+          <span className="label">Make a match</span>
           <span className="ml-2 text-sm text-muted">Introduce two members straight from the list.</span>
         </summary>
         <div className="mt-3">
@@ -149,10 +149,10 @@ export default async function Roster({
 
       {failedDeliveries.length > 0 && (
         <section
-          className="mt-6 rounded-xl2 border border-claret/30 bg-claret/5 p-5"
+          className="mt-6 rounded-xl2 border border-[#e3e3e6] border-l-2 border-l-ink bg-[#fafafa] p-5"
           aria-labelledby="delivery-failures-heading"
         >
-          <h2 id="delivery-failures-heading" className="label text-claret">
+          <h2 id="delivery-failures-heading" className="label !text-ink">
             Delivery failures ({failedDeliveryCount})
           </h2>
           <p className="mt-1 text-sm text-muted">
@@ -174,7 +174,7 @@ export default async function Roster({
                 <form action={retryDeliveryJob}>
                   <input type="hidden" name="deliveryJobId" value={job.id} />
                   <button
-                    className="rounded-full border border-claret/30 px-3 py-1 text-xs text-claret"
+                    className="rounded-full border border-ink/25 px-3 py-1 text-xs font-medium text-ink transition hover:bg-ink hover:text-white"
                     aria-label={`Retry ${humanizeDeliveryKind(job.kind)} via ${job.channel} to ${maskRecipient(job.recipient)}`}
                   >
                     Retry
@@ -187,8 +187,8 @@ export default async function Roster({
       )}
 
       {pendingApplicants.length > 0 && (
-        <div className="mt-6 rounded-xl2 border border-claret/25 bg-claret/5 p-5">
-          <p className="label text-claret">New applicants ({pendingApplicants.length})</p>
+        <div className="mt-6 rounded-xl2 border border-[#e3e3e6] border-l-2 border-l-ink bg-[#fafafa] p-5">
+          <p className="label !text-ink">New applicants ({pendingApplicants.length})</p>
           <p className="mt-1 text-sm text-muted">Review and approve to add them to the list.</p>
           <ul className="mt-4 space-y-2">
             {pendingApplicants.map((a) => (
@@ -210,7 +210,7 @@ export default async function Roster({
                   <form action={setMemberStatus}>
                     <input type="hidden" name="personId" value={a.id} />
                     <input type="hidden" name="action" value="approve" />
-                    <button className="rounded-full bg-claret px-3 py-1 text-xs font-medium text-white">Approve</button>
+                    <button className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white transition hover:bg-ink/85">Approve</button>
                   </form>
                   <form action={setMemberStatus}>
                     <input type="hidden" name="personId" value={a.id} />

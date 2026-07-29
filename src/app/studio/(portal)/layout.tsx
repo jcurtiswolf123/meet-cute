@@ -47,7 +47,7 @@ export default async function StudioPortalLayout({ children }: { children: React
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-2 md:p-3 md:pl-0">
         <StudioPortalHeader />
-        <main className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-paper shadow-[0_1px_2px_rgba(56,42,32,0.04)]">
+        <main className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-[#e3e3e6] bg-white">
           <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
             {children}
           </div>
