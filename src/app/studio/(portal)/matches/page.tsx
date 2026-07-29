@@ -30,8 +30,15 @@ function toneFor(stage: string): string {
   return "border-claret/25 bg-claret/10 text-claret";
 }
 
+// Pinned to New York: the server clock is UTC in production, so an evening
+// introduction rendered as the next day's date.
 function fmt(date: Date): string {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export default async function MatchesHistory() {

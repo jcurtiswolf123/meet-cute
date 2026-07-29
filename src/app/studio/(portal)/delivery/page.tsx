@@ -31,9 +31,13 @@ function humanizeKind(kind: string): string {
   return kind.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+// Pinned to New York. These pages render on the server, whose clock is UTC in
+// production, so an unpinned timestamp told a New York operator that a 6:38 PM
+// send happened at 2:38 AM.
 function stamp(date: Date | null): string {
   if (!date) return "-";
   return date.toLocaleString("en-US", {
+    timeZone: "America/New_York",
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -244,7 +248,8 @@ export default async function DeliveryLog({
       )}
 
       <p className="mt-4 text-xs text-muted">
-        Showing the 100 most recent. Sent rows are kept for 30 days, failures for 90.
+        Showing the 100 most recent, in New York time. Sent rows are kept for 30 days, failures for
+        90.
       </p>
     </div>
   );
