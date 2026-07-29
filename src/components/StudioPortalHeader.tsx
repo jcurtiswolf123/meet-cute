@@ -35,6 +35,11 @@ const PAGE_CONTEXT: Array<{
     icon: "columns",
   },
   {
+    matches: (pathname) => pathname.startsWith("/studio/delivery"),
+    label: "Delivery",
+    icon: "mail",
+  },
+  {
     matches: (pathname) => pathname.startsWith("/studio/events"),
     label: "Events",
     icon: "calendar",
