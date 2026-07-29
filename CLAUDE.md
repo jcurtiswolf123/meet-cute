@@ -48,6 +48,8 @@ npm run build
 - `docs/STATUS.md` : current state, what's next, blockers
 - `docs/EMAIL-TESTING.md` : how to test the reply-by-email match path, including
   against real inboxes
+- `docs/REHEARSAL.md` : walking the whole introduction flow on the live site with
+  Jess and two member accounts
 - `docs/DECISIONS.md` : why things are the way they are
 - `docs/TASKS.md` : backlog and in-progress work
 
