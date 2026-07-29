@@ -34,16 +34,52 @@ const confirmed = process.argv.includes("--yes");
  *  decision page both render the other person, so with no headline, bio, or
  *  photo there is nothing on screen to react to. Anything the member has
  *  already written is left exactly as it is. */
-const FILLER: Record<string, { headline: string; bio: string; lookingFor: string }> = {
+type Demo = {
+  headline: string;
+  bio: string;
+  lookingFor: string;
+  dealBreakers: string;
+  age: number;
+  neighborhood: string;
+  gender: string;
+  seeking: string;
+  recommendation: string;
+  voucherName: string;
+  prompts: [string, string][];
+};
+
+const FILLER: Record<string, Demo> = {
   [MEMBER_A]: {
-    headline: "Placeholder headline. Replace this from the member app.",
-    bio: "Placeholder bio so the introduction has something to show. Sign in as this member and write the real one.",
-    lookingFor: "Placeholder. Replace from the member app.",
+    headline: "Demo profile. Gallery director who cooks badly and reads constantly",
+    bio: "Demo content for testing. I run a small gallery downtown, which means I spend my days looking at things and my evenings arguing about them. Long walks, short books, and a standing Sunday reservation I refuse to give up.",
+    lookingFor: "Someone with their own thing going on. Curious, direct, and willing to be wrong out loud.",
+    dealBreakers: "Anyone who is rude to staff. Anyone who says they hate reading.",
+    age: 34,
+    neighborhood: "West Village",
+    gender: "woman",
+    seeking: "man",
+    recommendation: "Demo recommendation. She is the person who makes a dinner party actually good, and she will tell you exactly what she thinks.",
+    voucherName: "Demo Voucher",
+    prompts: [
+      ["The way to my heart is", "an argument about a painting that goes on too long."],
+      ["I geek out on", "cookbook introductions, which nobody reads but me."],
+    ],
   },
   [MEMBER_B]: {
-    headline: "Placeholder headline. Replace this from the member app.",
-    bio: "Placeholder bio so the introduction has something to show. Sign in as this member and write the real one.",
-    lookingFor: "Placeholder. Replace from the member app.",
+    headline: "Demo profile. Builds software, climbs badly, overthinks coffee",
+    bio: "Demo content for testing. I build things for a living and take weekends seriously. Climbing, the farmers market, and a road bike I keep meaning to fix. Looking for someone who has their own weekend already planned.",
+    lookingFor: "A real partner. Ambitious but warm, up for a Tuesday plan as much as a quiet Sunday.",
+    dealBreakers: "Flakiness. Anyone who will not try the tasting menu.",
+    age: 31,
+    neighborhood: "Fort Greene",
+    gender: "man",
+    seeking: "woman",
+    recommendation: "Demo recommendation. He shows up early, remembers what you told him, and is genuinely funny once he stops being polite.",
+    voucherName: "Demo Voucher",
+    prompts: [
+      ["We will get along if", "you have a restaurant list and strong opinions about it."],
+      ["My simple pleasure is", "a 7am climb before the gym fills up."],
+    ],
   },
 };
 
@@ -169,9 +205,21 @@ async function profiles() {
     const person = await personOrThrow(email);
     const filler = FILLER[email];
     const data: Record<string, unknown> = {};
-    if (!person.headline && filler) data.headline = filler.headline;
-    if (!person.bio && filler) data.bio = filler.bio;
-    if (!person.lookingFor && filler) data.lookingFor = filler.lookingFor;
+    if (filler) {
+      // Only ever fill a blank. A demo profile exists so the invite email and
+      // the decision page have something to render; it must never overwrite
+      // what a real member wrote about themselves.
+      if (!person.headline) data.headline = filler.headline;
+      if (!person.bio) data.bio = filler.bio;
+      if (!person.lookingFor) data.lookingFor = filler.lookingFor;
+      if (!person.dealBreakers) data.dealBreakers = filler.dealBreakers;
+      if (!person.age) data.age = filler.age;
+      if (!person.neighborhood) data.neighborhood = filler.neighborhood;
+      if (!person.gender) data.gender = filler.gender;
+      if (!person.seeking) data.seeking = filler.seeking;
+      if (!person.recommendation) data.recommendation = filler.recommendation;
+      if (!person.voucherName) data.voucherName = filler.voucherName;
+    }
     if (person.status !== "active") data.status = "active";
     if (!person.openToMatch) {
       data.openToMatch = true;
@@ -184,6 +232,18 @@ async function profiles() {
       console.log(`${person.name}: set ${Object.keys(data).join(", ")}`);
     } else {
       console.log(`${person.name}: nothing to fill`);
+    }
+
+    if (!person.prompts.length && filler) {
+      await prisma.prompt.createMany({
+        data: filler.prompts.map(([question, answer], order) => ({
+          personId: person.id,
+          question,
+          answer,
+          order,
+        })),
+      });
+      console.log(`${person.name}: added ${filler.prompts.length} prompts`);
     }
 
     if (!person.photos.length) {

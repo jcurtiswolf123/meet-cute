@@ -2,8 +2,55 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-28 (reply-by-email QA: a false "yes" and three dropped
-replies fixed, verified live in production)
+Last updated: 2026-07-28 (introductions now carry each member's own profile;
+the operator no longer writes descriptions of people)
+
+## 2026-07-28: the invitation is the profile, in the member's own words
+
+The introduction email used to be a teaser: a name, a headline, and a link. The
+description each person read about the other came from two "About X" boxes the
+operator typed in the composer, and those bullets were built for an SMS-first
+flow that email has since replaced.
+
+Both are gone.
+
+- **The whole profile travels in the email.** `matchInviteEmail` now renders
+  photo, age, neighborhood, city, headline, bio, what they are looking for,
+  deal-breakers, the recommendation and its voucher, and every prompt answer,
+  all in the member's own words. The recipient can decide without clicking
+  anything. The link still exists for the Yes/Pass buttons and for anyone who
+  prefers a page. Photos load through the same token-gated proxy as the invite
+  page, so they render with no session.
+- **Nobody writes a description of anybody else.** The two "About X" textareas
+  are removed from the composer, `createIntroduction` no longer accepts or
+  stores them, and `Match.aboutPersonA` / `aboutPersonB` are dead columns
+  (kept, not dropped, so existing rows survive). The one line the matchmaker
+  still writes is `Match.rationale`, relabelled "Why this pairing" and scoped in
+  the UI to the pairing rather than to either person. Both people see it.
+- **One send path for both channels.** `sendEmailInvites` now queues the email
+  and, for anyone who separately consented to texts, an SMS nudge carrying the
+  same invite token. `introInviteSMS` is a link to that person's invite page, no
+  bullets, no operator voice. `createIntroduction`, `resendIntro`, and
+  `bulkResendStalled` all funnel through the one function instead of each
+  assembling their own SMS, so a resend rebuilds from the member's current
+  profile rather than from a copy frozen at match time, and rotating the token
+  supersedes the pending text as well as the pending email.
+- **A phone-only member is now reachable.** They previously got an SMS with no
+  `MatchInvite` row and so had no page to act on; they now get a token and the
+  Yes/Pass buttons like everyone else.
+
+Verified against an isolated local PostgreSQL 18 database and a production
+build: typecheck, lint, build, the full `test:launch` suite, `test:race`,
+`test:journey:email`, and `test:journey:application` all pass. The email
+journey test now asserts that each side's invite contains the other person's own
+headline, bio, and looking-for text and never echoes the recipient's own bio
+back at them. Dogfooded through the real studio composer against a production
+build: a Priya/Sam introduction queued three jobs (two profile emails plus one
+SMS nudge on the same token as Priya's email invite), with `aboutPersonA` and
+`aboutPersonB` both null.
+
+`test:launch:roles:e2e` fails on the sidebar collapse assertion. That failure
+reproduces identically on clean `master` and is unrelated to this work.
 
 ## 2026-07-28: match from a profile, linked people, and a visible send log
 
