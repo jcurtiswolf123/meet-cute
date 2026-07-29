@@ -114,7 +114,8 @@ export default async function Roster({
         <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Directory</h1>
         <p className="mt-1 text-sm text-muted">Everyone on the list, with new applicants to review at a glance.</p>
       </div>
-      {/* Metrics ledger: "Together" (the north-star outcome) carries the sage accent */}
+      {/* Metrics ledger. "Together" is the north-star outcome, so it earns weight
+          and a panel tint rather than a colour the rest of the console never uses. */}
       <div className="ledger">
         <div className="ledger-cell">
           <div className="ledger-num">{people.length}</div>
@@ -129,8 +130,8 @@ export default async function Roster({
           <div className="ledger-num">{stageCount("suggested") + stageCount("mutual_yes") + stageCount("date_scheduled")}</div>
           <div className="ledger-label">In pipeline</div>
         </div>
-        <div className="ledger-cell bg-sage/[0.06]">
-          <div className="ledger-num text-sage">{stageCount("relationship")}</div>
+        <div className="ledger-cell bg-[#f5f5f6]">
+          <div className="ledger-num font-semibold text-ink">{stageCount("relationship")}</div>
           <div className="ledger-label">Together</div>
         </div>
       </div>
@@ -199,7 +200,7 @@ export default async function Roster({
                     <span className="block text-sm font-medium text-ink">{a.name}{a.age ? `, ${a.age}` : ""}</span>
                     <span className="block text-xs text-muted">{a.email} · {a.city}</span>
                     {a.voucherName && (
-                      <span className="mt-0.5 block text-xs text-sage">
+                      <span className="mt-0.5 block text-xs font-medium text-ink">
                         Vouched by {a.voucherName}
                         {a.recommendation ? `: "${a.recommendation.slice(0, 80)}${a.recommendation.length > 80 ? "..." : ""}"` : ""}
                       </span>
