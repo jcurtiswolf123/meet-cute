@@ -2,6 +2,26 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-07-28 : Members describe themselves; the matchmaker only pairs
+- Decision: The introduction invitation carries the other person's whole profile
+  as that person wrote it. The operator writes no description of any member.
+- Decision: Keep exactly one operator-authored line, `Match.rationale`, and
+  scope it to the pairing rather than to either person. Both people see it.
+- Decision: Email is the channel that carries an introduction, because only it
+  can hold a profile. SMS is a nudge to the same token-gated page, sent only
+  with separate text consent, and is never the introduction itself.
+- Decision: Build the invitation from the member's profile at send time rather
+  than from a copy stored on the Match, so a resend reflects the current profile.
+- Why: Two people deciding whether to meet should be reading each other, not a
+  third party's summary of each other. The old "About X" bullets were an
+  operator-voiced paraphrase invented for an SMS-first flow, they went stale the
+  moment a member edited their profile, and they put the matchmaker in the
+  position of characterizing members to each other.
+- Alternatives rejected: keeping the bullets as an optional supplement (the same
+  staleness and the same voice problem, just less often); dropping
+  `aboutPersonA`/`aboutPersonB` from the schema now (kept as dead columns so
+  existing rows survive; remove in a planned migration).
+
 ## 2026-07-23 : Role-based studio administration
 - Decision: Keep one email magic-link authentication flow and separate
   authorization into member, operator, and super-admin roles.

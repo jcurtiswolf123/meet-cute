@@ -318,7 +318,7 @@ export function matchFeedbackEmail(args: {
     `Just reply to this email. It helps us make your next introduction a better one.\n\n` +
     `Warmly,\nMeet Cute`;
   const inner =
-    h1(`How was ${esc(otherFirst)}?`) +
+    h1(`How was ${otherFirst}?`) +
     p(`Hi ${esc(first)}, how did it go with <strong>${esc(otherFirst)}</strong>? A sentence is plenty - did you meet, did you click, should we keep going or try someone new?`) +
     p(`Just reply to this email. Whatever you say stays between us and makes your next introduction a better one.`);
   return { subject, html: emailShell(inner, `Tell us how it went with ${otherFirst}.`), text };
@@ -444,7 +444,7 @@ export function connectionEmail(args: {
     : `<p style="margin:2px 0;font-family:${SANS};font-size:14px;color:${BRAND.muted}">Just reply to this email and we will pass it along.</p>`;
 
   const inner =
-    h1(`You and ${esc(otherFirst)} said yes.`) +
+    h1(`You and ${otherFirst} said yes.`) +
     p(`Hi ${esc(first)}, you and <strong>${esc(otherFirst)}</strong> both said yes to an introduction.`) +
     `<div style="margin:16px 0;padding:16px;border:1px solid ${BRAND.line};border-radius:12px;background:${BRAND.cream}">
       <p style="margin:0 0 6px;font-family:${SANS};font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.muted}">How to reach ${esc(otherFirst)}</p>
@@ -467,8 +467,9 @@ export function connectionEmail(args: {
 export type InviteProfile = {
   name: string;
   age?: number | null;
+  // Neighbourhood only. Both people are matched inside one market, so restating
+  // the city back at them reads like a listing rather than an introduction.
   neighborhood?: string | null;
-  city?: string | null;
   headline?: string | null;
   bio?: string | null;
   lookingFor?: string | null;

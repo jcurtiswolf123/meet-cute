@@ -121,7 +121,6 @@ function main() {
       name: "Alex Chen",
       age: 34,
       neighborhood: "Cobble Hill",
-      city: "NYC",
       headline: "Architect who cooks",
       bio: "I draw buildings all day and feed people all night.",
       lookingFor: "Someone who argues about food.",
@@ -184,6 +183,43 @@ function main() {
     appUrl: "https://hellomeetcute.com/apply",
   });
   assert.ok(!hostile.html.includes("<script>alert(1)</script>"), "approved: unescaped name");
+
+  // The invite carries the most member-supplied text of any template, and it is
+  // delivered to a DIFFERENT member's inbox, so an unescaped field here is one
+  // member injecting markup into another's mail. Every free-text field is
+  // hostile in this case.
+  const attack = '<img src=x onerror="alert(1)">';
+  const hostileInvite = matchInviteEmail({
+    toName: "Recipient",
+    other: {
+      name: `Mallory ${attack}`,
+      age: 30,
+      neighborhood: attack,
+      headline: attack,
+      bio: attack,
+      lookingFor: attack,
+      dealBreakers: attack,
+      recommendation: attack,
+      voucherName: attack,
+      prompts: [{ question: attack, answer: attack }],
+    },
+    matchmakerNote: attack,
+    profileUrl: "https://hellomeetcute.com/i/tok3n",
+  });
+  assert.ok(!hostileInvite.html.includes(attack), "invite: unescaped member field");
+  // The escaped text legitimately still contains the characters "onerror=", so
+  // assert on the tag itself: what must never appear is a live element.
+  assert.ok(!hostileInvite.html.includes("<img"), "invite: hostile tag rendered live");
+  assert.ok(hostileInvite.html.includes("&lt;img"), "invite: markup should be escaped, not stripped");
+
+  // h1() escapes its own argument. Escaping again at the call site turned a name
+  // containing an ampersand into "&amp;amp;" in the subject headline.
+  const amp = connectionEmail({
+    toName: "Recipient",
+    otherName: "Ben & Jerry",
+    otherEmail: "ben@example.com",
+  });
+  assert.ok(!amp.html.includes("&amp;amp;"), "connection: double-escaped headline");
 
   // List-Unsubscribe takes a bare addr-spec. Every invite used to ship
   // `<mailto:Meet Cute <r+token@...>>`, an unparseable header that counts

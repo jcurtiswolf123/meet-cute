@@ -38,7 +38,9 @@ enabled outside production.
 ## Operator workflow
 
 1. Review applicants and member profiles in the Roster.
-2. Create suggestions and manage the Pipeline.
+2. Create suggestions and manage the Pipeline. An introduction carries each
+   person's own profile to the other; the operator writes only an optional line
+   on why the pairing makes sense.
 3. Moderate photos and safety reports.
 4. Review delivery failures and retry only after resolving the cause.
 5. Create and manage dinners with transactionally enforced capacity.

@@ -172,7 +172,6 @@ export async function sendEmailInvites(
             name: other.name,
             age: other.age,
             neighborhood: other.neighborhood,
-            city: other.city,
             headline: other.headline,
             bio: other.bio,
             lookingFor: other.lookingFor,

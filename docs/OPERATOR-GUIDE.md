@@ -50,8 +50,8 @@ This is the main working screen. Use it to:
 - See how many people are ready to match.
 - Add a consented person directly to the roster.
 - Choose two ready people.
-- Write the short description each person will see.
-- Send the introductions.
+- Optionally write one line on why the pairing makes sense.
+- Send the introductions, each carrying the other person's own profile.
 - Resend, close, or manually connect an introduction.
 - Set follow-up reminders and request feedback.
 
@@ -174,35 +174,45 @@ If the person does not appear in the Matchmaking picker, they are usually not ma
 1. Open Matchmaking.
 2. In `New introduction`, choose the first person.
 3. Choose the second person.
-4. Review the prefilled notes.
-5. In `About the first person`, write the details that the second person should see.
-6. In `About the second person`, write the details that the first person should see.
-7. Add an optional one-line rationale if it helps explain the fit.
-8. Read both previews carefully.
-9. Confirm that you selected two different people and that both delivery channels are correct.
-10. Click `Send introductions`.
+4. Optionally write one line in `Why this pairing`.
+5. Read `What goes out` and confirm both delivery channels are correct.
+6. Click `Send introductions`.
 
 The button sends live invitations. There is no separate confirmation screen.
 
-Good introduction notes are short and concrete. Use two or three details that make the match legible:
+You do not write descriptions of the people. Each person is introduced to the
+other through their own profile exactly as they wrote it, so there is nothing to
+compose and nothing to get wrong on their behalf. If a member reads poorly in an
+introduction, the fix is their profile, not the invitation.
 
-- What they do or care about.
-- A specific interest or lifestyle detail.
-- Why the two people might connect.
+`Why this pairing` is the one line you write, and both people see it. Keep it
+about the pairing, not about either person: what the two have in common, or why
+you think they would click. One sentence.
 
-Do not include private notes, deal-breaker commentary, medical information, or anything the other person did not agree to share.
+Do not include private notes, deal-breaker commentary, medical information, or
+anything either person did not agree to share.
 
 ## 7. What each matched person receives
 
-Meet Cute sends each person a separate, private email. The email:
+Meet Cute sends each person a separate, private email carrying the other
+person's whole profile, in that person's own words. The email:
 
 - Names the proposed match.
-- Links to a private profile page for that introduction.
-- Shows approved profile details and approved photos.
-- Offers `Yes, introduce us` and `No thanks`.
+- Shows their approved photo, age, neighborhood, city, and headline.
+- Shows their bio, what they are looking for, deal-breakers, recommendation and
+  voucher, and prompt answers.
+- Shows your `Why this pairing` line, when you wrote one.
+- Offers `Yes, introduce us`, which opens the same profile on a private page
+  with `Yes, introduce us` and `No thanks` buttons.
 - Also lets the recipient reply `Y` or `N` to the email.
 
-The private link does not require a member sign-in. It is unique to that introduction and should not be forwarded.
+The recipient can decide from the email alone. The private link is there for the
+buttons and for anyone who prefers a page. It does not require a member sign-in,
+it is unique to that introduction, and it should not be forwarded.
+
+Someone who separately consented to text messages also gets a short text
+pointing at the same private page. A text cannot carry a profile, so it is only
+ever a nudge.
 
 Decision rules:
 
