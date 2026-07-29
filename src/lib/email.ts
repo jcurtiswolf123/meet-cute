@@ -53,7 +53,7 @@ export async function sendEmail({
   idempotencyKey,
 }: SendArgs): Promise<EmailSendResult> {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || "Meet Cute <hello@meet-cute.app>";
+  const from = process.env.RESEND_FROM || "Meet Cute <hello@hellomeetcute.com>";
   const isProd = process.env.NODE_ENV === "production";
   const toList = Array.isArray(to) ? to : [to];
   const toLabel = toList.join(", ");

@@ -21,7 +21,7 @@ export function formatWhen(date: Date): string {
 }
 
 function appBase(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || "https://meet-cute.fly.dev").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com").replace(/\/$/, "");
 }
 
 export async function createEventRecord(e: NewEvent) {

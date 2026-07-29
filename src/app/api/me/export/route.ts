@@ -48,7 +48,7 @@ export async function GET() {
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {
       "Content-Type": "application/json",
-      "Content-Disposition": 'attachment; filename="meet-cute-my-data.json"',
+      "Content-Disposition": 'attachment; filename="meetcute-my-data.json"',
       "Cache-Control": "no-store",
     },
   });

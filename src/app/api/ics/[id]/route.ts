@@ -23,7 +23,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return new Response(ics, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="meet-cute-date.ics"`,
+      "Content-Disposition": `attachment; filename="meetcute-date.ics"`,
     },
   });
 }

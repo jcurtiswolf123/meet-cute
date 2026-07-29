@@ -475,7 +475,7 @@ export async function createGroupConversation(args: {
     //    so we use a pseudonymized label, never names or numbers.
     const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
     const created = await conversationsPost(creds, "/Conversations", {
-      FriendlyName: args.friendlyName?.slice(0, 200) || "meet-cute-intro",
+      FriendlyName: args.friendlyName?.slice(0, 200) || "meetcute-intro",
       ...(messagingServiceSid ? { MessagingServiceSid: messagingServiceSid } : {}),
     });
     if (!created.ok || typeof created.json.sid !== "string") {

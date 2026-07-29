@@ -24,7 +24,13 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://meet-cute.fly.dev"),
+  // The public origin, which every absolute metadata URL is resolved against.
+  // The fallback has to be the real domain: NEXT_PUBLIC_SITE_URL is not set in
+  // production, so a fly.dev fallback is what shipped, and every link shared to
+  // a chat app pulled its preview image from meet-cute.fly.dev.
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com",
+  ),
   title: {
     default: "Meet Cute - private matchmaking",
     template: "%s · Meet Cute",
