@@ -58,6 +58,9 @@ const cases: Case[] = [
     expect: null,
   },
   { name: "ok not for me", text: "Ok, honestly not for me.", expect: null },
+  { name: "definitely not", text: "Definitely not", expect: "pass" },
+  { name: "absolutely not", text: "Absolutely not, sorry", expect: "pass" },
+  { name: "sure not", text: "Sure... not my type", expect: "pass" },
   { name: "sure but pass", text: "Sure, I see the appeal, but I'll pass.", expect: null },
   {
     name: "yes-ish then decline",

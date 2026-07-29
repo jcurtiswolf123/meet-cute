@@ -53,6 +53,12 @@ const YES_STRONG =
   /^(y|ye|yes|yeah|yea|yep|yup|absolutely|definitely|interested|sounds good|sounds great|i'?m in|im in|count me in|let'?s do it|do it|would love to|i'?d love to|love to)\b/i;
 const YES_WEAK = /^(ok|okay|k|sure|alright|all right|fine)\b/i;
 
+/** An affirmative adverb immediately negated ("definitely not", "absolutely
+ *  not"). Checked before the affirmatives, which would otherwise match the
+ *  adverb and read the refusal as a yes. */
+const NEGATED_AFFIRMATIVE =
+  /^(definitely|absolutely|certainly|probably|really|sure|honestly|unfortunately)\b[\s,.!-]*(not|no)\b/i;
+
 /** Negatives, anchored at the start of the answer. */
 const NO_ANCHORED =
   /^(n|no|nope|nah|pass|decline|not interested|not for me|no thanks|no thank you|i'?ll pass|i'?ll have to pass|i'?d rather not|rather not|maybe not|next time)\b/i;
@@ -171,6 +177,7 @@ export function decisionFromReply(text?: string | null, html?: string | null): R
   const scanned = body.replace(NO_FALSE_FRIENDS, " ").slice(0, 600);
   const hasNegative = NO_ANYWHERE.test(scanned);
 
+  if (NEGATED_AFFIRMATIVE.test(first)) return "pass";
   if (NO_ANCHORED.test(first)) return "pass";
 
   const strongYes = YES_STRONG.test(first);

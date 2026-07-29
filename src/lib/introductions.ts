@@ -44,7 +44,10 @@ export function inviteProfileUrl(token: string): string {
  *  inbound domain routed to /api/email/inbound (Resend Inbound). Returns null when
  *  unconfigured, in which case replies fall back to the profile-page buttons. */
 export function inviteReplyAddress(token: string): string | null {
-  const domain = process.env.RESEND_INBOUND_DOMAIN?.trim();
+  // RESEND_INBOUND_DOMAIN may list several accepted domains. New invites always
+  // go out on the first one; the webhook keeps accepting the rest so invites
+  // already sitting in a member's inbox still resolve after a domain change.
+  const domain = process.env.RESEND_INBOUND_DOMAIN?.split(",")[0]?.trim();
   if (!domain) return null;
   return `Meet Cute <r+${token}@${domain}>`;
 }

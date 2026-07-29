@@ -62,7 +62,12 @@ function verifySignature(secret: string | undefined, req: NextRequest, rawBody: 
 }
 
 // Pull the invite token out of any `r+<token>@domain` recipient address.
-function tokenFromRecipients(to: unknown, expectedDomain: string): string | null {
+// RESEND_INBOUND_DOMAIN may list several domains, comma-separated. Accepting
+// more than one is what makes changing the reply address safe: invites already
+// in a member's inbox carry the old Reply-To, and a reply to an unlisted domain
+// is dropped as "no token", so the old domain has to stay accepted until every
+// outstanding invite is decided or expired.
+function tokenFromRecipients(to: unknown, expectedDomains: string[]): string | null {
   const addrs: string[] = [];
   const push = (v: unknown) => {
     if (typeof v === "string") addrs.push(v);
@@ -75,9 +80,19 @@ function tokenFromRecipients(to: unknown, expectedDomain: string): string | null
   else push(to);
   for (const a of addrs) {
     const m = a.match(/r\+([A-Za-z0-9_-]+)@([A-Za-z0-9.-]+)/i);
-    if (m && m[2]?.toLowerCase() === expectedDomain) return m[1];
+    if (m && expectedDomains.includes(m[2]?.toLowerCase())) return m[1];
   }
   return null;
+}
+
+/** Every domain whose `r+<token>@` replies we accept. The first entry is the one
+ *  new invites are sent from (see inviteReplyAddress); the rest are legacy
+ *  addresses kept alive for invites already in flight. */
+function inboundDomains(): string[] {
+  return (process.env.RESEND_INBOUND_DOMAIN || "")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
 }
 
 // Fetch the full received message (the webhook carries metadata only) so we can
@@ -131,15 +146,12 @@ export async function POST(req: NextRequest) {
     // Route on the recipient token FIRST (it is in the metadata). No token means
     // this message is not one of our invite replies, so we return without ever
     // fetching the body, keeping other projects' inbound mail untouched.
-    const inboundDomain = (process.env.RESEND_INBOUND_DOMAIN || "").trim().toLowerCase();
-    if (!inboundDomain) return new Response("inbound domain not configured", { status: 503 });
+    const domains = inboundDomains();
+    if (!domains.length) return new Response("inbound domain not configured", { status: 503 });
     const token =
-      tokenFromRecipients(data.to, inboundDomain) ||
-      tokenFromRecipients(data.reply_to, inboundDomain) ||
-      tokenFromRecipients(
-        (data.headers as Record<string, unknown> | undefined)?.["to"],
-        inboundDomain,
-      );
+      tokenFromRecipients(data.to, domains) ||
+      tokenFromRecipients(data.reply_to, domains) ||
+      tokenFromRecipients((data.headers as Record<string, unknown> | undefined)?.["to"], domains);
     if (!token) return new Response("no token", { status: 200 });
 
     // Body only for our own messages. Prefer any inline parts, else fetch them.
