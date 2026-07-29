@@ -7,6 +7,7 @@ import { candidatesFor } from "@/lib/copilot";
 import { connectionsOf, vouchesFor } from "@/lib/social";
 import { Avatar, StageBadge } from "@/components/ui";
 import { SubmitButton } from "@/components/forms";
+import { IntroComposer } from "../../matchmaking/IntroComposer";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function PersonPage({
   params: Promise<{ id: string }>;
   searchParams?: Promise<{ suggest?: string }>;
 }) {
-  await requireOperatorPage();
+  const me = await requireOperatorPage();
   const { id } = await params;
   const suggestNotice = SUGGEST_MESSAGE[(await searchParams)?.suggest ?? ""];
   const p = await prisma.person.findUnique({
@@ -47,6 +48,48 @@ export default async function PersonPage({
     p.isOperator ? Promise.resolve([]) : candidatesFor(id, 4),
   ]);
   const connections = await prisma.person.findMany({ where: { id: { in: [...connIds] } }, select: { id: true, name: true } });
+
+  // Everyone this person can be introduced to, so the operator is never limited
+  // to the four ranked suggestions. Same eligibility rule as the Directory
+  // composer: an active roster member with an authorized channel (email, or a
+  // textable phone plus recorded SMS consent). The double opt-in email remains
+  // the consent point, so `openToMatch` is deliberately not required here.
+  const rosterForMatching = p.isOperator
+    ? []
+    : await prisma.person.findMany({
+        where: {
+          isOperator: false,
+          isAmbassador: false,
+          isCoach: false,
+          status: "active",
+          OR: [{ email: { not: null } }, { AND: [{ phone: { not: null } }, { smsConsentAt: { not: null } }] }],
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          smsConsentAt: true,
+          city: true,
+          instagram: true,
+          bio: true,
+          lookingFor: true,
+        },
+        orderBy: { name: "asc" },
+      });
+  const composerPeople = rosterForMatching.map((c) => ({
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    phone: c.phone,
+    canText: !!c.smsConsentAt,
+    city: c.city,
+    instagram: c.instagram,
+    blurb: (c.bio || c.lookingFor || "").trim(),
+  }));
+  // The person can only be the anchor of a new introduction if they are on the
+  // roster with a channel of their own.
+  const canMatchThisPerson = composerPeople.some((c) => c.id === id);
 
   const matches = [
     ...p.matchesAsA.map((m) => ({ id: m.id, other: m.personB, stage: m.stage })),
@@ -112,13 +155,43 @@ export default async function PersonPage({
           </div>
         )}
 
+        {/* Match anyone on the roster, not only the ranked suggestions. Sends the
+            same double opt-in introduction the Directory composer sends. */}
+        {!p.isOperator && (
+          <>
+            <h2 className="label mt-8">Match {p.name.split(" ")[0]} with someone</h2>
+            {canMatchThisPerson ? (
+              <div className="mt-2">
+                <IntroComposer
+                  people={composerPeople}
+                  operatorName={me.name}
+                  lockedAId={id}
+                  title={`Introduce ${p.name.split(" ")[0]} to anyone on the roster`}
+                  intro="Search the full roster, not just the ranked suggestions. Both people get a private invite and are only connected after they both say yes."
+                />
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-muted">
+                {p.status === "active"
+                  ? "This person has no authorized delivery channel yet. Add an email or record explicit text consent before introducing them."
+                  : "Approve this person onto the roster before introducing them."}
+              </p>
+            )}
+          </>
+        )}
+
         {/* match history */}
         <h2 className="label mt-8">Match history</h2>
         <div className="mt-2 space-y-1.5">
           {matches.length ? matches.map((m) => (
-            <div key={m.id} className="flex items-center justify-between rounded-lg border border-line bg-panel px-3 py-2 text-sm">
-              <Link href={`/studio/person/${m.other.id}`} className="hover:underline">{m.other.name}</Link>
-              <StageBadge stage={m.stage} />
+            <div key={m.id} className="flex items-center justify-between gap-3 rounded-lg border border-line bg-panel px-3 py-2 text-sm">
+              <Link href={`/studio/person/${m.other.id}`} className="font-medium hover:underline">{m.other.name}</Link>
+              <span className="flex items-center gap-3">
+                <StageBadge stage={m.stage} />
+                <Link href={`/studio/conversations/${m.id}`} className="text-xs text-claret hover:underline">
+                  Open thread
+                </Link>
+              </span>
             </div>
           )) : <p className="text-sm text-muted">No matches yet.</p>}
         </div>

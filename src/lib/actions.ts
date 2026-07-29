@@ -825,6 +825,7 @@ export async function retryDeliveryJob(formData: FormData) {
   if (!id) throw new Error("missing delivery job");
   await retryFailedDeliveryJob(id);
   revalidatePath("/studio");
+  revalidatePath("/studio/delivery");
 }
 
 // Operator: log a note on a person or match.
@@ -1123,6 +1124,11 @@ export async function createIntroduction(formData: FormData) {
   revalidatePath("/studio");
   revalidatePath("/studio/matchmaking");
   revalidatePath("/studio/conversations");
+  revalidatePath("/studio/matches");
+  revalidatePath("/studio/delivery");
+  // The intro can be started from either person's profile, so refresh both.
+  revalidatePath(`/studio/person/${aId}`);
+  revalidatePath(`/studio/person/${bId}`);
 }
 
 // Operator: re-send the "want an intro?" text to whoever hasn't replied yet.
