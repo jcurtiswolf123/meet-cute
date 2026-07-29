@@ -38,7 +38,7 @@ function signedInboundRequest(args: {
   const body = JSON.stringify({
     type: "email.received",
     data: {
-      to: [`Meet Cute <r+${args.token}@${args.domain || "inbound.meetcute.test"}>`],
+      to: [`Meet-Cute <r+${args.token}@${args.domain || "inbound.meetcute.test"}>`],
       ...(args.text ? { text: args.text } : {}),
       ...(args.emailId ? { email_id: args.emailId } : {}),
     },
@@ -146,7 +146,7 @@ async function main() {
       new Set([yesA.email!, yesB.email!]),
     );
     for (const capture of inviteDeliveries) {
-      assert.match(String(capture.payload.replyTo), /^Meet Cute <r\+[A-Za-z0-9_-]+@/);
+      assert.match(String(capture.payload.replyTo), /^Meet-Cute <r\+[A-Za-z0-9_-]+@/);
       assert.match(String(capture.payload.html), /Yes, introduce us/i);
     }
     // Each side's email carries the OTHER person's own profile words inline, so
