@@ -77,6 +77,22 @@ Verified after the reorder: all seven studio pages render, no runtime errors, no
 serif, no horizontal overflow, and every focusable element still has a visible
 focus indicator.
 
+**Brand hyphenated.** The mark and 66 mentions in running copy now read
+Meet-Cute across 22 files. Terms, Privacy, and the SMS opt-in page deliberately
+still say "Meet Cute": they name a legal entity, which should match what is
+registered rather than a styling call made here. Flagged for Joshua.
+
+**Warm palette fully out of the console.** The `.studio-shell` scope only
+reached shared classes, so ~160 inline Tailwind tokens survived across eleven of
+thirteen studio pages plus the sidebar and header, which sit outside
+`src/app/studio`. Removed over four passes; verified 0 warm-classed elements on
+every studio page. The member app under `src/app/app` is deliberately untouched,
+since it is member-facing and shares the marketing palette by design.
+
+**Joshua is a super admin.** He was not an operator at all, which is why he
+could not sign in to the studio. He can now self-serve a magic link at
+/studio/login with josh@shiftsupportnetwork.com.
+
 Still open, and blocked on Joshua only:
 - **Spam placement.** Still blocked on the Cloudflare MX record below. Nothing
   further is actionable in code.
