@@ -371,6 +371,11 @@ function SidebarInner({
                       onClick={onClose}
                       aria-current={active ? "page" : undefined}
                       title={collapsed ? it.label : undefined}
+                      // Collapsed, the link is an icon with no text node, so it
+                      // reaches assistive tech as an unnamed link. The label is
+                      // always attached; `title` alone is not an accessible name
+                      // and is not announced reliably.
+                      aria-label={it.label}
                       className={`group flex items-center gap-2.5 text-sm transition ${
                         twenty ? "h-7 rounded px-1" : "rounded-lg px-2.5 py-2"
                       } ${
