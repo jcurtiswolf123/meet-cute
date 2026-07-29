@@ -2,7 +2,96 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-27 (production readiness QA: three defects fixed, all gates green)
+Last updated: 2026-07-28 (reply-by-email QA: a false "yes" and three dropped
+replies fixed, verified live in production)
+
+## 2026-07-28: reply-by-email matching, tested against the real mail path
+
+Everything in the suite stubbed the mail provider, so the seam nobody had tested
+was what real mail clients put on the wire. Testing that seam found four defects
+in the inbound reply parser and two in deliverability.
+
+- **ISSUE-005 fixed, severe (`6a0a9d2`).** "Okay so I'm going to pass on this
+  one" matched the weak affirmative `ok` and recorded a **yes**, which fires the
+  joint connection email and gives both people each other's contact details.
+  Unrecoverable once sent. "Ok, honestly not for me" did the same, as did
+  "Definitely not" (matched the affirmative adverb). Two real members were
+  holding undecided invites while this was live in production.
+- **ISSUE-006 fixed (`6a0a9d2`).** Three shapes of a genuine yes were dropped
+  silently: a bottom-posted reply (Apple Mail's default), an HTML-only reply
+  with no text part (tag-stripping flattened the whole thread onto one line),
+  and any reply opening with a greeting ("Hi Josh - yes, I'd love to meet her"),
+  which missed the start-of-line anchor.
+- Parsing now lives in `src/lib/reply-parse.ts`: quoted history and signatures
+  stripped (English, Outlook, es/fr/it/de quote headers), HTML converted by
+  removing quote containers rather than flattening tags, greetings tolerated,
+  autoresponders ignored, and a yes vetoed whenever the reply also contains a
+  refusal. **Anything ambiguous returns null**, which leaves the match pending
+  with its Yes/Pass buttons intact. A missed decision is harmless; a wrong yes
+  is not. `scripts/test-reply-parse.ts` pins 51 real client reply shapes and
+  asserts that property. Wired in as `npm run test:launch:reply`.
+- **ISSUE-007 fixed (`7ca1543`).** `RESEND_INBOUND_DOMAIN` now takes a
+  comma-separated list; new invites use the first entry and the webhook keeps
+  accepting the rest. Without this, the branded-domain flip below strands every
+  invite already in an inbox: the reply arrives on the old domain, fails the
+  token match, and is dropped as "no token" with nothing surfaced anywhere.
+- **ISSUE-008 fixed (`fix/email-deliverability`).** Every invite shipped
+  `List-Unsubscribe: <mailto:Meet Cute <r+token@...>>`. That is not a parseable
+  addr-spec, and it aimed unsubscribe requests at one invite's token address.
+  Now a bare address from `RESEND_UNSUBSCRIBE_TO` (falling back to
+  `RESEND_REPLY_TO`), plus RFC 8058 `List-Unsubscribe-Post`.
+
+### Verified live in production, not simulated
+
+`scripts/live-reply-e2e.ts` creates two disposable people whose addresses are
+plus-aliases of the operator's own mailbox, so no real member is contacted, and
+deletes them afterward. Guarded by `MEETCUTE_LIVE_E2E`. Run against production:
+
+- Two invites sent through Resend for real, both accepted, both `sentAt` set.
+- Replied from a real Gmail mailbox with the two shapes that were previously
+  dropped (greeting-prefixed yes, and a bottom-posted yes under the quote).
+  Both parsed. Match reached `connected`, `connectedAt` set, and the single
+  joint `connection_email_thread` job sent. Round trip about 25 seconds.
+- Adversarial pass: replied "Okay so I am going to pass on this one" and an
+  out-of-office autoresponder. Both left the match `invited` with both sides
+  `pending`. Confirmed at the deployed endpoint by replaying each real received
+  message to `https://hellomeetcute.com/api/email/inbound` with a valid Svix
+  signature: both returned `no decision`.
+- Production roster verified unchanged afterward: 10 people, 6 matches, the one
+  real outstanding invite untouched.
+
+### Deliverability: invites are filing to Gmail Spam
+
+Confirmed by reading the receiving mailbox, not inferred. Six of six invites to
+a Google Workspace mailbox landed in Spam. Authentication is not the cause: the
+headers show `dkim=pass` for both `hellomeetcute.com` and `amazonses.com`,
+`spf=pass`, and DKIM aligned to the header From, so DMARC passes.
+
+Two structural causes, one fixed:
+
+1. The malformed `List-Unsubscribe` above. Fixed and confirmed well formed on a
+   fresh live send.
+2. **`hellomeetcute.com` publishes no MX record**, so the From domain cannot
+   receive mail at all. That is both a spam signal in its own right and the
+   reason Resend still reports the domain `partially_failed` (DKIM verified,
+   SPF verified, `Receiving MX` failed).
+
+**BLOCKED, needs Joshua.** The stored Cloudflare API token
+(`~/.gstack/credentials/cloudflare-api-token.txt`) is still rejected with
+`Invalid API Token`, the same blocker recorded on 2026-07-23, and the file is
+empty. hellomeetcute.com is on Cloudflare (`vita`/`anuj.ns.cloudflare.com`).
+With a working token, one record finishes it:
+
+    hellomeetcute.com.  MX  10  inbound-smtp.us-east-1.amazonaws.com.
+
+Then `fly secrets set RESEND_INBOUND_DOMAIN="hellomeetcute.com,inbound.shiftsupportnetwork.com"`
+switches new invites to the branded reply address while ISSUE-007 keeps every
+in-flight invite working. Do not set it to the branded domain alone.
+
+Note the six Spam messages are one mailbox, and repeatedly receiving the same
+test invite trains that mailbox against the sender. Treat the placement result
+as directional; the malformed header and the missing MX are objective defects
+regardless.
 
 ## 2026-07-27: production readiness QA and fixes
 - Full QA against an isolated local PostgreSQL 18 database and a production

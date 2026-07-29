@@ -50,6 +50,11 @@ export function Avatar({
 
 const STAGE_LABEL: Record<string, string> = {
   suggested: "Suggested",
+  // Email double opt-in stages. Without these a live introduction rendered as
+  // the raw enum ("invited") next to properly labelled rows.
+  invited: "Invited",
+  connecting: "Connecting",
+  connected: "Connected",
   mutual_yes: "Mutual yes",
   date_scheduled: "Date scheduled",
   first_date: "First date",
@@ -60,7 +65,7 @@ const STAGE_LABEL: Record<string, string> = {
 
 export function StageBadge({ stage }: { stage: string }) {
   const tone =
-    stage === "relationship"
+    stage === "relationship" || stage === "connected"
       ? "bg-sage/15 text-sage border-sage/30"
       : stage === "exit"
         ? "bg-paper text-muted border-line"

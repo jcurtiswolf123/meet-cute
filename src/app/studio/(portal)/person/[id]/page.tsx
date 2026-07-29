@@ -110,7 +110,19 @@ export default async function PersonPage({
           <Avatar url={p.photos[0]?.url} name={p.name} size={72} />
           <div>
             <h1 className="font-display text-3xl font-medium">{p.name}{p.age ? `, ${p.age}` : ""}</h1>
-            <p className="text-sm text-muted">{p.city} · {p.neighborhood} · {p.gender ? `${p.gender}, seeking ${p.seeking}` : "operator"}</p>
+            {/* Only join the facts we actually have. The old line printed
+                "NYC ·  · operator" for any member who had not filled in a
+                neighborhood or gender, which read as a role, not a gap. */}
+            <p className="text-sm text-muted">
+              {[
+                p.city,
+                p.neighborhood,
+                p.gender ? `${p.gender}, seeking ${p.seeking}` : null,
+                p.isOperator ? "operator" : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
             <p className="mt-1 text-sm text-claret">{p.headline}</p>
             {(p.instagram || p.linkedin) && (
               <p className="mt-1.5 flex flex-wrap gap-3 text-sm">
