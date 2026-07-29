@@ -52,10 +52,27 @@ function previewText(
     .join(" ");
 }
 
-export function IntroComposer({ people, operatorName }: { people: Person[]; operatorName: string }) {
-  const [aId, setAId] = useState("");
+export function IntroComposer({
+  people,
+  operatorName,
+  lockedAId,
+  title = "New introduction",
+  intro = "Pick two approved people who are ready to match. Everyone gets an email invite when available. A text is added only for people who separately opted in to SMS.",
+}: {
+  people: Person[];
+  operatorName: string;
+  // When set, the first person is fixed (the profile the operator is standing
+  // on) and only the second person is chosen. Used by the person page so an
+  // operator can match someone with anyone on the roster, not just the ranked
+  // suggestions.
+  lockedAId?: string;
+  title?: string;
+  intro?: string;
+}) {
+  const locked = lockedAId ? people.find((p) => p.id === lockedAId) : undefined;
+  const [aId, setAId] = useState(locked?.id ?? "");
   const [bId, setBId] = useState("");
-  const [aboutA, setAboutA] = useState("");
+  const [aboutA, setAboutA] = useState((locked?.blurb ?? "").trim());
   const [aboutB, setAboutB] = useState("");
   const [blurb, setBlurb] = useState("");
 
@@ -85,11 +102,8 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
 
   return (
     <div className="card-feature p-5">
-      <h2 className="font-display text-lg font-medium">New introduction</h2>
-      <p className="mt-1 text-sm text-muted">
-        Pick two approved people who are ready to match. Everyone gets an email invite when available.
-        A text is added only for people who separately opted in to SMS.
-      </p>
+      <h2 className="font-display text-lg font-medium">{title}</h2>
+      <p className="mt-1 text-sm text-muted">{intro}</p>
 
       <form
         action={createIntroduction}
@@ -102,14 +116,25 @@ export function IntroComposer({ people, operatorName }: { people: Person[]; oper
           }
         }}
       >
-        <PersonCombobox
-          label="First person"
-          name="personAId"
-          people={people}
-          value={aId}
-          excludeId={bId}
-          onChange={(id) => selectPerson("a", id)}
-        />
+        {locked ? (
+          <div className="block">
+            <span className="label">First person</span>
+            <div className="mt-1.5 flex items-center justify-between rounded-lg border border-line bg-paper/60 px-3 py-2 text-sm">
+              <span className="font-medium text-ink">{locked.name}</span>
+              <span className="text-xs text-muted">{locked.city}</span>
+            </div>
+            <input type="hidden" name="personAId" value={locked.id} />
+          </div>
+        ) : (
+          <PersonCombobox
+            label="First person"
+            name="personAId"
+            people={people}
+            value={aId}
+            excludeId={bId}
+            onChange={(id) => selectPerson("a", id)}
+          />
+        )}
         <PersonCombobox
           label="Second person"
           name="personBId"

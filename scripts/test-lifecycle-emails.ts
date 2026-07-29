@@ -16,6 +16,7 @@ import {
   matchInviteEmail,
   matchThreadEmail,
   eventInviteEmail,
+  bareAddress,
 } from "../src/lib/email";
 
 // The one brand shell every transactional email should share. If a template
@@ -165,7 +166,25 @@ function main() {
   });
   assert.ok(!hostile.html.includes("<script>alert(1)</script>"), "approved: unescaped name");
 
-  console.log("lifecycle + intake email render checks passed (10 templates, on-brand, escaped)");
+  // List-Unsubscribe takes a bare addr-spec. Every invite used to ship
+  // `<mailto:Meet Cute <r+token@...>>`, an unparseable header that counts
+  // against inbox placement instead of for it.
+  assert.equal(
+    bareAddress("Meet Cute <r+tok3n@inbound.shiftsupportnetwork.com>"),
+    "r+tok3n@inbound.shiftsupportnetwork.com",
+  );
+  assert.equal(bareAddress("hello@hellomeetcute.com"), "hello@hellomeetcute.com");
+  assert.equal(bareAddress("  spaced@example.com  "), "spaced@example.com");
+  assert.doesNotMatch(
+    `<mailto:${bareAddress("Meet Cute <r+tok3n@example.com>")}>`,
+    /<mailto:[^>]*</,
+    "List-Unsubscribe must not nest angle brackets",
+  );
+
+  console.log(
+    "lifecycle + intake email render checks passed (10 templates, on-brand, escaped, " +
+      "List-Unsubscribe well formed)",
+  );
 }
 
 main();

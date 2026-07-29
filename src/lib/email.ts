@@ -6,6 +6,13 @@
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
+/** The addr-spec out of either `Name <user@host>` or a bare `user@host`.
+ *  Headers such as List-Unsubscribe take the bare address, never the display
+ *  form. Returns the input unchanged when there is no angle-bracketed address. */
+export function bareAddress(address: string): string {
+  return address.match(/<([^<>]+@[^<>]+)>/)?.[1]?.trim() ?? address.trim();
+}
+
 // Escape untrusted values before interpolating them into email HTML. Names,
 // emails, phones, and free-text notes are member-supplied, so an unescaped
 // interpolation would let one member inject markup into another's inbox.
@@ -76,6 +83,14 @@ export async function sendEmail({
   // List-Unsubscribe header, both of which lower spam scoring. A caller-supplied
   // replyTo (the token-bearing opt-in address) wins.
   const replyToAddr = replyTo || process.env.RESEND_REPLY_TO || "josh@shiftsupportnetwork.com";
+  // List-Unsubscribe takes a bare addr-spec. Interpolating replyToAddr directly
+  // produced `<mailto:Meet Cute <r+token@...>>` for every invite, which is not a
+  // parseable header, and a malformed List-Unsubscribe counts against inbox
+  // placement at Gmail rather than for it. It also pointed unsubscribe requests
+  // at a single invite's token address. Unsubscribes go to a stable mailbox.
+  const unsubscribeAddr = bareAddress(
+    process.env.RESEND_UNSUBSCRIBE_TO || process.env.RESEND_REPLY_TO || replyToAddr,
+  );
   try {
     const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
@@ -92,7 +107,13 @@ export async function sendEmail({
         html,
         text,
         reply_to: replyToAddr,
-        headers: { "List-Unsubscribe": `<mailto:${replyToAddr}>`, ...(headers || {}) },
+        headers: {
+          "List-Unsubscribe": `<mailto:${unsubscribeAddr}>`,
+          // RFC 8058 one-click, which Gmail's bulk sender guidelines expect
+          // alongside List-Unsubscribe.
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          ...(headers || {}),
+        },
       }),
     });
     if (!res.ok) {
@@ -114,6 +135,47 @@ export async function sendEmail({
     console.error(`[email] send failed: ${(e as Error).message}`);
     logDevLink();
     return { ok: false, retryable: true, error: (e as Error).message };
+  }
+}
+
+// --- Provider verification ---------------------------------------------------
+//
+// A queued job reads `sent` once Resend accepted it and returned a message id.
+// Accepted is not the same as landed in the inbox, so this asks Resend what
+// actually happened to that exact message (delivered, bounced, complained,
+// delayed). Read-only, one HTTP GET, used by the studio Delivery log and the
+// `delivery:status --check` script.
+
+export type EmailProviderStatus =
+  | { ok: true; lastEvent: string; to: string[]; subject: string | null }
+  | { ok: false; error: string };
+
+export async function fetchEmailProviderStatus(messageId: string): Promise<EmailProviderStatus> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return { ok: false, error: "RESEND_API_KEY is not configured" };
+  if (messageId === "dev") return { ok: false, error: "Local development send, never handed to a provider" };
+  try {
+    const res = await fetch(`${RESEND_ENDPOINT}/${encodeURIComponent(messageId)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(12_000),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      return { ok: false, error: `Resend returned ${res.status}` };
+    }
+    const body = (await res.json().catch(() => ({}))) as {
+      last_event?: unknown;
+      to?: unknown;
+      subject?: unknown;
+    };
+    return {
+      ok: true,
+      lastEvent: typeof body.last_event === "string" ? body.last_event : "unknown",
+      to: Array.isArray(body.to) ? body.to.filter((t): t is string => typeof t === "string") : [],
+      subject: typeof body.subject === "string" ? body.subject : null,
+    };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
   }
 }
 

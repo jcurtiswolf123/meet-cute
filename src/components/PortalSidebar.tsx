@@ -453,6 +453,7 @@ export type IconName =
   | "userCog"
   | "home"
   | "heart"
+  | "mail"
   | "user"
   | "settings"
   | "menu"
@@ -538,6 +539,13 @@ export function PortalIcon({ name }: { name: IconName }) {
       return (
         <svg {...p}>
           <path d="M12 20s-7-4.4-7-9.2A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7-2.2c0 4.8-7 9.2-7 9.2z" />
+        </svg>
+      );
+    case "mail":
+      return (
+        <svg {...p}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="M3.5 6.5l8.5 6 8.5-6" />
         </svg>
       );
     case "user":

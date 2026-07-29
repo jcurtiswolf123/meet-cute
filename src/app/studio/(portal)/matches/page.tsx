@@ -40,8 +40,8 @@ export default async function MatchesHistory() {
   const matches = await prisma.match.findMany({
     orderBy: { updatedAt: "desc" },
     include: {
-      personA: { select: { name: true, city: true, photos: { take: 1, orderBy: { order: "asc" } } } },
-      personB: { select: { name: true, city: true, photos: { take: 1, orderBy: { order: "asc" } } } },
+      personA: { select: { id: true, name: true, city: true, photos: { take: 1, orderBy: { order: "asc" } } } },
+      personB: { select: { id: true, name: true, city: true, photos: { take: 1, orderBy: { order: "asc" } } } },
     },
   });
 
@@ -89,33 +89,48 @@ export default async function MatchesHistory() {
                   {group.label} · {rows.length}
                 </h2>
                 <ul className="mt-4 divide-y divide-line/70 overflow-hidden rounded-lg border border-line bg-panel">
+                  {/* Each name links to that person's profile; the thread link
+                      opens the introduction itself. Kept as sibling links rather
+                      than one row-wide link so the profiles are reachable. */}
                   {rows.map((m) => (
-                    <li key={m.id}>
-                      <Link
-                        href={`/studio/conversations/${m.id}`}
-                        className="flex items-center justify-between gap-4 px-4 py-3.5 transition-colors hover:bg-cream/70"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex -space-x-2">
-                            <Avatar url={m.personA.photos[0]?.url} name={m.personA.name} size={34} />
-                            <Avatar url={m.personB.photos[0]?.url} name={m.personB.name} size={34} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-ink">
-                              {m.personA.name.split(" ")[0]} &amp; {m.personB.name.split(" ")[0]}
-                            </p>
-                            <p className="truncate text-xs text-muted">
-                              {m.personA.city || m.personB.city || "No city"} ·{" "}
-                              {m.connectedAt ? `Connected ${fmt(m.connectedAt)}` : `Started ${fmt(m.createdAt)}`}
-                            </p>
-                          </div>
+                    <li
+                      key={m.id}
+                      className="flex flex-wrap items-center justify-between gap-4 px-4 py-3.5 transition-colors hover:bg-cream/70"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex -space-x-2">
+                          <Avatar url={m.personA.photos[0]?.url} name={m.personA.name} size={34} />
+                          <Avatar url={m.personB.photos[0]?.url} name={m.personB.name} size={34} />
                         </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-ink">
+                            <Link href={`/studio/person/${m.personA.id}`} className="hover:text-claret hover:underline">
+                              {m.personA.name}
+                            </Link>
+                            <span className="text-muted"> &amp; </span>
+                            <Link href={`/studio/person/${m.personB.id}`} className="hover:text-claret hover:underline">
+                              {m.personB.name}
+                            </Link>
+                          </p>
+                          <p className="truncate text-xs text-muted">
+                            {m.personA.city || m.personB.city || "No city"} ·{" "}
+                            {m.connectedAt ? `Connected ${fmt(m.connectedAt)}` : `Started ${fmt(m.createdAt)}`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3">
                         <span
                           className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${toneFor(m.stage)}`}
                         >
                           {STAGE_LABEL[m.stage] ?? m.stage}
                         </span>
-                      </Link>
+                        <Link
+                          href={`/studio/conversations/${m.id}`}
+                          className="text-xs text-claret hover:underline"
+                        >
+                          Open thread
+                        </Link>
+                      </div>
                     </li>
                   ))}
                 </ul>

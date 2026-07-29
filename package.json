@@ -23,6 +23,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
     "ops": "tsx scripts/operators.ts",
+    "delivery:status": "node --env-file-if-exists=.env --import tsx scripts/delivery-status.ts",
     "test:fixture": "tsx scripts/test-fixture.ts",
     "login-link": "tsx scripts/login-link.ts",
     "watchdog": "tsx scripts/watchdog.ts",
