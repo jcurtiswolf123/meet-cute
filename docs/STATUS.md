@@ -2,8 +2,29 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-28 (introductions now carry each member's own profile;
-the operator no longer writes descriptions of people)
+Last updated: 2026-07-31 (the product is now called Mutuals, live in production)
+
+## 2026-07-31: renamed to Mutuals, and the browser checks are green again
+
+Shipped and verified live (Fly v144, both sjc machines healthy):
+
+- **The product is Mutuals.** Every member-facing and operator-facing string,
+  email and SMS template, legal page, calendar entry, OG image, print guide, and
+  doc. `hellomeetcute.com` serves `Mutuals - private matchmaking`, and no page
+  still renders the old name. Deployment identifiers are deliberately unchanged:
+  the domains, the Fly app, the Sentry slug, and the `meetcute` Postgres schema.
+  See `docs/BRAND-RENAME.md` for the table and the cutover order.
+- **The 10DLC campaign still says Meet Cute** and must be updated before it is
+  resubmitted. Its samples and opt-in message no longer match what `sms.ts`
+  sends. The campaign is in FAILED state, and its registered policy URLs point at
+  shiftsupportnetwork.com, so the renamed pages are not what TCR crawls.
+- **The operator browser check is honest again.** It had been red since 7/29 and
+  failed roughly one cold-server run in three locally. Both the invite flash and
+  the revoke flash waited on text appearing, when what they actually depend on is
+  a server action plus a redirect that carries the outcome in the query string.
+  They now wait on the redirect. The step also builds with `NEXT_PUBLIC_APP_URL`,
+  prints the server log when a check fails, and dumps the page URL and content
+  from the test itself.
 
 ## 2026-07-29: operator console pass
 
