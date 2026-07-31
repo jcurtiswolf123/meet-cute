@@ -203,13 +203,24 @@ async function sendViaPrelude(
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       console.error(`[sms] Prelude ${res.status}: ${text.slice(0, 300)}`);
+      // Carry Prelude's machine-readable code into the stored error. Every one
+      // of these needs a different human action (top up the balance, get a
+      // template approved, fix a number), and an operator looking at a failed
+      // job in the studio can only see this string.
+      let code = "";
+      try {
+        const parsed = JSON.parse(text) as { code?: unknown };
+        if (typeof parsed.code === "string") code = parsed.code;
+      } catch {
+        // Non-JSON error body; the status alone will have to do.
+      }
       // 402 is an empty balance and 422 is a bad template or variable set.
       // Neither clears by retrying, and retrying a 402 just burns the outbox.
       const permanent = res.status === 400 || res.status === 401 || res.status === 402 || res.status === 422;
       return {
         ok: false,
         retryable: !permanent && res.status >= 500,
-        error: `Prelude returned ${res.status}`,
+        error: `Prelude returned ${res.status}${code ? ` (${code})` : ""}`,
       };
     }
 
