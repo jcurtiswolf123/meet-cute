@@ -49,10 +49,13 @@ Hills CA 91301-4942.
 ## What is still blocking a live send
 
 1. **Templates are under review.** All four read "Pending (1/1)". Prelude said
-   they would be in touch. Nothing sends until they approve.
-2. **The balance is EUR 0.00.** Every call returns HTTP 402
-   `insufficient_balance`. Auth is confirmed working, since a bad key returns 401.
-   Topping up is a card charge and needs Joshua's approval.
+   they would be in touch. Nothing sends until they approve. A live call now
+   returns `400 template_not_validated`, which is the precise wording of this
+   blocker and the only API-level one left.
+2. ~~The balance is EUR 0.00.~~ **Done.** Topped up EUR 10.00 on 2026-07-31,
+   about 575 introductions at EUR 0.0043 per segment. The 402 is gone. Note for
+   future top-ups: euro prices convert at roughly 1.1992 USD/EUR including a 4%
+   conversion fee, plus 1.9% card processing, so EUR 10 cost USD 12.22.
 3. **Opt-out is not wired.** STOP, START, and HELP are handled by Prelude's
    subscription management, which their Customer Success team enables per
    account. It is not self-serve. Until it is on, this provider has no opt-out
