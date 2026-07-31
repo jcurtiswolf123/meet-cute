@@ -49,11 +49,22 @@ export async function POST(req: NextRequest): Promise<Response> {
   // be accepting unauthenticated opt-out events from anyone who finds the URL.
   if (isProd) {
     if (!process.env.PRELUDE_WEBHOOK_PUBLIC_KEY) {
+      // Rejecting is right, but doing it quietly is not. Once Prelude enables
+      // subscription management, an unset key turns every STOP into a 401 that
+      // nobody sees, and we keep texting people who opted out. Page on it.
       console.error("[prelude] PRELUDE_WEBHOOK_PUBLIC_KEY is not set; rejecting webhook");
+      Sentry.captureMessage(
+        "Prelude webhook rejected: PRELUDE_WEBHOOK_PUBLIC_KEY is not set. If this is a subscription event, an opt-out is being dropped.",
+        "error",
+      );
       return new Response("unauthorized", { status: 401 });
     }
     if (!verifyPreludeSignature({ signature, rawBody })) {
       console.error("[prelude] webhook signature verification failed");
+      // A genuine Prelude event failing verification means a key mismatch, and
+      // the same opt-out-dropping consequence. A hostile probe looks identical
+      // from here, so this is a warning rather than an error.
+      Sentry.captureMessage("Prelude webhook signature verification failed", "warning");
       return new Response("unauthorized", { status: 401 });
     }
   }

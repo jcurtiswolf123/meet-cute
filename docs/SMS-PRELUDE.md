@@ -82,6 +82,13 @@ Webhooks. The same key signs Notify events. In production `/api/sms/prelude`
 returns 401 for every request unless that key is set, so set it before flipping
 the provider, not after.
 
+That ordering matters more than it looks. Once Prelude enables subscription
+management, an unset or mismatched key turns every STOP into a 401 nobody reads,
+and we carry on texting people who opted out. Both cases raise a Sentry event
+rather than only a log line: a missing key is an error, a failed verification is
+a warning, since a hostile probe is indistinguishable from a key mismatch at that
+point. If either starts firing, treat it as an opt-out outage, not noise.
+
 Rolling back is one secret: `SMS_PROVIDER=twilio`. Nothing else has to change,
 and the outbox keeps its queued jobs either way.
 
