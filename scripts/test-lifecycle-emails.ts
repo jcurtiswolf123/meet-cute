@@ -1,7 +1,7 @@
 // Render tests for the transactional lifecycle + intake emails.
 //
 // These are pure template functions, so we can assert on real copy, subjects,
-// and that every message rides the shared Meet Cute brand shell (one restrained
+// and that every message rides the shared Mutuals brand shell (one restrained
 // look, no stray palettes). Guards against a template throwing at runtime or
 // drifting off-brand. No database or mail provider needed.
 import assert from "node:assert/strict";
@@ -43,7 +43,7 @@ function assertWellFormed(label: string, msg: Msg) {
 function assertOnBrand(label: string, msg: Msg) {
   assert.ok(msg.html.includes(BRAND_INK), `${label}: missing brand ink`);
   assert.ok(msg.html.includes(BRAND_CREAM), `${label}: missing brand cream canvas`);
-  assert.ok(msg.html.includes("Meet"), `${label}: missing wordmark`);
+  assert.ok(msg.html.includes("Mutuals"), `${label}: missing wordmark`);
   for (const hex of RETIRED) {
     assert.ok(!msg.html.includes(hex), `${label}: still uses retired palette ${hex}`);
   }
@@ -77,7 +77,7 @@ function main() {
   assert.match(reminder.subject, /Alex/);
   assert.match(reminder.text, /both said yes/);
 
-  // 4. Match feedback ("how was your Meet Cute").
+  // 4. Match feedback ("how was your date").
   const feedback = matchFeedbackEmail({ toName: "Maya", otherName: "Alex Chen" });
   assertWellFormed("matchFeedback", feedback);
   assertOnBrand("matchFeedback", feedback);
@@ -222,16 +222,16 @@ function main() {
   assert.ok(!amp.html.includes("&amp;amp;"), "connection: double-escaped headline");
 
   // List-Unsubscribe takes a bare addr-spec. Every invite used to ship
-  // `<mailto:Meet Cute <r+token@...>>`, an unparseable header that counts
+  // `<mailto:Mutuals <r+token@...>>`, an unparseable header that counts
   // against inbox placement instead of for it.
   assert.equal(
-    bareAddress("Meet Cute <r+tok3n@inbound.shiftsupportnetwork.com>"),
+    bareAddress("Mutuals <r+tok3n@inbound.shiftsupportnetwork.com>"),
     "r+tok3n@inbound.shiftsupportnetwork.com",
   );
   assert.equal(bareAddress("hello@hellomeetcute.com"), "hello@hellomeetcute.com");
   assert.equal(bareAddress("  spaced@example.com  "), "spaced@example.com");
   assert.doesNotMatch(
-    `<mailto:${bareAddress("Meet Cute <r+tok3n@example.com>")}>`,
+    `<mailto:${bareAddress("Mutuals <r+tok3n@example.com>")}>`,
     /<mailto:[^>]*</,
     "List-Unsubscribe must not nest angle brackets",
   );

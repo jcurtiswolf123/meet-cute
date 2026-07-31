@@ -25,7 +25,7 @@ type Case = {
 };
 
 const GMAIL_QUOTE =
-  "On Mon, Jul 27, 2026 at 9:02 AM Meet Cute <r+tok@inbound.shiftsupportnetwork.com> wrote:\n" +
+  "On Mon, Jul 27, 2026 at 9:02 AM Mutuals <r+tok@inbound.shiftsupportnetwork.com> wrote:\n" +
   "> We think you two should meet. Reply Y to say yes, N to pass.\n" +
   "> View her profile: https://hellomeetcute.com/i/tok\n";
 
@@ -79,35 +79,35 @@ const cases: Case[] = [
   {
     name: "apple mail bottom-post under quote",
     text:
-      "> On Jul 27, 2026, at 9:02 AM, Meet Cute <r+tok@inbound.shiftsupportnetwork.com> wrote:\n" +
+      "> On Jul 27, 2026, at 9:02 AM, Mutuals <r+tok@inbound.shiftsupportnetwork.com> wrote:\n" +
       "> We think you two should meet. Reply Y to say yes, N to pass.\n" +
       "\nYes please\n",
     expect: "yes",
   },
   {
     name: "iphone yes with signature",
-    text: "Y\n\nSent from my iPhone\n\n> On Jul 27, 2026, at 9:02 AM, Meet Cute wrote:\n> Reply Y or N",
+    text: "Y\n\nSent from my iPhone\n\n> On Jul 27, 2026, at 9:02 AM, Mutuals wrote:\n> Reply Y or N",
     expect: "yes",
   },
   {
     name: "outlook original-message block",
     text:
-      "No thank you.\r\n\r\n-----Original Message-----\r\nFrom: Meet Cute\r\nSent: Monday, July 27, 2026\r\nSubject: An introduction\r\n\r\nReply Y to say yes",
+      "No thank you.\r\n\r\n-----Original Message-----\r\nFrom: Mutuals\r\nSent: Monday, July 27, 2026\r\nSubject: An introduction\r\n\r\nReply Y to say yes",
     expect: "pass",
   },
   {
     name: "outlook underscore rule + From block",
-    text: "Yes, works for me\r\n\r\n________________________________\r\nFrom: Meet Cute\r\nSent: Monday\r\n",
+    text: "Yes, works for me\r\n\r\n________________________________\r\nFrom: Mutuals\r\nSent: Monday\r\n",
     expect: "yes",
   },
   {
     name: "spanish quote header",
-    text: "Si, claro\n\nEl lun, 27 jul 2026 a las 9:02, Meet Cute escribio:\n> Responde Y o N",
+    text: "Si, claro\n\nEl lun, 27 jul 2026 a las 9:02, Mutuals escribio:\n> Responde Y o N",
     expect: null, // "Si" is not in the affirmative set; ambiguity is safe, not connected
   },
   {
     name: "german quote header still trims history",
-    text: "Yes\n\nAm 27.07.2026 um 09:02 schrieb Meet Cute:\n> Antworte mit Y",
+    text: "Yes\n\nAm 27.07.2026 um 09:02 schrieb Mutuals:\n> Antworte mit Y",
     expect: "yes",
   },
 
@@ -116,7 +116,7 @@ const cases: Case[] = [
     name: "html-only gmail reply with blockquote",
     html:
       '<div dir="ltr">Yes, I am in</div><br><div class="gmail_quote">' +
-      '<div dir="ltr" class="gmail_attr">On Mon, Jul 27, 2026 Meet Cute wrote:</div>' +
+      '<div dir="ltr" class="gmail_attr">On Mon, Jul 27, 2026 Mutuals wrote:</div>' +
       "<blockquote>Reply Y to say yes, N to pass</blockquote></div>",
     expect: "yes",
   },
@@ -124,7 +124,7 @@ const cases: Case[] = [
     name: "html-only outlook reply",
     html:
       '<html><body><div>No thanks &mdash; not for me</div>' +
-      '<div id="appendonsend"></div><hr><div>From: Meet Cute</div></body></html>',
+      '<div id="appendonsend"></div><hr><div>From: Mutuals</div></body></html>',
     expect: "pass",
   },
   {

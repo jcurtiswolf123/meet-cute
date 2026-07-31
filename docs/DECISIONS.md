@@ -1,4 +1,4 @@
-# meet-cute : Decision Log
+# mutuals : Decision Log
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
@@ -30,7 +30,7 @@ _Append-only. Newest at top. Each entry: what was decided, why, and what was rej
   all matchmaking capabilities but cannot change studio access.
 - Decision: Invalidate sessions and outstanding magic links whenever privileges
   increase, and invalidate sessions when operator access is revoked.
-- Why: Meet Cute needs individual identities and least-privilege studio access,
+- Why: Mutuals needs individual identities and least-privilege studio access,
   not shared credentials or organization tenancy.
 - Alternatives rejected: shared operator passwords, allowing every operator to
   manage access, and introducing organization-level multi-tenancy without a
@@ -49,7 +49,7 @@ _Append-only. Newest at top. Each entry: what was decided, why, and what was rej
 - Decision: Represent venue booking and calendar coordination as manual until a
   real integration exists. Remove dormant booking tools and public demos that
   claim otherwise.
-- Why: Meet Cute runs on two Fly machines and handles sensitive dating data.
+- Why: Mutuals runs on two Fly machines and handles sensitive dating data.
   Media, consent, and delivery must remain consistent through restarts, retries,
   deploys, blocks, opt-outs, and account deletion.
 - Alternatives rejected: local volume storage, direct provider calls inside

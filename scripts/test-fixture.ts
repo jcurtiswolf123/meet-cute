@@ -4,7 +4,7 @@
 //
 //   npx tsx scripts/test-fixture.ts
 //
-// Test accounts use @meetcute.test emails so they are easy to spot and remove.
+// Test accounts use @mutuals.test emails so they are easy to spot and remove.
 import { prisma } from "../src/lib/prisma";
 
 function avatar(seed: string) {
@@ -18,7 +18,7 @@ type Spec = {
 };
 
 const MAYA: Spec = {
-  email: "maya@meetcute.test", name: "Maya Rosen", city: "NYC", age: 29, gender: "woman", seeking: "man",
+  email: "maya@mutuals.test", name: "Maya Rosen", city: "NYC", age: 29, gender: "woman", seeking: "man",
   neighborhood: "West Village", headline: "Cookbook editor who runs on espresso and long walks",
   bio: "I edit cookbooks for a living, so I have strong and unsolicited opinions about your pasta water. Half-marathoner, terrible at chess, very good at planning trips.",
   lookingFor: "Someone curious and kind who reads actual books and wants a real partnership.",
@@ -30,7 +30,7 @@ const MAYA: Spec = {
 };
 
 const ALEX: Spec = {
-  email: "alex@meetcute.test", name: "Alex Chen", city: "NYC", age: 31, gender: "man", seeking: "woman",
+  email: "alex@mutuals.test", name: "Alex Chen", city: "NYC", age: 31, gender: "man", seeking: "woman",
   neighborhood: "Fort Greene", headline: "Architect who cooks, climbs, and overthinks playlists",
   bio: "I design schools and libraries. Weekends are climbing, the farmers market, and pretending I'll finally fix my road bike. Looking for someone with their own thing going on.",
   lookingFor: "A real partner, ambitious but warm, up for a Tuesday adventure as much as a quiet Sunday.",

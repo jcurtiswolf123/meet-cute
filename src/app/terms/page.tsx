@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
 
-export const metadata = { title: "Terms of Service | Meet Cute" };
+export const metadata = { title: "Terms of Service | Mutuals" };
 
 export default function Terms() {
   return (
@@ -17,17 +17,17 @@ export default function Terms() {
         <p className="mt-3 text-sm text-muted">Last updated: 2026-07-23</p>
 
         <p className="mt-6 text-sm leading-relaxed text-muted">
-          These Terms of Service (&quot;Terms&quot;) are an agreement between you and Meet Cute
-          (&quot;Meet Cute,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). They govern
-          your use of the Meet Cute matchmaking service and website. By creating an account or using
+          These Terms of Service (&quot;Terms&quot;) are an agreement between you and Mutuals
+          (&quot;Mutuals,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). They govern
+          your use of the Mutuals matchmaking service and website. By creating an account or using
           the service, you agree to these Terms. If you do not agree, do not use the service.
         </p>
 
         <Section title="1. Eligibility">
           <p>
-            You must be at least 18 years old to use Meet Cute. By using the service you confirm that
+            You must be at least 18 years old to use Mutuals. By using the service you confirm that
             you are 18 or older, that you are legally able to enter into this agreement, and that you
-            are not barred from using the service under any applicable law. Meet Cute is an
+            are not barred from using the service under any applicable law. Mutuals is an
             invitation-only, curated service, and acceptance of an application is at our discretion.
           </p>
         </Section>
@@ -46,7 +46,7 @@ export default function Terms() {
 
         <Section title="3. Acceptable use and prohibited conduct">
           <p>
-            Meet Cute works only when members treat each other with respect. You agree that you will
+            Mutuals works only when members treat each other with respect. You agree that you will
             not:
           </p>
           <List
@@ -68,7 +68,7 @@ export default function Terms() {
 
         <Section title="4. The nature of the service">
           <p>
-            Meet Cute is a matchmaking service. Our matchmakers and systems use the information you
+            Mutuals is a matchmaking service. Our matchmakers and systems use the information you
             provide to suggest introductions, and our human team can help coordinate date logistics
             when you ask. We do not automatically make reservations or send calendar invitations.
             A booking is confirmed only when our team or the venue explicitly confirms it. We curate;
@@ -79,7 +79,7 @@ export default function Terms() {
 
         <Section title="5. Text messaging (SMS) program terms">
           <p>
-            You receive text messages (SMS/MMS) from Meet Cute only when you separately choose the
+            You receive text messages (SMS/MMS) from Mutuals only when you separately choose the
             optional text message consent. These can include introduction invites you can accept or
             decline, connection details once both people say yes, scheduling notes, and account
             notices. A mobile number and text message consent are not required to join, and consent is
@@ -113,7 +113,7 @@ export default function Terms() {
 
         <Section title="7. Safety disclaimer">
           <p>
-            Meet Cute curates introductions, but we do not conduct criminal background checks on every
+            Mutuals curates introductions, but we do not conduct criminal background checks on every
             member and we cannot verify everything a member tells us. We are not responsible for the
             conduct of any member or other person you meet through the service, whether online or in
             person.
@@ -129,7 +129,7 @@ export default function Terms() {
         <Section title="8. Content, photos, and moderation">
           <p>
             You keep ownership of the content and photos you submit. By submitting them, you grant
-            Meet Cute a non-exclusive, worldwide, royalty-free license to host, store, display, and
+            Mutuals a non-exclusive, worldwide, royalty-free license to host, store, display, and
             use that content as needed to operate the service, including showing your profile to
             members you are introduced to. You confirm that you have the right to share the content
             you submit and that it does not infringe anyone else&apos;s rights.
@@ -159,7 +159,7 @@ export default function Terms() {
             expectations.
           </p>
           <p>
-            To the fullest extent permitted by law, Meet Cute and its officers, employees, and
+            To the fullest extent permitted by law, Mutuals and its officers, employees, and
             partners will not be liable for any indirect, incidental, special, consequential, or
             punitive damages, or for any loss arising out of your use of the service, your
             interactions with other members, or any introduction, date, or relationship. Our total

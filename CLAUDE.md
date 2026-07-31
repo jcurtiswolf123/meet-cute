@@ -1,4 +1,4 @@
-# meet-cute
+# mutuals
 
 Premium matchmaking with public applications, a member app, and an operator studio.
 

@@ -13,7 +13,7 @@ export function GET(req: Request) {
   }
   const { searchParams } = new URL(req.url);
   if (searchParams.get("sentrytest") === "1") {
-    throw new Error("Sentry test error from meet-cute");
+    throw new Error("Sentry test error from mutuals");
   }
   return NextResponse.json({ ok: true });
 }

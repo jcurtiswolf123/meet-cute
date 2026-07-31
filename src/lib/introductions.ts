@@ -59,7 +59,7 @@ export function inviteReplyAddress(token: string): string | null {
   // already sitting in a member's inbox still resolve after a domain change.
   const domain = process.env.RESEND_INBOUND_DOMAIN?.split(",")[0]?.trim();
   if (!domain) return null;
-  return `Meet-Cute <r+${token}@${domain}>`;
+  return `Mutuals <r+${token}@${domain}>`;
 }
 
 /** A high-entropy, URL- and email-local-part-safe capability token. */

@@ -14,17 +14,17 @@
 // operator's own mailbox, so no real member is ever contacted, and it deletes
 // them in a finally block.
 //
-//   MEETCUTE_LIVE_E2E=i-understand-this-writes-to-production \
+//   MUTUALS_LIVE_E2E=i-understand-this-writes-to-production \
 //     node --env-file=.env --import tsx scripts/live-reply-e2e.ts setup
 //   ... reply to the two invites, or use `scripts/live-reply-send.sh` ...
-//   MEETCUTE_LIVE_E2E=... node --env-file=.env --import tsx scripts/live-reply-e2e.ts check
-//   MEETCUTE_LIVE_E2E=... node --env-file=.env --import tsx scripts/live-reply-e2e.ts cleanup
+//   MUTUALS_LIVE_E2E=... node --env-file=.env --import tsx scripts/live-reply-e2e.ts check
+//   MUTUALS_LIVE_E2E=... node --env-file=.env --import tsx scripts/live-reply-e2e.ts cleanup
 import { PrismaClient } from "@prisma/client";
 
 const GUARD = "i-understand-this-writes-to-production";
-if (process.env.MEETCUTE_LIVE_E2E !== GUARD) {
+if (process.env.MUTUALS_LIVE_E2E !== GUARD) {
   throw new Error(
-    `Refusing to run. This writes to whatever DATABASE_URL points at. Set MEETCUTE_LIVE_E2E=${GUARD}.`,
+    `Refusing to run. This writes to whatever DATABASE_URL points at. Set MUTUALS_LIVE_E2E=${GUARD}.`,
   );
 }
 

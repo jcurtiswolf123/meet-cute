@@ -11,8 +11,8 @@ if (
   throw new Error("Match email journey checks require an isolated local database.");
 }
 
-process.env.NEXT_PUBLIC_APP_URL = "https://journey.meetcute.test";
-process.env.RESEND_INBOUND_DOMAIN = "inbound.meetcute.test";
+process.env.NEXT_PUBLIC_APP_URL = "https://journey.mutuals.test";
+process.env.RESEND_INBOUND_DOMAIN = "inbound.mutuals.test";
 const webhookKey = randomBytes(32);
 process.env.RESEND_WEBHOOK_SECRET = `whsec_${webhookKey.toString("base64")}`;
 process.env.RESEND_API_KEY = "journey-test-key";
@@ -38,7 +38,7 @@ function signedInboundRequest(args: {
   const body = JSON.stringify({
     type: "email.received",
     data: {
-      to: [`Meet-Cute <r+${args.token}@${args.domain || "inbound.meetcute.test"}>`],
+      to: [`Mutuals <r+${args.token}@${args.domain || "inbound.mutuals.test"}>`],
       ...(args.text ? { text: args.text } : {}),
       ...(args.emailId ? { email_id: args.emailId } : {}),
     },
@@ -146,7 +146,7 @@ async function main() {
       new Set([yesA.email!, yesB.email!]),
     );
     for (const capture of inviteDeliveries) {
-      assert.match(String(capture.payload.replyTo), /^Meet-Cute <r\+[A-Za-z0-9_-]+@/);
+      assert.match(String(capture.payload.replyTo), /^Mutuals <r\+[A-Za-z0-9_-]+@/);
       assert.match(String(capture.payload.html), /Yes, introduce us/i);
     }
     // Each side's email carries the OTHER person's own profile words inline, so
@@ -192,10 +192,10 @@ async function main() {
     // are still outstanding, but invites are only ever sent from the first one.
     // Without this, changing the reply address silently drops in-flight replies.
     const singleDomain = process.env.RESEND_INBOUND_DOMAIN!;
-    process.env.RESEND_INBOUND_DOMAIN = `new.meetcute.test, ${singleDomain}`;
+    process.env.RESEND_INBOUND_DOMAIN = `new.mutuals.test, ${singleDomain}`;
     assert.match(
       introductions.inviteReplyAddress("sample-token")!,
-      /@new\.meetcute\.test>$/,
+      /@new\.mutuals\.test>$/,
       "new invites must use the first configured domain",
     );
     const legacyDomainReply = await inbound.POST(

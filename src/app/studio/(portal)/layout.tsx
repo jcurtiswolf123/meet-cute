@@ -36,7 +36,7 @@ export default async function StudioPortalLayout({ children }: { children: React
     // decision.
     <div className="studio-shell flex h-dvh flex-col overflow-hidden bg-[#f5f5f6] md:flex-row">
       <PortalSidebar
-        workspace="Meet-Cute"
+        workspace="Mutuals"
         subtitle="Studio"
         sections={STUDIO_SECTIONS}
         homeHref="/studio"

@@ -30,7 +30,7 @@ jobs:
       - run: npx prisma generate
       - name: Configure git identity (for autofix commits)
         run: |
-          git config user.name "meetcute-watchdog[bot]"
+          git config user.name "mutuals-watchdog[bot]"
           git config user.email "watchdog@users.noreply.github.com"
       - name: Run watchdog (single pass)
         run: npm run watchdog

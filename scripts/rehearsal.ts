@@ -2,7 +2,7 @@
 //
 // This is for rehearsing the product with an operator (Jess) and two member
 // accounts you control, end to end: profile, opt in, operator sends the
-// introduction, both sides decide, Meet Cute connects them. It touches only the
+// introduction, both sides decide, Mutuals connects them. It touches only the
 // three accounts named below and never invents content over anything a real
 // person already wrote.
 //

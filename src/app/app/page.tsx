@@ -17,7 +17,7 @@ export default async function Home() {
         <h1 className="mt-6 font-display text-4xl font-medium">Ready to meet someone?</h1>
         <p className="mx-auto mt-4 max-w-md text-lg leading-relaxed text-muted">
           Opt in and your matchmaker starts looking for the right introduction for you. If they find
-          one, Meet-Cute will email you a private introduction. You can say yes or pass privately,
+          one, Mutuals will email you a private introduction. You can say yes or pass privately,
           and a mutual yes connects you both by email. No swiping, no feed.
         </p>
         <form action="/api/me/match-opt-in" method="post" className="mt-8">
@@ -39,7 +39,7 @@ export default async function Home() {
       <p className="label text-claret">Your membership</p>
       <h1 className="mt-6 font-display text-4xl font-medium">You are on the list.</h1>
       <p className="mx-auto mt-4 max-w-md text-lg leading-relaxed text-muted">
-        Your matchmaker is looking for your next introduction. When they find a fit, Meet-Cute will
+        Your matchmaker is looking for your next introduction. When they find a fit, Mutuals will
         email you a private introduction. You can decide privately from the email or profile page. A
         good introduction is worth the wait.
       </p>

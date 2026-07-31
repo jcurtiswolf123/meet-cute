@@ -1,4 +1,4 @@
-# Meet Cute: production readiness
+# Mutuals: production readiness
 
 Historical readiness snapshot from 2026-06-15. It is superseded by
 `docs/STATUS.md`, `docs/LAUNCH-QA-2026-07-23.md`, and `LAUNCH-CHECKLIST.md`.

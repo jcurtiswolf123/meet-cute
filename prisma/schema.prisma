@@ -1,4 +1,4 @@
-// Meet Cute data model. PostgreSQL (Neon) for production, SQLite for local dev.
+// Mutuals data model. PostgreSQL (Neon) for production, SQLite for local dev.
 // (Mirrors the Airtable schema described in the relaunch plan so an Airtable
 //  sync can be layered on later without a model change.)
 
@@ -342,7 +342,7 @@ model IntroMessage {
   matchId   String
   match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
 
-  // out = sent by Meet Cute (bot/operator); in = a participant replied.
+  // out = sent by Mutuals (bot/operator); in = a participant replied.
   direction String  @default("out")
   // Display label for who sent it: "bot" | "operator" | a participant's first name.
   author    String  @default("bot")
@@ -411,7 +411,7 @@ model VenueSlot {
   venue     Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
   dayOfWeek Int // 0=Sun..6=Sat
   time      String // "19:00"
-  held      Boolean @default(true) // standing hold for Meet Cute
+  held      Boolean @default(true) // standing hold for Mutuals
 }
 
 model ConciergeThread {

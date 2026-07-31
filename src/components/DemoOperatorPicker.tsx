@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { loginAs } from "@/lib/actions";
 
-const isDev = process.env.NODE_ENV !== "production" && process.env.MEETCUTE_DEMO_LOGIN === "1";
+const isDev = process.env.NODE_ENV !== "production" && process.env.MUTUALS_DEMO_LOGIN === "1";
 
 /** Local-only one-click operator sign-in buttons. Renders nothing in production. */
 export async function DemoOperatorPicker() {

@@ -46,7 +46,7 @@ but `127.0.0.1` or `localhost`, so they cannot touch production.
 `scripts/live-reply-e2e.ts` runs the flow end to end against production with
 real mail. It creates two disposable people, sends real invites, and deletes
 everything afterward. It refuses to start without
-`MEETCUTE_LIVE_E2E=i-understand-this-writes-to-production`.
+`MUTUALS_LIVE_E2E=i-understand-this-writes-to-production`.
 
 Default recipients are two plus-aliases of one operator mailbox, which needs no
 extra accounts. To use genuinely separate inboxes, and this is the only way to
@@ -58,10 +58,10 @@ comma-separated pair of addresses **you control**.
 ```bash
 cd ~/Projects/meet-cute
 
-MEETCUTE_LIVE_E2E=i-understand-this-writes-to-production \
+MUTUALS_LIVE_E2E=i-understand-this-writes-to-production \
 LIVE_E2E_TO="you@gmail.com,you@outlook.com" \
 RESEND_API_KEY="$(fly secrets list -a meet-cute >/dev/null; echo YOUR_KEY)" \
-RESEND_FROM="Meet Cute <hello@hellomeetcute.com>" \
+RESEND_FROM="Mutuals <hello@hellomeetcute.com>" \
 RESEND_REPLY_TO="josh@shiftsupportnetwork.com" \
 RESEND_INBOUND_DOMAIN=inbound.shiftsupportnetwork.com \
 NEXT_PUBLIC_APP_URL=https://hellomeetcute.com \
@@ -107,7 +107,7 @@ does not tell you what a given client produces. Use a real client for that.
 ### Step 3: check what the flow decided
 
 ```bash
-MEETCUTE_LIVE_E2E=i-understand-this-writes-to-production \
+MUTUALS_LIVE_E2E=i-understand-this-writes-to-production \
   node --env-file=.env --import tsx scripts/live-reply-e2e.ts check
 ```
 
@@ -136,7 +136,7 @@ base64-decoded secret, base64 encoded.
 ### Step 4: always clean up
 
 ```bash
-MEETCUTE_LIVE_E2E=i-understand-this-writes-to-production \
+MUTUALS_LIVE_E2E=i-understand-this-writes-to-production \
   node --env-file=.env --import tsx scripts/live-reply-e2e.ts cleanup
 ```
 

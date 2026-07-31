@@ -16,8 +16,8 @@ export const hasOpenAI = !!OPENAI_KEY;
 
 const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
 // 8B is fast and consistent on NVIDIA's free tier (sub-second vs 5 to 55s for
-// 70B) and is plenty for ranking a small roster. Override with MEETCUTE_LLM_MODEL.
-const NVIDIA_CHAT_MODEL = process.env.MEETCUTE_LLM_MODEL || "meta/llama-3.1-8b-instruct";
+// 70B) and is plenty for ranking a small roster. Override with MUTUALS_LLM_MODEL.
+const NVIDIA_CHAT_MODEL = process.env.MUTUALS_LLM_MODEL || "meta/llama-3.1-8b-instruct";
 const NVIDIA_EMBED_MODEL = "nvidia/nv-embedqa-e5-v5";
 const OPENAI_EMBED_MODEL = "text-embedding-3-small";
 export const CLAUDE_MODEL = "claude-sonnet-4-6";
@@ -28,8 +28,8 @@ const openai = OPENAI_KEY ? new OpenAI({ apiKey: OPENAI_KEY }) : null;
 // NVIDIA's free tier latency is highly variable (occasionally 30 to 60s).
 // Bound every call so a slow upstream can never hang a request: on timeout we
 // fall through to the next provider / the local engine.
-const CHAT_TIMEOUT_MS = Number(process.env.MEETCUTE_CHAT_TIMEOUT_MS) || 18_000;
-const EMBED_TIMEOUT_MS = Number(process.env.MEETCUTE_EMBED_TIMEOUT_MS) || 12_000;
+const CHAT_TIMEOUT_MS = Number(process.env.MUTUALS_CHAT_TIMEOUT_MS) || 18_000;
+const EMBED_TIMEOUT_MS = Number(process.env.MUTUALS_EMBED_TIMEOUT_MS) || 12_000;
 
 async function fetchWithTimeout(url: string, opts: RequestInit, ms: number): Promise<Response> {
   const ctrl = new AbortController();

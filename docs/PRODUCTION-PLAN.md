@@ -1,11 +1,11 @@
-# Meet Cute: production plan (real users)
+# Mutuals: production plan (real users)
 
 Historical plan from 2026-06-15. It is superseded by `docs/STATUS.md`,
 `docs/LAUNCH-QA-2026-07-23.md`, and `LAUNCH-CHECKLIST.md`. Do not use the
 SQLite, local-upload, demo-login, or booking assumptions below for current
 operations.
 
-Single source of truth for taking Meet Cute from security-audited demo to real
+Single source of truth for taking Mutuals from security-audited demo to real
 public production. Started 2026-06-15. Update this as items land.
 
 ## Decisions (locked 2026-06-15)
@@ -40,7 +40,7 @@ public production. Started 2026-06-15. Update this as items land.
   to drop. Set `RESEND_API_KEY`, `RESEND_FROM`, `NEXT_PUBLIC_APP_URL` for prod.
   `RESEND_FROM` MUST be on a domain verified in Resend (the default placeholder
   `hello@meet-cute.app` returns Resend 403 "domain is not verified"). Verify the
-  meet-cute domain in Resend, or send from an already-verified domain.
+  mutuals domain in Resend, or send from an already-verified domain.
   Hardening (post-review, 2026-06-15): magic-link base is NEVER derived from the
   Host header in production (host-injection -> token-leak / account takeover);
   requires `NEXT_PUBLIC_APP_URL`, host fallback is dev-only. `requestMagicLink`

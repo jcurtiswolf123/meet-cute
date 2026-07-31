@@ -288,11 +288,11 @@ async function main() {
     const openMenu = superPage.getByRole("button", { name: "Open menu" });
     await openMenu.click();
     await superPage
-      .getByRole("dialog", { name: "Meet Cute navigation" })
+      .getByRole("dialog", { name: "Mutuals navigation" })
       .waitFor({ state: "visible" });
     await superPage.keyboard.press("Escape");
     await superPage
-      .getByRole("dialog", { name: "Meet Cute navigation" })
+      .getByRole("dialog", { name: "Mutuals navigation" })
       .waitFor({ state: "detached" });
     assert.equal(await openMenu.evaluate((element) => element === document.activeElement), true);
 

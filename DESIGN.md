@@ -1,4 +1,4 @@
-# Meet Cute Design System
+# Mutuals Design System
 
 ## Product context
 

@@ -1,6 +1,6 @@
 /** Whether one-click demo login is enabled at all. */
 export function isDemoLoginEnabled(): boolean {
-  return process.env.MEETCUTE_DEMO_LOGIN === "1";
+  return process.env.MUTUALS_DEMO_LOGIN === "1";
 }
 
 /** Local dev: demo login without a passphrase. */

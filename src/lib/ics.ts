@@ -15,10 +15,10 @@ export function buildIcs(opts: {
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Meet-Cute//Concierge//EN",
+    "PRODID:-//Mutuals//Concierge//EN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `UID:${opts.uid}@meetcute`,
+    `UID:${opts.uid}@mutuals`,
     `DTSTAMP:${fmt(new Date(opts.start.getTime()))}`,
     `DTSTART:${fmt(opts.start)}`,
     `DTEND:${fmt(end)}`,

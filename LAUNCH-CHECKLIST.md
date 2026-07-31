@@ -1,4 +1,4 @@
-# Meet Cute Public Launch Checklist
+# Mutuals Public Launch Checklist
 
 Current status: LAUNCHED
 

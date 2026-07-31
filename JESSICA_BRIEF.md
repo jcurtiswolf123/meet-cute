@@ -1,4 +1,4 @@
-# Meet Cute: Product Brief for Jessica
+# Mutuals: Product Brief for Jessica
 
 Historical operator brief. Current operating instructions are in
 `docs/OPERATOR-GUIDE.md` and current release state is in `docs/STATUS.md`.
@@ -9,9 +9,9 @@ Historical operator brief. Current operating instructions are in
 
 ---
 
-## What is Meet Cute?
+## What is Mutuals?
 
-Meet Cute is a curated matchmaking platform for people seeking serious relationships. Unlike dating apps, there is no swiping, no matching algorithm, no endless browsing. Instead:
+Mutuals is a curated matchmaking platform for people seeking serious relationships. Unlike dating apps, there is no swiping, no matching algorithm, no endless browsing. Instead:
 
 **For Members:**
 - You get one vetted introduction at a time
@@ -126,7 +126,7 @@ Each stage triggers notifications and operator visibility.
 - [ ] **Twilio SMS**: Concierge date-book confirmations + reminders (API integrated, needs Twilio account)
 - [ ] **Sentry Observability**: Error tracking in production
 - [ ] **Volume Backups**: Fly Postgres automated backups configured
-- [ ] **Email Domain**: Verified sending domain (josh@ or meet-cute@)
+- [ ] **Email Domain**: Verified sending domain (josh@ or mutuals@)
 
 ### Go Live
 - [ ] DNS pointed to meet-cute.fly.dev

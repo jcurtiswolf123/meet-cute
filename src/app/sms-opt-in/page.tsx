@@ -2,9 +2,9 @@ import Link from "next/link";
 import { Logo } from "@/components/ui";
 
 export const metadata = {
-  title: "SMS Opt-In | Meet Cute",
+  title: "SMS Opt-In | Mutuals",
   description:
-    "How Meet Cute collects express written consent for text message introductions, including the exact consent language shown during application.",
+    "How Mutuals collects express written consent for text message introductions, including the exact consent language shown during application.",
 };
 
 /**
@@ -35,7 +35,7 @@ export default function SmsOptIn() {
           How we ask permission to text you.
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          Meet Cute sends text messages only about your own matchmaking introductions, and only if
+          Mutuals sends text messages only about your own matchmaking introductions, and only if
           you ask us to. This page shows exactly how and where we collect that permission, and what
           the messages look like. Nothing on this page submits anything.
         </p>
@@ -99,7 +99,7 @@ export default function SmsOptIn() {
                 <input type="checkbox" className="mt-1" disabled />
                 <span className="text-muted">
                   <span className="font-medium text-ink">Text me my introductions (optional).</span>{" "}
-                  I agree to receive recurring text messages (SMS) from Meet Cute about my
+                  I agree to receive recurring text messages (SMS) from Mutuals about my
                   matchmaking introductions at the mobile number above. Message and data rates may
                   apply; message frequency varies. Consent is not a condition of joining. Reply STOP
                   to cancel, HELP for help.
@@ -137,12 +137,12 @@ export default function SmsOptIn() {
           <p className="mt-4 font-medium text-ink">Sample messages</p>
           <ul className="mt-2 space-y-3">
             <Sample>
-              Meet Cute (matchmaking): Hi Maya, it&apos;s Jess, your matchmaker. I think you&apos;d
+              Mutuals (matchmaking): Hi Maya, it&apos;s Jess, your matchmaker. I think you&apos;d
               hit it off with Alex, who works in design and loves trail running. Want an
               introduction? Reply Y for yes or N to pass. Reply STOP to opt out, HELP for help.
             </Sample>
             <Sample>
-              Meet Cute: Good news, you both said yes. Maya, meet Alex. Pick a time this week for a
+              Mutuals: Good news, you both said yes. Maya, meet Alex. Pick a time this week for a
               coffee or a call and see where it goes. Reply STOP to opt out.
             </Sample>
           </ul>
@@ -173,7 +173,7 @@ export default function SmsOptIn() {
         </Section>
 
         <p className="mt-12 border-t border-line pt-6 text-xs text-muted">
-          Meet Cute is operated by Vanguard Labs LLC. Questions about this messaging program can go
+          Mutuals is operated by Vanguard Labs LLC. Questions about this messaging program can go
           to the contact address in our Privacy Policy.
         </p>
       </div>

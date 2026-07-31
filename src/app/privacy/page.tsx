@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
 
-export const metadata = { title: "Privacy Policy | Meet Cute" };
+export const metadata = { title: "Privacy Policy | Mutuals" };
 
 export default function Privacy() {
   return (
@@ -17,7 +17,7 @@ export default function Privacy() {
         <p className="mt-3 text-sm text-muted">Last updated: 2026-07-23</p>
 
         <p className="mt-6 text-sm leading-relaxed text-muted">
-          Meet Cute is a curated, invitation-only matchmaking service. To introduce you to people
+          Mutuals is a curated, invitation-only matchmaking service. To introduce you to people
           you might actually want to date, we collect and use personal information. This policy
           explains what we collect, why we collect it, who we share it with, how long we keep it,
           and the choices and rights you have. We have written it to be read, not to be skipped.
@@ -25,8 +25,8 @@ export default function Privacy() {
 
         <Section title="1. Who we are">
           <p>
-            Meet Cute (&quot;Meet Cute,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;)
-            operates the Meet Cute matchmaking service and website. If you have a question about your
+            Mutuals (&quot;Mutuals,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;)
+            operates the Mutuals matchmaking service and website. If you have a question about your
             data or this policy, contact us using the details in the Contact section below.
           </p>
         </Section>
@@ -92,7 +92,7 @@ export default function Privacy() {
               "Other members: when you accept an introduction, we share the relevant parts of your profile with the person you are introduced to, and theirs with you. We do not reveal your contact details until you choose to share them.",
               "Service providers: trusted vendors who process data on our behalf under contract, such as cloud hosting and storage, email and SMS delivery, payment processing, error monitoring, and AI tools we use to help organize profiles and suggest matches. They may use your data only to provide their service to us.",
               "Safety and legal: parties involved in investigating reports or abuse, and authorities where we are legally required to disclose or where disclosure is needed to protect someone's safety.",
-              "Business transfers: a successor entity if Meet Cute is involved in a merger, acquisition, or sale of assets, subject to this policy.",
+              "Business transfers: a successor entity if Mutuals is involved in a merger, acquisition, or sale of assets, subject to this policy.",
             ]}
           />
           <p className="font-medium text-ink">We never sell your personal information.</p>
@@ -100,7 +100,7 @@ export default function Privacy() {
 
         <Section title="6. SMS, text messaging, and your mobile information">
           <p>
-            Meet Cute sends text messages (SMS/MMS) only when you separately choose the optional text
+            Mutuals sends text messages (SMS/MMS) only when you separately choose the optional text
             message consent on the application. These messages can include introduction invites you
             can accept or decline, connection details once both people say yes, scheduling notes, and
             account notices. A mobile number or text message consent is not required to join, and you
@@ -184,7 +184,7 @@ export default function Privacy() {
 
         <Section title="12. Age requirement">
           <p>
-            Meet Cute is only for adults. You must be at least 18 years old to create an account or
+            Mutuals is only for adults. You must be at least 18 years old to create an account or
             use the service. We do not knowingly collect personal information from anyone under 18. If
             we learn that we have collected data from someone under 18, we will delete it.
           </p>

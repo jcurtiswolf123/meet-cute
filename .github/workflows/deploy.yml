@@ -48,7 +48,7 @@ jobs:
           cp -R .next/static .next/standalone/.next/static
           cp -R public .next/standalone/public
           PORT=3009 HOSTNAME=127.0.0.1 NEXT_PUBLIC_APP_URL="http://127.0.0.1:3009" \
-            node .next/standalone/server.js > /tmp/meet-cute-role-server.log 2>&1 &
+            node .next/standalone/server.js > /tmp/mutuals-role-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
@@ -56,7 +56,7 @@ jobs:
               break
             fi
             if [ "$attempt" -eq 30 ]; then
-              tail -100 /tmp/meet-cute-role-server.log
+              tail -100 /tmp/mutuals-role-server.log
               exit 1
             fi
             sleep 1
@@ -67,7 +67,7 @@ jobs:
   deploy:
     needs: ci
     runs-on: ubuntu-latest
-    concurrency: deploy-meet-cute
+    concurrency: deploy-mutuals
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4

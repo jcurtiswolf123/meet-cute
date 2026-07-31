@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# Meet Cute on Fly.io. Runtime data lives in Neon Postgres.
+# Mutuals on Fly.io. Runtime data lives in Neon Postgres.
 FROM node:22-slim AS base
 WORKDIR /app
 RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
