@@ -52,5 +52,7 @@ npm run build
   Jess and two member accounts
 - `docs/DECISIONS.md` : why things are the way they are
 - `docs/TASKS.md` : backlog and in-progress work
+- `docs/BRAND-RENAME.md` : the Meet-Cute to Mutuals rename, which deployment
+  identifiers still carry the old name, and the cutover order
 
 _Created 2026-06-24._
