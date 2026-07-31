@@ -18,7 +18,7 @@
     "test:launch:roles:e2e": "node --env-file-if-exists=.env --import tsx scripts/test-operator-portal.ts",
     "test:journey:application": "node --env-file-if-exists=.env --import tsx scripts/test-member-application.ts",
     "test:journey:email": "node --env-file-if-exists=.env --import tsx scripts/test-match-email-journey.ts",
-    "test:launch": "npm run test:launch:pure && npm run test:launch:reply && npm run test:launch:prelude && npm run test:prelude:pipeline && npm run test:journey:email && npm run test:launch:capacity && npm run test:launch:delivery && npm run test:launch:storage && npm run test:launch:roles && npm run test:launch:emails && npm run test:race",
+    "test:launch": "npm run test:launch:pure && npm run test:launch:reply && npm run test:launch:prelude && npm run test:prelude:pipeline && npm run test:prelude:webhook && npm run test:journey:email && npm run test:launch:capacity && npm run test:launch:delivery && npm run test:launch:storage && npm run test:launch:roles && npm run test:launch:emails && npm run test:race",
     "test:race": "node --env-file-if-exists=.env --import tsx scripts/test-introduction-race.ts",
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
@@ -31,7 +31,8 @@
     "embed": "tsx scripts/embed.ts",
     "demo:setup": "tsx scripts/demo-setup.ts",
     "test:launch:prelude": "node --env-file-if-exists=.env --import tsx scripts/test-prelude-sms.ts",
-    "test:prelude:pipeline": "node --env-file-if-exists=.env --import tsx scripts/test-prelude-pipeline.ts"
+    "test:prelude:pipeline": "node --env-file-if-exists=.env --import tsx scripts/test-prelude-pipeline.ts",
+    "test:prelude:webhook": "node --env-file-if-exists=.env --import tsx scripts/test-prelude-webhook.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
