@@ -11,7 +11,7 @@ import * as Sentry from "@sentry/nextjs";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { matchInviteEmail } from "./email";
-import { introInviteSMS } from "./sms";
+import { introInviteSMS, introInviteTemplate } from "./sms";
 import { STORED_EXT } from "./uploads";
 import {
   makeDeliveryKey,
@@ -208,6 +208,11 @@ export async function sendEmailInvites(
           kind: `intro_invite_${side}_sms`,
           to: me.phone,
           body: introInviteSMS({
+            toName: me.name,
+            otherName: other.name,
+            profileUrl,
+          }),
+          template: introInviteTemplate({
             toName: me.name,
             otherName: other.name,
             profileUrl,

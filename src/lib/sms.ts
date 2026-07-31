@@ -1,30 +1,89 @@
-// Transactional SMS via Twilio OR Telnyx REST APIs (no SDK dependency).
+// Transactional SMS via Twilio, Telnyx, or Prelude REST APIs (no SDK dependency).
 //
-// Provider is selected by SMS_PROVIDER ("twilio" | "telnyx", default "twilio").
-// This lets us flip carriers with an env var while Twilio remains the fallback:
+// Provider is selected by SMS_PROVIDER ("twilio" | "telnyx" | "prelude", default
+// "twilio"). This lets us flip carriers with an env var:
 //   - Twilio:  TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM
 //   - Telnyx:  TELNYX_API_KEY, TELNYX_FROM, TELNYX_MESSAGING_PROFILE_ID,
 //              TELNYX_PUBLIC_KEY (base64 Ed25519, for inbound signature verify)
+//   - Prelude: PRELUDE_API_KEY, PRELUDE_TEMPLATE_* (one id per template),
+//              PRELUDE_WEBHOOK_PUBLIC_KEY (PEM, for webhook signature verify)
 //
 // Degrades gracefully like email.ts: with no credentials (local dev), it logs the
 // message to the server console and returns ok, so the intro flow is testable
 // without sending real texts.
 //
+// WHY PRELUDE IS SHAPED DIFFERENTLY. Twilio and Telnyx take a free-text body and
+// give us a number that can receive replies. Prelude's Notify API takes neither:
+// it sends only pre-registered templates addressed by id, with a variables map
+// that must match the template exactly, and its inbound webhook carries WhatsApp
+// messages only. There is no inbound SMS. In exchange the US needs no 10DLC brand
+// or campaign, which is the entire reason we are here: our Twilio campaign is in
+// FAILED state and every send returns error 30034.
+//
+// So under SMS_PROVIDER=prelude:
+//   - callers must pass `template`, and a send without one fails loudly rather
+//     than silently delivering nothing;
+//   - `body` is still built and still used by Twilio and Telnyx, and is what the
+//     dev console logs, so the copy stays reviewable in one place;
+//   - the Y/N reply loop does not exist. Texts carry a link to the token-gated
+//     page and the decision happens there or by email, which is where it already
+//     works (see introductions.ts).
+//
 // NOTE on group MMS: the 3-way group intro (createGroupConversation below) uses
-// Twilio Conversations "projected address" masking, which has NO Telnyx
-// equivalent. Under SMS_PROVIDER=telnyx that path returns { ok: false } so the
-// caller falls back to brokering numbers (connectedSMS). 1:1 SMS (the Y/N invite
-// flow, opt-out, feedback) works fully on either provider.
-import { createHmac, timingSafeEqual, createPublicKey, verify as edVerify } from "crypto";
+// Twilio Conversations "projected address" masking, which has no Telnyx or
+// Prelude equivalent. Under either the path returns { ok: false } so the caller
+// falls back to brokering numbers (connectedSMS).
+import {
+  createHmac,
+  timingSafeEqual,
+  createPublicKey,
+  constants as cryptoConstants,
+  verify as edVerify,
+  verify as nodeVerify,
+} from "crypto";
 
-type SendArgs = { to: string; body: string };
+const { RSA_PKCS1_PSS_PADDING, RSA_PSS_SALTLEN_DIGEST } = cryptoConstants;
+
+/** Notify templates registered with Prelude, keyed by the name we gave them in
+ *  the dashboard. Each maps to a `PRELUDE_TEMPLATE_<UPPER>` env var holding the
+ *  `template_...` id, because the ids are minted by Prelude, differ per
+ *  environment, and change when a template is re-created. */
+export const PRELUDE_TEMPLATES = [
+  "intro_invite",
+  "intro_reminder",
+  "connected",
+  "feedback_request",
+] as const;
+export type PreludeTemplate = (typeof PRELUDE_TEMPLATES)[number];
+
+/** A Prelude template send: which template, and the exact variables it declares.
+ *  Prelude rejects the request outright if the set does not match, so this is
+ *  built next to the body copy it mirrors. */
+export type SmsTemplate = {
+  name: PreludeTemplate;
+  variables: Record<string, string>;
+};
+
+type SendArgs = { to: string; body: string; template?: SmsTemplate };
 export type SmsSendResult =
   | { ok: true; providerMessageId?: string }
   | { ok: false; retryable: boolean; error: string };
 
 /** Which carrier to send through. Twilio is the default/fallback. */
-export function smsProvider(): "twilio" | "telnyx" {
-  return process.env.SMS_PROVIDER === "telnyx" ? "telnyx" : "twilio";
+export function smsProvider(): "twilio" | "telnyx" | "prelude" {
+  const configured = process.env.SMS_PROVIDER;
+  if (configured === "telnyx") return "telnyx";
+  if (configured === "prelude") return "prelude";
+  return "twilio";
+}
+
+/** Env var holding the Prelude id for a template. */
+export function preludeTemplateEnvVar(name: PreludeTemplate): string {
+  return `PRELUDE_TEMPLATE_${name.toUpperCase()}`;
+}
+
+export function preludeTemplateId(name: PreludeTemplate): string | null {
+  return process.env[preludeTemplateEnvVar(name)] || null;
 }
 
 /** Normalize a raw phone string to E.164. Assumes US (+1) for 10-digit numbers.
@@ -78,13 +137,94 @@ export function normalizeLinkedin(raw: string | null | undefined): string | null
   return `https://www.linkedin.com/in/${handle}`;
 }
 
-export async function sendSMS({ to, body }: SendArgs): Promise<SmsSendResult> {
+export async function sendSMS({ to, body, template }: SendArgs): Promise<SmsSendResult> {
   const e164 = normalizePhone(to);
   if (!e164) {
     console.error("[sms] no valid destination number; skipping send");
     return { ok: false, retryable: false, error: "invalid destination number" };
   }
-  return smsProvider() === "telnyx" ? sendViaTelnyx(e164, body) : sendViaTwilio(e164, body);
+  const provider = smsProvider();
+  if (provider === "prelude") return sendViaPrelude(e164, body, template);
+  if (provider === "telnyx") return sendViaTelnyx(e164, body);
+  return sendViaTwilio(e164, body);
+}
+
+/** Prelude Notify. Sends a registered template by id with a variables map; there
+ *  is no free-text send. `body` is carried only so local dev logs the same copy
+ *  the other providers would have sent. */
+async function sendViaPrelude(
+  e164: string,
+  body: string,
+  template: SmsTemplate | undefined,
+): Promise<SmsSendResult> {
+  const key = process.env.PRELUDE_API_KEY;
+  const isProd = process.env.NODE_ENV === "production";
+
+  // A caller that forgot the template would otherwise send nothing at all while
+  // the outbox recorded a success. Fail it instead, and do not retry: a missing
+  // template is a code bug, not a transient carrier problem.
+  if (!template) {
+    console.error("[sms] Prelude requires a registered template; refusing to send");
+    return { ok: false, retryable: false, error: "Prelude send is missing its template" };
+  }
+  const templateId = preludeTemplateId(template.name);
+  if (!templateId) {
+    const envVar = preludeTemplateEnvVar(template.name);
+    console.error(`[sms] ${envVar} is not set; refusing to send`);
+    return { ok: false, retryable: false, error: `${envVar} is not configured` };
+  }
+
+  if (!key) {
+    if (isProd) {
+      console.error("[sms] PRELUDE_API_KEY is not set; refusing to send in production");
+      return { ok: false, retryable: false, error: "Prelude is not configured" };
+    }
+    console.log(`[sms:dev] (prelude/${template.name}) to=${e164} body="${body}"`);
+    return { ok: true, providerMessageId: "dev" };
+  }
+
+  try {
+    const res = await fetch("https://api.prelude.dev/v2/notify", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        template_id: templateId,
+        to: e164,
+        variables: template.variables,
+        ...(process.env.PRELUDE_CALLBACK_URL
+          ? { callback_url: process.env.PRELUDE_CALLBACK_URL }
+          : {}),
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error(`[sms] Prelude ${res.status}: ${text.slice(0, 300)}`);
+      // 402 is an empty balance and 422 is a bad template or variable set.
+      // Neither clears by retrying, and retrying a 402 just burns the outbox.
+      const permanent = res.status === 400 || res.status === 401 || res.status === 402 || res.status === 422;
+      return {
+        ok: false,
+        retryable: !permanent && res.status >= 500,
+        error: `Prelude returned ${res.status}`,
+      };
+    }
+
+    const data = (await res.json().catch(() => null)) as { id?: string } | null;
+    return { ok: true, providerMessageId: data?.id };
+  } catch (e) {
+    // The request may or may not have reached Prelude. Same rule as the other
+    // providers: never auto-retry an ambiguous text.
+    console.error(`[sms] Prelude request failed: ${(e as Error).message}`);
+    return {
+      ok: false,
+      retryable: false,
+      error: `Prelude outcome unknown: ${(e as Error).message}`,
+    };
+  }
 }
 
 async function sendViaTwilio(e164: string, body: string): Promise<SmsSendResult> {
@@ -261,6 +401,38 @@ export function verifyTelnyxSignature(args: {
   }
 }
 
+/** Verify a Prelude webhook. Prelude signs the raw body with RSASSA-PSS over
+ *  SHA-256 and sends it base64url-encoded in `X-Webhook-Signature`, prefixed
+ *  `rsassa-pss-sha256=`. The public key is generated in the dashboard under
+ *  Verify API -> Configure -> Webhooks and is shared by the Verify and Notify
+ *  APIs. Returns false when unconfigured so the caller can fail closed in
+ *  production and stay permissive locally. */
+export function verifyPreludeSignature(args: {
+  signature: string | null;
+  rawBody: string;
+}): boolean {
+  const pem = process.env.PRELUDE_WEBHOOK_PUBLIC_KEY;
+  if (!pem || !args.signature) return false;
+
+  const prefix = "rsassa-pss-sha256=";
+  if (!args.signature.startsWith(prefix)) return false;
+  const encoded = args.signature.slice(prefix.length).trim();
+  if (!encoded) return false;
+
+  try {
+    // The key may be stored with literal \n (env vars are single-line).
+    const key = createPublicKey(pem.includes("\\n") ? pem.replace(/\\n/g, "\n") : pem);
+    return nodeVerify(
+      "sha256",
+      Buffer.from(args.rawBody, "utf-8"),
+      { key, padding: RSA_PKCS1_PSS_PADDING, saltLength: RSA_PSS_SALTLEN_DIGEST },
+      Buffer.from(encoded, "base64url"),
+    );
+  } catch {
+    return false;
+  }
+}
+
 // --- carrier-required keyword handling (STOP / HELP / START) -----------------
 //
 // US A2P 10DLC rules require that STOP ends messaging and HELP returns help info
@@ -290,6 +462,9 @@ export const OPT_OUT_REPLY =
 /** Reply sent when someone texts HELP. */
 export const HELP_REPLY =
   "Mutuals matchmaking. We text intro invites you can accept (Y) or decline (N). Msg & data rates may apply. Reply STOP to opt out.";
+/** HELP text for providers with no inbound SMS, where there is no Y/N to describe. */
+export const HELP_REPLY_NO_INBOUND =
+  "Mutuals matchmaking. We text you a link when you have an introduction waiting. Msg & data rates may apply. Reply STOP to opt out.";
 /** Reply sent when someone texts START to re-subscribe. */
 export const OPT_IN_REPLY =
   "You're opted back in to Mutuals texts. Reply STOP any time to opt out.";
@@ -301,20 +476,80 @@ function first(name: string): string {
 /** "Want an intro?" text sent to each side when the operator starts an intro.
  *  Email is the channel that carries the introduction: it holds the other
  *  person's whole profile, written by them. A text cannot, so this is a nudge to
- *  the same token-gated page. Nobody is described to anybody here. */
+ *  the same token-gated page. Nobody is described to anybody here.
+ *
+ *  The Y/N instruction is Twilio and Telnyx only. Prelude has no inbound SMS, so
+ *  under that provider the decision is made on the linked page, and the template
+ *  copy says so instead. Both variants are built here so the difference is one
+ *  readable branch rather than a surprise in production. */
 export function introInviteSMS(args: {
   toName: string;
   otherName: string;
   profileUrl: string;
 }): string {
+  const decide =
+    smsProvider() === "prelude"
+      ? `Say yes or pass on that page.`
+      : `Reply Y for yes or N to pass.`;
   return [
     `Hi ${first(args.toName)}, it's Mutuals.`,
     `We'd like to introduce you to ${first(args.otherName)}.`,
     `Their profile, in their words: ${args.profileUrl}`,
-    `Reply Y for yes or N to pass.`,
+    decide,
     // Carrier-required opt-out disclosure on the first message a recipient gets.
     `Reply STOP to opt out.`,
   ].join(" ");
+}
+
+/** Variables for the `intro_invite` Prelude template. Must match the registered
+ *  template exactly: Prelude rejects both extra and missing keys. */
+export function introInviteTemplate(args: {
+  toName: string;
+  otherName: string;
+  profileUrl: string;
+}): SmsTemplate {
+  return {
+    name: "intro_invite",
+    variables: {
+      first_name: first(args.toName),
+      other_first_name: first(args.otherName),
+      profile_url: args.profileUrl,
+    },
+  };
+}
+
+/** Variables for the `feedback_request` Prelude template. */
+export function feedbackRequestTemplate(args: {
+  toName: string;
+  otherName: string;
+  operatorName: string;
+  feedbackUrl: string;
+}): SmsTemplate {
+  return {
+    name: "feedback_request",
+    variables: {
+      first_name: first(args.toName),
+      other_first_name: first(args.otherName),
+      operator_first_name: first(args.operatorName),
+      feedback_url: args.feedbackUrl,
+    },
+  };
+}
+
+/** Variables for the `connected` Prelude template. */
+export function connectedTemplate(args: {
+  toName: string;
+  otherName: string;
+  otherPhone: string;
+}): SmsTemplate {
+  return {
+    name: "connected",
+    variables: {
+      first_name: first(args.toName),
+      other_first_name: first(args.otherName),
+      other_phone: args.otherPhone,
+    },
+  };
 }
 
 /** First message dropped into the 3-way group thread once both say yes. */
@@ -412,10 +647,15 @@ export async function createGroupConversation(args: {
   body: string;
   friendlyName?: string;
 }): Promise<GroupConversationResult> {
-  // Group-MMS masking is a Twilio Conversations feature with no Telnyx analog.
-  // Under Telnyx we decline so the caller falls back to brokering numbers.
-  if (smsProvider() === "telnyx") {
-    return { ok: false, reason: "group MMS unavailable on Telnyx; broker numbers instead" };
+  // Group-MMS masking is a Twilio Conversations feature with no Telnyx or
+  // Prelude analog. Under either we decline so the caller falls back to
+  // brokering numbers.
+  const provider = smsProvider();
+  if (provider !== "twilio") {
+    return {
+      ok: false,
+      reason: `group MMS unavailable on ${provider}; broker numbers instead`,
+    };
   }
   const proxy = normalizePhone(args.operatorAddress ?? process.env.TWILIO_FROM ?? null);
   const numbers = Array.from(
@@ -503,8 +743,9 @@ export async function sendConversationMessage(args: {
   conversationSid: string;
   body: string;
 }): Promise<{ ok: boolean; reason?: string }> {
-  if (smsProvider() === "telnyx") {
-    return { ok: false, reason: "group conversations unavailable on Telnyx" };
+  const provider = smsProvider();
+  if (provider !== "twilio") {
+    return { ok: false, reason: `group conversations unavailable on ${provider}` };
   }
   const creds = twilioCreds();
   const proxy = normalizePhone(process.env.TWILIO_FROM ?? null);

@@ -3,7 +3,14 @@ import * as Sentry from "@sentry/nextjs";
 import type { DeliveryJob, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { connectionEmail, matchThreadEmail, sendEmail } from "./email";
-import { normalizePhone, sendConversationMessage, sendSMS } from "./sms";
+import {
+  PRELUDE_TEMPLATES,
+  normalizePhone,
+  sendConversationMessage,
+  sendSMS,
+  type PreludeTemplate,
+  type SmsTemplate,
+} from "./sms";
 
 const STALE_LOCK_MS = 2 * 60_000;
 const BUSY_WORKER_INTERVAL_MS = 5_000;
@@ -116,6 +123,9 @@ export async function queueSmsDelivery(args: {
   kind: string;
   to: string;
   body: string;
+  // Prelude sends registered templates rather than free text, so the template
+  // rides in the payload next to the body. Twilio and Telnyx ignore it.
+  template?: SmsTemplate;
   idempotencyKey: string;
   matchId?: string | null;
   personId?: string | null;
@@ -129,7 +139,11 @@ export async function queueSmsDelivery(args: {
       channel: "sms",
       kind: args.kind,
       recipient: args.to,
-      payload: { to: args.to, body: args.body },
+      payload: {
+        to: args.to,
+        body: args.body,
+        ...(args.template ? { template: args.template } : {}),
+      },
       idempotencyKey: args.idempotencyKey,
       matchId: args.matchId,
       personId: args.personId,
@@ -169,6 +183,25 @@ function stringField(payload: Record<string, unknown>, key: string): string {
   return value;
 }
 
+/** Read the optional Prelude template back out of a stored payload. Jobs queued
+ *  before the Prelude wiring, and every job queued for Twilio or Telnyx, simply
+ *  have no template. Anything malformed is dropped rather than trusted, so a bad
+ *  row cannot make sendSMS send the wrong template. */
+function smsTemplateField(payload: Record<string, unknown>): SmsTemplate | undefined {
+  const raw = payload.template;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const { name, variables } = raw as { name?: unknown; variables?: unknown };
+  if (typeof name !== "string") return undefined;
+  if (!PRELUDE_TEMPLATES.includes(name as PreludeTemplate)) return undefined;
+  if (!variables || typeof variables !== "object" || Array.isArray(variables)) return undefined;
+  const entries = Object.entries(variables as Record<string, unknown>);
+  if (!entries.every(([, v]) => typeof v === "string")) return undefined;
+  return {
+    name: name as PreludeTemplate,
+    variables: Object.fromEntries(entries) as Record<string, string>,
+  };
+}
+
 async function sendDeliveryJob(job: DeliveryJob): Promise<DeliverySendResult> {
   const payload = payloadObject(job);
   if (job.channel === "email") {
@@ -198,6 +231,7 @@ async function sendDeliveryJob(job: DeliveryJob): Promise<DeliverySendResult> {
     return sendSMS({
       to: stringField(payload, "to"),
       body: stringField(payload, "body"),
+      template: smsTemplateField(payload),
     });
   }
   if (job.channel === "conversation") {

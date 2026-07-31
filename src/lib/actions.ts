@@ -31,6 +31,7 @@ import {
   normalizeInstagram,
   normalizeLinkedin,
   feedbackRequestSMS,
+  feedbackRequestTemplate,
 } from "./sms";
 import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInvites, recordInviteDecision } from "./introductions";
 import { rateLimit } from "./ratelimit";
@@ -1259,6 +1260,14 @@ export async function askForFeedback(formData: FormData) {
         kind: "feedback_request",
         to: me.phone,
         body: feedbackRequestSMS({ toName: me.name, otherName: other.name, operatorName: op.name }),
+        template: feedbackRequestTemplate({
+          toName: me.name,
+          otherName: other.name,
+          operatorName: op.name,
+          // Prelude cannot receive a reply, so the text has to point somewhere.
+          // The member app is the one page every member can already reach.
+          feedbackUrl: `${(process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com").replace(/\/$/, "")}/app`,
+        }),
         idempotencyKey: makeDeliveryKey("feedback", matchId, id, window),
         matchId,
         personId: id,
