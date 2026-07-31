@@ -76,6 +76,8 @@ async function main() {
   await createSession(pausedMember.id);
   const jessToken = await createSession(jess.id);
   const browser = await chromium.launch({ headless: true });
+  // Hoisted so the failure diagnostic below can still read the page.
+  let superContext: Awaited<ReturnType<typeof browser.newContext>> | null = null;
   const cookieUrl = new URL(baseUrl);
 
   try {
@@ -114,7 +116,7 @@ async function main() {
     assert.equal(new URL(ordinaryPage.url()).pathname, "/studio/matchmaking");
     await ordinaryContext.close();
 
-    const superContext = await browser.newContext();
+    superContext = await browser.newContext();
     await superContext.addCookies([
       {
         name: "mc_session",
@@ -279,6 +281,15 @@ async function main() {
     const confirmRevoke = superPage.getByRole("button", { name: "Confirm revoke" });
     await confirmRevoke.waitFor({ state: "visible" });
     await confirmRevoke.click();
+    // Same shape as the invite above: the outcome rides in the query string and
+    // the flash only renders once the redirect lands, so wait on the redirect
+    // rather than on text appearing.
+    await superPage.waitForURL(
+      (url) =>
+        url.searchParams.get("access") === "revoked" &&
+        url.searchParams.get("operator") === ordinaryOperator.name,
+      { timeout: 60_000 },
+    );
     await superPage
       .getByText(`Studio access was revoked for ${ordinaryOperator.name}.`)
       .waitFor({ timeout: 60_000 });
@@ -311,6 +322,21 @@ async function main() {
     await superContext.close();
 
     console.log("operator portal browser checks passed");
+  } catch (error) {
+    // A timeout on a locator says what was expected and nothing about what was
+    // actually on screen, which is most of the debugging cost when this only
+    // fails on CI. Print where the page ended up and what it was showing.
+    for (const page of superContext?.pages() ?? []) {
+      console.error("[diagnostic] url:", page.url());
+      console.error(
+        "[diagnostic] main:",
+        await page
+          .locator("main")
+          .innerText()
+          .catch(() => "(unreadable)"),
+      );
+    }
+    throw error;
   } finally {
     await browser.close();
     await prisma.person.deleteMany({
