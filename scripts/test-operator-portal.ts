@@ -203,8 +203,16 @@ async function main() {
     await superPage.getByLabel("Operator email").fill(newOperatorEmail);
     await superPage.getByLabel("City").selectOption("San Francisco");
     await superPage.getByRole("button", { name: "Add & invite" }).click();
-    await superPage.getByText(/Role E2E New Operator was added/).waitFor();
-    await superPage.getByText(/invitation email failed/i).waitFor();
+    // Provisioning is a server action plus a redirect that carries the outcome
+    // in the query string, and the flash only renders once that lands. A cold
+    // or loaded runner takes longer than the default 30s, so wait on the
+    // redirect itself rather than on the text appearing out of nowhere.
+    await superPage.waitForURL(
+      (url) => url.searchParams.get("operator") === "Role E2E New Operator",
+      { timeout: 60_000 },
+    );
+    await superPage.getByText(/Role E2E New Operator was added/).waitFor({ timeout: 60_000 });
+    await superPage.getByText(/invitation email failed/i).waitFor({ timeout: 60_000 });
     const created = await prisma.person.findUniqueOrThrow({
       where: { email: newOperatorEmail },
     });
@@ -215,8 +223,12 @@ async function main() {
     await superPage.getByLabel("Operator email").fill(pausedMember.email!);
     await superPage.getByLabel("City").selectOption("San Francisco");
     await superPage.getByRole("button", { name: "Add & invite" }).click();
-    await superPage.getByText(/Role E2E Paused Member was added/).waitFor();
-    await superPage.getByText(/invitation email failed/i).waitFor();
+    await superPage.waitForURL(
+      (url) => url.searchParams.get("operator") === pausedMember.name,
+      { timeout: 60_000 },
+    );
+    await superPage.getByText(/Role E2E Paused Member was added/).waitFor({ timeout: 60_000 });
+    await superPage.getByText(/invitation email failed/i).waitFor({ timeout: 60_000 });
     const promoted = await prisma.person.findUniqueOrThrow({
       where: { id: pausedMember.id },
     });
