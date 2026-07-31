@@ -18,7 +18,7 @@ const VENUES = [
 
 (async () => {
   console.log("Wiping all data in schema meetcute...");
-  const list = TABLES.map((t) => `"meetcute"."${t}"`).join(", ");
+  const list = TABLES.map((t) => `"mutuals"."${t}"`).join(", ");
   await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE;`);
 
   console.log("Creating operator: Jessica (jesswolflord@gmail.com)...");

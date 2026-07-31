@@ -12,7 +12,7 @@ const base = (
   "http://localhost:3009"
 ).replace(/\/$/, "");
 
-const emails = ["jesswolflord@gmail.com", "maya@meetcute.test", "alex@meetcute.test"];
+const emails = ["jesswolflord@gmail.com", "maya@mutuals.test", "alex@mutuals.test"];
 
 execSync("tsx scripts/test-fixture.ts", { stdio: "inherit", cwd: import.meta.dirname + "/.." });
 

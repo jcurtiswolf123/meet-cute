@@ -773,26 +773,26 @@ export async function runDeliveryWorkerPass(): Promise<number> {
 }
 
 type DeliveryWorkerGlobal = typeof globalThis & {
-  __meetCuteDeliveryWorkerStarted?: boolean;
-  __meetCuteDeliveryWorkerRunning?: boolean;
+  __mutualsDeliveryWorkerStarted?: boolean;
+  __mutualsDeliveryWorkerRunning?: boolean;
 };
 
 export function startDeliveryWorker(): void {
   if (process.env.NODE_ENV !== "production") return;
   const state = globalThis as DeliveryWorkerGlobal;
-  if (state.__meetCuteDeliveryWorkerStarted) return;
-  state.__meetCuteDeliveryWorkerStarted = true;
+  if (state.__mutualsDeliveryWorkerStarted) return;
+  state.__mutualsDeliveryWorkerStarted = true;
 
   const schedule = (delay: number) => {
     const timer = setTimeout(() => void run(), delay);
     timer.unref();
   };
   const run = async () => {
-    if (state.__meetCuteDeliveryWorkerRunning) {
+    if (state.__mutualsDeliveryWorkerRunning) {
       schedule(IDLE_WORKER_INTERVAL_MS);
       return;
     }
-    state.__meetCuteDeliveryWorkerRunning = true;
+    state.__mutualsDeliveryWorkerRunning = true;
     let processed = 0;
     try {
       processed = await runDeliveryWorkerPass();
@@ -800,7 +800,7 @@ export function startDeliveryWorker(): void {
       console.error(`[delivery] worker pass failed: ${(error as Error).message}`);
       Sentry.captureException(error);
     } finally {
-      state.__meetCuteDeliveryWorkerRunning = false;
+      state.__mutualsDeliveryWorkerRunning = false;
       schedule(processed > 0 ? BUSY_WORKER_INTERVAL_MS : IDLE_WORKER_INTERVAL_MS);
     }
   };

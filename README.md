@@ -1,6 +1,6 @@
-# Meet Cute
+# Mutuals
 
-Meet Cute is a curated matchmaking app with a public application funnel, a
+Mutuals is a curated matchmaking app with a public application funnel, a
 member experience, and an operator studio.
 
 Launch status: LIVE as of 2026-07-23. The release evidence and
@@ -26,7 +26,7 @@ matchmaking, moderation, events, and delivery operations. Super admins retain
 ordinary operator access and can also add or revoke operator accounts from the
 Team page. `jesswolflord@gmail.com` is the initial super admin.
 
-Meet Cute does not automatically book venues or send calendar invitations. When
+Mutuals does not automatically book venues or send calendar invitations. When
 two members accept an introduction, the app shares authorized contact details
 and tells the operator to coordinate the date manually.
 

@@ -43,7 +43,7 @@ export function SiteFooter() {
 
       <div className="container-mc flex flex-col gap-3 border-t border-cream/15 py-6 text-xs text-cream/55 sm:flex-row sm:items-center sm:justify-between">
         <p>New York + San Francisco</p>
-        <p>&copy; {new Date().getFullYear()} Meet-Cute</p>
+        <p>&copy; {new Date().getFullYear()} Mutuals</p>
       </div>
     </footer>
   );

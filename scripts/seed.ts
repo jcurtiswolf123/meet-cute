@@ -329,7 +329,7 @@ async function main() {
   await db.conciergeMessage.createMany({
     data: [
       { threadId: thread.id, direction: "out", toPersonId: id("sofia@example.com"), body: "You matched with Marcus. I've got you a table at Via Carota.", kind: "propose" },
-      { threadId: thread.id, direction: "out", toPersonId: id("sofia@example.com"), body: "You're set with Marcus at Via Carota. Ask for the Meet Cute table.", kind: "confirm" },
+      { threadId: thread.id, direction: "out", toPersonId: id("sofia@example.com"), body: "You're set with Marcus at Via Carota. Ask for the Mutuals table.", kind: "confirm" },
     ],
   });
 

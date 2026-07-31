@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-# Meet Cute runs on Neon Postgres (DATABASE_URL / DIRECT_URL come from Fly
+# Mutuals runs on Neon Postgres (DATABASE_URL / DIRECT_URL come from Fly
 # secrets). Schema changes are applied manually out-of-band with `npm run
 # db:deploy` (prisma db push) against Neon, never here, so booting instances
 # never race on DDL and a deploy can't be blocked by a DB round-trip.

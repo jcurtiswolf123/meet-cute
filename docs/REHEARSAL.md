@@ -96,7 +96,7 @@ delivery to a real Gmail account.
 rationale in her own words (it is shown to nobody but her, and it is the part
 worth practising), send.
 
-Meet Cute mints one invite per person and queues an email to each. Watch the
+Mutuals mints one invite per person and queues an email to each. Watch the
 Delivery log in the Studio: both jobs should reach `sent` within seconds. If one
 fails it stays visible with a Retry action rather than disappearing.
 
@@ -110,7 +110,7 @@ fails it stays visible with a Retry action rather than disappearing.
   deliberately ignored, leaving the introduction pending with the buttons still
   live, rather than guessing.
 
-**5. Both said yes.** Meet Cute sends one joint email introducing them to each
+**5. Both said yes.** Mutuals sends one joint email introducing them to each
 other, and the introduction moves to `connected`. Confirm:
 
 ```bash

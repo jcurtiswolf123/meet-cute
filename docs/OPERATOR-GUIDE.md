@@ -1,22 +1,22 @@
-# Meet Cute Operator Walkthrough
+# Mutuals Operator Walkthrough
 
-For Jess and other Meet Cute operators. Last updated July 24, 2026.
+For Jess and other Mutuals operators. Last updated July 24, 2026.
 
 Live site: `https://hellomeetcute.com`
 
 ## The flow in one minute
 
-Meet Cute is operator-led. Members do not browse or swipe through the roster.
+Mutuals is operator-led. Members do not browse or swipe through the roster.
 
 1. A prospective member applies, or an operator adds someone who has already asked to be matched.
 2. An operator approves the applicant and confirms that each person is ready to match.
 3. The operator chooses two people in Matchmaking and sends a private introduction to each person.
 4. Each person sees the other person's profile and privately chooses Yes or No.
-5. If both say yes, Meet Cute connects them by email.
+5. If both say yes, Mutuals connects them by email.
 6. If either person passes, the introduction closes. The other person is not told who passed.
 7. The operator monitors the introduction, follows up when needed, and coordinates any date details manually.
 
-Important current limitation: email is the reliable production channel. As of July 24, 2026, carrier approval for Meet Cute SMS is not complete. Do not depend on text messages, group texts, or text feedback requests until the SMS campaign is approved and delivery is verified.
+Important current limitation: email is the reliable production channel. As of July 24, 2026, carrier approval for Mutuals SMS is not complete. Do not depend on text messages, group texts, or text feedback requests until the SMS campaign is approved and delivery is verified.
 
 ## Links to keep handy
 
@@ -32,7 +32,7 @@ Important current limitation: email is the reliable production channel. As of Ju
 
 1. Open `https://hellomeetcute.com/studio/login`.
 2. Enter your operator email. Jess should use `jesswolflord@gmail.com`.
-3. Open the email with the subject `Your Meet Cute sign-in link`.
+3. Open the email with the subject `Your Mutuals sign-in link`.
 4. Click the link within 15 minutes.
 
 The link works once. If it expired or was already used, return to the operator sign-in page and request a new one. Do not share a magic link. Each operator should use their own account.
@@ -115,12 +115,12 @@ Send the person:
 
 Suggested message:
 
-> I would love to invite you to Meet Cute. It is a curated matchmaking community in NYC and San Francisco. Start here: https://hellomeetcute.com/apply. You will receive a one-time email link, then the application takes a few minutes.
+> I would love to invite you to Mutuals. It is a curated matchmaking community in NYC and San Francisco. Start here: https://hellomeetcute.com/apply. You will receive a one-time email link, then the application takes a few minutes.
 
 What happens next:
 
 1. The person enters their email at `/apply`.
-2. Meet Cute sends a one-time sign-in link.
+2. Mutuals sends a one-time sign-in link.
 3. The person completes the application. The form collects their name, city, date of birth, optional phone and social links, what they are looking for, a community recommendation, and legal consent.
 4. Text consent is separate and optional. A member can join and be matched by email without agreeing to texts.
 5. The completed application appears in Directory under New applicants.
@@ -140,7 +140,7 @@ Use this path for a person you have already spoken with who wants matchmaking, e
 5. Add their mobile number only if useful.
 6. Add Instagram, LinkedIn, and a short note when available.
 7. Check the matchmaking consent box only if the person personally asked to be added and is ready to receive introductions.
-8. Check the SMS consent box only if the person separately and explicitly agreed to Meet Cute text messages at that number.
+8. Check the SMS consent box only if the person separately and explicitly agreed to Mutuals text messages at that number.
 9. Click `Add person`.
 
 This creates or updates the person and marks them ready to match.
@@ -194,7 +194,7 @@ anything either person did not agree to share.
 
 ## 7. What each matched person receives
 
-Meet Cute sends each person a separate, private email carrying the other
+Mutuals sends each person a separate, private email carrying the other
 person's whole profile, in that person's own words. The email:
 
 - Names the proposed match.
@@ -216,13 +216,13 @@ ever a nudge.
 
 Decision rules:
 
-- The first yes stays private while Meet Cute waits for the other person.
-- If both say yes, Meet Cute connects them by email.
+- The first yes stays private while Mutuals waits for the other person.
+- If both say yes, Mutuals connects them by email.
 - If either person passes, the introduction closes.
 - The other person is not told who passed.
 - A person cannot change a decision by clicking the same link again.
 
-After mutual consent, the people can say hello and choose a time. Meet Cute does not automatically book a venue, reserve a table, or schedule the date.
+After mutual consent, the people can say hello and choose a time. Mutuals does not automatically book a venue, reserve a table, or schedule the date.
 
 ## 8. Monitor an introduction
 
@@ -255,7 +255,7 @@ Use it only when both people have already given you explicit approval outside th
 
 ### Ask for feedback and Jump in
 
-These controls currently rely on authorized SMS. Since Meet Cute SMS is not yet dependable, follow up by email or direct conversation instead. Record useful feedback in the member profile notes.
+These controls currently rely on authorized SMS. Since Mutuals SMS is not yet dependable, follow up by email or direct conversation instead. Record useful feedback in the member profile notes.
 
 ## 9. Handle failed deliveries
 

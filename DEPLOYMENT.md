@@ -1,4 +1,4 @@
-# Meet Cute Deployment Guide
+# Mutuals Deployment Guide
 
 Production runs on Fly.io at `https://hellomeetcute.com`. The application uses
 Neon PostgreSQL and a standalone Next.js Docker image.

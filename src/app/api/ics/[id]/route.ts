@@ -15,15 +15,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const other = t.match.personAId === me ? t.match.personB : t.match.personA;
   const ics = buildIcs({
     start: t.confirmedSlot,
-    title: `Meet-Cute date with ${other.name.split(" ")[0]}`,
-    location: t.venue?.name ?? "Meet-Cute",
-    description: "Ask for the Meet-Cute table.",
+    title: `Mutuals date with ${other.name.split(" ")[0]}`,
+    location: t.venue?.name ?? "Mutuals",
+    description: "Ask for the Mutuals table.",
     uid: t.id,
   });
   return new Response(ics, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="meetcute-date.ics"`,
+      "Content-Disposition": `attachment; filename="mutuals-date.ics"`,
     },
   });
 }

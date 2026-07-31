@@ -26,7 +26,7 @@ export default async function Dinners({
       <SiteHeader />
       <main id="main-content" className="container-mc min-h-screen py-12 md:py-20">
         <div className="max-w-[62ch]">
-          <p className="public-label text-muted">Meet-Cute Dinners</p>
+          <p className="public-label text-muted">Mutuals Dinners</p>
           <h1 className="mt-5 font-display text-5xl leading-[0.98] tracking-[-0.03em] sm:text-6xl">
             Twelve people, one long table.
           </h1>

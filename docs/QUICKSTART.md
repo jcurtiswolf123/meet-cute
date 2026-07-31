@@ -1,8 +1,8 @@
-# Meet Cute Quick Start
+# Mutuals Quick Start
 
 Live app: `https://hellomeetcute.com`
 
-Meet Cute is a curated matchmaking service. Members use passwordless magic-link
+Mutuals is a curated matchmaking service. Members use passwordless magic-link
 sign-in. Operators review applicants and create one introduction at a time.
 
 ## Local setup
@@ -36,7 +36,7 @@ strings include the required schema query parameter.
 
 ## Local demo login
 
-Set `MEETCUTE_DEMO_LOGIN=1` only in local development to show a demo picker.
+Set `MUTUALS_DEMO_LOGIN=1` only in local development to show a demo picker.
 Production rejects demo login regardless of that environment value.
 
 ## Verification

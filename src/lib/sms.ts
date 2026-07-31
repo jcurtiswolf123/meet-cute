@@ -286,13 +286,13 @@ export function isStartKeyword(body: string): boolean {
 
 /** Reply sent when someone texts STOP: confirms opt-out and how to return. */
 export const OPT_OUT_REPLY =
-  "You're opted out and won't get more Meet-Cute texts. Reply START to opt back in.";
+  "You're opted out and won't get more Mutuals texts. Reply START to opt back in.";
 /** Reply sent when someone texts HELP. */
 export const HELP_REPLY =
-  "Meet-Cute matchmaking. We text intro invites you can accept (Y) or decline (N). Msg & data rates may apply. Reply STOP to opt out.";
+  "Mutuals matchmaking. We text intro invites you can accept (Y) or decline (N). Msg & data rates may apply. Reply STOP to opt out.";
 /** Reply sent when someone texts START to re-subscribe. */
 export const OPT_IN_REPLY =
-  "You're opted back in to Meet-Cute texts. Reply STOP any time to opt out.";
+  "You're opted back in to Mutuals texts. Reply STOP any time to opt out.";
 
 function first(name: string): string {
   return name.trim().split(/\s+/)[0] || name;
@@ -308,7 +308,7 @@ export function introInviteSMS(args: {
   profileUrl: string;
 }): string {
   return [
-    `Hi ${first(args.toName)}, it's Meet-Cute.`,
+    `Hi ${first(args.toName)}, it's Mutuals.`,
     `We'd like to introduce you to ${first(args.otherName)}.`,
     `Their profile, in their words: ${args.profileUrl}`,
     `Reply Y for yes or N to pass.`,
@@ -449,7 +449,7 @@ export async function createGroupConversation(args: {
     //    so we use a pseudonymized label, never names or numbers.
     const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
     const created = await conversationsPost(creds, "/Conversations", {
-      FriendlyName: args.friendlyName?.slice(0, 200) || "meetcute-intro",
+      FriendlyName: args.friendlyName?.slice(0, 200) || "mutuals-intro",
       ...(messagingServiceSid ? { MessagingServiceSid: messagingServiceSid } : {}),
     });
     if (!created.ok || typeof created.json.sid !== "string") {

@@ -1,4 +1,4 @@
-# Meet Cute Overview and Handoff
+# Mutuals Overview and Handoff
 
 Last updated 2026-07-23.
 
@@ -9,7 +9,7 @@ Last updated 2026-07-23.
 
 ## Product
 
-Meet Cute is a matchmaker-run dating service. A human operator reviews
+Mutuals is a matchmaker-run dating service. A human operator reviews
 applications, curates one introduction at a time, and monitors delivery and
 safety. Each member privately accepts or passes. A mutual yes opens a connection
 using currently authorized contact information.

@@ -53,7 +53,7 @@ export async function sendEmail({
   idempotencyKey,
 }: SendArgs): Promise<EmailSendResult> {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || "Meet-Cute <hello@hellomeetcute.com>";
+  const from = process.env.RESEND_FROM || "Mutuals <hello@hellomeetcute.com>";
   const isProd = process.env.NODE_ENV === "production";
   const toList = Array.isArray(to) ? to : [to];
   const toLabel = toList.join(", ");
@@ -84,7 +84,7 @@ export async function sendEmail({
   // replyTo (the token-bearing opt-in address) wins.
   const replyToAddr = replyTo || process.env.RESEND_REPLY_TO || "josh@shiftsupportnetwork.com";
   // List-Unsubscribe takes a bare addr-spec. Interpolating replyToAddr directly
-  // produced `<mailto:Meet-Cute <r+token@...>>` for every invite, which is not a
+  // produced `<mailto:Mutuals <r+token@...>>` for every invite, which is not a
   // parseable header, and a malformed List-Unsubscribe counts against inbox
   // placement at Gmail rather than for it. It also pointed unsubscribe requests
   // at a single invite's token address. Unsubscribes go to a stable mailbox.
@@ -202,7 +202,7 @@ function emailButton(label: string, href: string): string {
   return `<a href="${encodeURI(href)}" style="display:inline-block;background:${BRAND.ink};color:${BRAND.cream};text-decoration:none;padding:13px 22px;border-radius:999px;font-family:${SANS};font-size:14px;font-weight:600;letter-spacing:.01em">${esc(label)}</a>`;
 }
 
-/** Wrap body HTML in the Meet-Cute email shell. `inner` is trusted, pre-escaped
+/** Wrap body HTML in the Mutuals email shell. `inner` is trusted, pre-escaped
  *  HTML produced by the caller. `preheader` is the hidden inbox-preview line. */
 function emailShell(inner: string, preheader = ""): string {
   return `<!doctype html><html><body style="margin:0;padding:0;background:${BRAND.cream}">
@@ -211,7 +211,7 @@ function emailShell(inner: string, preheader = ""): string {
     <tr><td align="center" style="padding:32px 16px">
       <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:${BRAND.cream}">
         <tr><td style="padding:4px 4px 20px">
-          <span style="font-family:${SANS};font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:${BRAND.ink}">Meet-Cute</span>
+          <span style="font-family:${SANS};font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:${BRAND.ink}">Mutuals</span>
         </td></tr>
         <tr><td style="background:#ffffff;border:1px solid ${BRAND.line};border-radius:14px;padding:32px">
           ${inner}
@@ -246,9 +246,9 @@ export function applicationReceivedEmail(args: {
   const subject = "We have your application";
   const text =
     `Hi ${first},\n\n` +
-    `Thank you for applying to Meet-Cute${place ? ` in ${place}` : ""}. A matchmaker reads every application by hand, so this takes a little time - that is on purpose.\n\n` +
+    `Thank you for applying to Mutuals${place ? ` in ${place}` : ""}. A matchmaker reads every application by hand, so this takes a little time - that is on purpose.\n\n` +
     `If it is a fit, we will be in touch to welcome you onto the list and start making introductions. Either way, you will hear from a person, not a form.\n\n` +
-    `Warmly,\nMeet-Cute`;
+    `Warmly,\nMutuals`;
   const inner =
     h1("Thank you for applying.") +
     p(`Hi ${esc(first)}, we have your application${place ? ` in ${esc(place)}` : ""}. A matchmaker reads every one by hand, so this takes a little time - that is on purpose.`) +
@@ -264,15 +264,15 @@ export function applicationApprovedEmail(args: {
   appUrl: string;
 }): { subject: string; html: string; text: string } {
   const first = (args.name || "there").split(" ")[0];
-  const subject = "You're in - welcome to Meet-Cute";
+  const subject = "You're in - welcome to Mutuals";
   const text =
     `Hi ${first},\n\n` +
-    `Good news: you have been accepted onto the Meet-Cute list. Welcome.\n\n` +
+    `Good news: you have been accepted onto the Mutuals list. Welcome.\n\n` +
     `From here, a matchmaker introduces you to one person at a time - no public profile, no feed, no endless messaging. When we find someone worth meeting, you will get a private introduction by email and decide for yourself.\n\n` +
     `Take a minute to round out your profile and tell us what you are looking for:\n${args.appUrl}\n\n` +
-    `Warmly,\nMeet-Cute`;
+    `Warmly,\nMutuals`;
   const inner =
-    h1("Welcome to Meet-Cute.") +
+    h1("Welcome to Mutuals.") +
     p(`Hi ${esc(first)}, you have been accepted onto the list. From here a matchmaker introduces you to <strong>one person at a time</strong> - no public profile, no feed, no endless messaging.`) +
     p(`When we find someone worth meeting, you will get a private introduction by email and decide for yourself. If you both say yes, we connect you.`) +
     `<p style="margin:24px 0 0">${emailButton("Round out your profile", args.appUrl)}</p>` +
@@ -294,7 +294,7 @@ export function matchReminderEmail(args: {
     `Hi ${first},\n\n` +
     `Just a friendly nudge - you and ${otherFirst} both said yes, and the best introductions turn into a plan while they are still warm.\n\n` +
     `Reply to your intro thread with a day and place this week. A short first message goes a long way.\n\n` +
-    `Rooting for you,\nMeet-Cute`;
+    `Rooting for you,\nMutuals`;
   const inner =
     h1("Don't let this one cool off.") +
     p(`Hi ${esc(first)}, you and <strong>${esc(otherFirst)}</strong> both said yes. The best introductions turn into a plan while they are still warm.`) +
@@ -303,7 +303,7 @@ export function matchReminderEmail(args: {
   return { subject, html: emailShell(inner, `You and ${otherFirst} still haven't set a time.`), text };
 }
 
-// Post-connection check-in: "how was your Meet-Cute?" Their reply becomes
+// Post-connection check-in: "how did the date go?" Their reply becomes
 // feedback the matchmaker can act on.
 export function matchFeedbackEmail(args: {
   toName: string;
@@ -311,12 +311,12 @@ export function matchFeedbackEmail(args: {
 }): { subject: string; html: string; text: string } {
   const first = (args.toName || "there").split(" ")[0];
   const otherFirst = (args.otherName || "your match").split(" ")[0];
-  const subject = `How was your Meet-Cute with ${otherFirst}?`;
+  const subject = `How was your date with ${otherFirst}?`;
   const text =
     `Hi ${first},\n\n` +
     `How did it go with ${otherFirst}? A sentence is plenty - did you meet, did you click, should we keep going or try someone new?\n\n` +
     `Just reply to this email. It helps us make your next introduction a better one.\n\n` +
-    `Warmly,\nMeet-Cute`;
+    `Warmly,\nMutuals`;
   const inner =
     h1(`How was ${otherFirst}?`) +
     p(`Hi ${esc(first)}, how did it go with <strong>${esc(otherFirst)}</strong>? A sentence is plenty - did you meet, did you click, should we keep going or try someone new?`) +
@@ -362,13 +362,13 @@ export function requestReceivedEmail(args: {
   const first = (args.name || "there").split(" ")[0];
   const thing =
     args.kind === "dinner"
-      ? `a seat at ${args.context ? args.context : "an upcoming Meet-Cute dinner"}`
-      : "Meet-Cute coaching";
+      ? `a seat at ${args.context ? args.context : "an upcoming Mutuals dinner"}`
+      : "Mutuals coaching";
   const subject = args.kind === "dinner" ? "Your dinner request is in" : "Your coaching request is in";
   const text =
     `Hi ${first},\n\n` +
     `Thanks - we have your request for ${thing}. A matchmaker will follow up personally with next steps.\n\n` +
-    `Warmly,\nMeet-Cute`;
+    `Warmly,\nMutuals`;
   const inner =
     h1("We have your request.") +
     p(`Hi ${esc(first)}, thanks for asking about ${esc(thing)}. A matchmaker will follow up personally with next steps.`) +
@@ -387,10 +387,10 @@ export function eventInviteEmail(args: {
   const { name, theme, city, venue, when, link } = args;
   const first = name.split(" ")[0];
   const subject = `You're invited: ${theme} (${city})`;
-  const text = `Hi ${first},\n\nYou're invited to a Meet-Cute dinner.\n\n${theme}\n${when}\n${venue}, ${city}\n\nSign in to see details: ${link}\n\nReply to this email to RSVP or with any questions.`;
+  const text = `Hi ${first},\n\nYou're invited to a Mutuals dinner.\n\n${theme}\n${when}\n${venue}, ${city}\n\nSign in to see details: ${link}\n\nReply to this email to RSVP or with any questions.`;
   const inner =
     h1("You're invited to dinner.") +
-    p(`Hi ${esc(first)}, a seat has opened at a Meet-Cute dinner.`) +
+    p(`Hi ${esc(first)}, a seat has opened at a Mutuals dinner.`) +
     `<div style="margin:16px 0;padding:16px;border:1px solid ${BRAND.line};border-radius:12px;background:${BRAND.cream}">
       <p style="margin:0;font-family:${SERIF};font-size:18px;color:${BRAND.ink}">${esc(theme)}</p>
       <p style="margin:6px 0 0;font-family:${SANS};font-size:14px;color:${BRAND.muted}">${esc(when)}</p>
@@ -429,7 +429,7 @@ export function connectionEmail(args: {
     `Good news: you and ${otherFirst} both said yes to an introduction.\n\n` +
     `Here is how to reach ${otherFirst}:\n${reachText}\n\n` +
     `${note}\n\n` +
-    `Warmly,\nMeet-Cute\n\n` +
+    `Warmly,\nMutuals\n\n` +
     `Reply to this email any time if you would like a hand.`;
 
   // Build the contact rows from escaped labels + escaped values so a member's
@@ -541,7 +541,7 @@ export function matchInviteEmail(args: {
     `If you both say yes, we'll connect you. If either passes, nothing happens and no one is told.`,
     "",
     `Warmly,`,
-    `Meet-Cute`,
+    `Mutuals`,
   ]
     .filter((line) => line !== null)
     .join("\n");
@@ -611,7 +611,7 @@ export function matchThreadEmail(args: {
     `Hi ${aFirst} and ${bFirst},\n\n` +
     `You both said yes to an introduction, so here you are on one thread.\n\n` +
     `Just hit reply-all to say hello and find a time this week. A short first message goes a long way.\n\n` +
-    `Warmly,\nMeet-Cute`;
+    `Warmly,\nMutuals`;
 
   const inner =
     h1("You both said yes.") +
@@ -622,13 +622,13 @@ export function matchThreadEmail(args: {
 }
 
 export function magicLinkEmail(link: string): { subject: string; html: string; text: string } {
-  const subject = "Your Meet-Cute sign-in link";
-  const text = `Sign in to Meet-Cute:\n${link}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;
+  const subject = "Your Mutuals sign-in link";
+  const text = `Sign in to Mutuals:\n${link}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;
   const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#2a2320">
-    <h1 style="font-size:22px;font-weight:500;color:#7a1f2b">Meet-Cute</h1>
+    <h1 style="font-size:22px;font-weight:500;color:#7a1f2b">Mutuals</h1>
     <p style="font-size:15px;line-height:1.6">Tap to sign in. This link expires in 15 minutes and can be used once.</p>
     <p style="margin:24px 0">
-      <a href="${encodeURI(link)}" style="background:#7a1f2b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">Sign in to Meet-Cute</a>
+      <a href="${encodeURI(link)}" style="background:#7a1f2b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">Sign in to Mutuals</a>
     </p>
     <p style="font-size:12px;color:#8a817c">If you did not request this, ignore this email.</p>
   </div>`;

@@ -179,7 +179,7 @@ async function alert(failed: Check[]) {
   if (ALERT_EMAIL) {
     await sendEmail({
       to: ALERT_EMAIL,
-      subject: `[Meet Cute watchdog] ${failed.map((c) => c.name).join(", ")} failing`,
+      subject: `[Mutuals watchdog] ${failed.map((c) => c.name).join(", ")} failing`,
       text: `Watchdog detected failures at ${new Date().toISOString()}:\n\n${body}\n\nApp: ${URL}`,
       html: `<p>Watchdog detected failures at ${new Date().toISOString()}:</p><pre>${body}</pre><p>App: ${URL}</p>`,
     }).catch(() => {});

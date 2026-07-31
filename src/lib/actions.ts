@@ -271,7 +271,7 @@ export async function requestReference(matchId: string, friendId: string) {
       matchId,
       requesterId: me,
       friendId,
-      prompt: `${meName} & ${otherName} just matched on Meet-Cute and you know them both. Any words?`,
+      prompt: `${meName} & ${otherName} just matched on Mutuals and you know them both. Any words?`,
       status: "requested",
     },
   });
@@ -478,10 +478,10 @@ export async function completeApplication(
     fieldErrors.birthdate = "Enter your date of birth.";
   } else {
     const age = Math.floor((Date.now() - birthdate.getTime()) / (365.25 * 24 * 3600 * 1000));
-    if (age < 18) fieldErrors.birthdate = "You must be 18 or older to join Meet-Cute.";
+    if (age < 18) fieldErrors.birthdate = "You must be 18 or older to join Mutuals.";
   }
   if (!agreed) fieldErrors.agree = "Please accept the Terms and Privacy Policy to continue.";
-  // Meet-Cute is vouched-for: every applicant names someone in the community.
+  // Mutuals is vouched-for: every applicant names someone in the community.
   if (!voucherName) fieldErrors.voucherName = "Name someone in the community who can vouch for you.";
   if (!voucherContact) fieldErrors.voucherContact = "Add their email or phone so we can reach them.";
 
@@ -1240,7 +1240,7 @@ export async function askForFeedback(formData: FormData) {
     { me: match.personB, other: match.personA, id: match.personBId },
   ];
   for (const { me, other, id } of sides) {
-    // Email is the baseline "how was your Meet-Cute?" channel; SMS only with consent.
+    // Email is the baseline "how was your date?" channel; SMS only with consent.
     if (me.email) {
       const msg = matchFeedbackEmail({ toName: me.name, otherName: other.name });
       jobs.push(queueEmailDelivery({
@@ -1315,7 +1315,7 @@ export async function remindToMeet(formData: FormData) {
       jobs.push(queueSmsDelivery({
         kind: "meet_reminder_sms",
         to: me.phone,
-        body: `Hi ${me.name.split(" ")[0]}, a nudge from Meet-Cute: you and ${other.name.split(" ")[0]} both said yes. Reply to your intro thread and find a time this week.`,
+        body: `Hi ${me.name.split(" ")[0]}, a nudge from Mutuals: you and ${other.name.split(" ")[0]} both said yes. Reply to your intro thread and find a time this week.`,
         idempotencyKey: makeDeliveryKey("meet-reminder-sms", matchId, id, window),
         matchId,
         personId: id,
@@ -1480,8 +1480,8 @@ export async function requestDinnerSeat(formData: FormData) {
 
   const dinner = dinnerId ? await prisma.dinner.findUnique({ where: { id: dinnerId } }) : null;
   const context = dinner
-    ? `${dinner.theme || "Meet-Cute Dinner"} - ${dinner.city}, ${dinner.date.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`
-    : "an upcoming Meet-Cute dinner";
+    ? `${dinner.theme || "Mutuals Dinner"} - ${dinner.city}, ${dinner.date.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`
+    : "an upcoming Mutuals dinner";
 
   // Signed-in member: record their interest on the guest list so it surfaces in
   // the operator's event view. The operator still confirms the actual seat.
