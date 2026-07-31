@@ -40,7 +40,13 @@ jobs:
       - run: npm run test:journey:email
       # Full production build gate: catch build-time breakage (bad imports, RSC
       # boundary errors, font/axes config) before we ship, not on the Fly builder.
+      # NEXT_PUBLIC_* is inlined at build time, so the artifact the browser
+      # checks run against has to be built knowing the URL it will be served on.
+      # Built without it, the app has no base URL and the operator invite path
+      # silently skips the sign-in link it is supposed to send.
       - run: npm run build
+        env:
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3009
       - run: npx playwright install --with-deps chromium
       - name: Run operator role browser checks
         run: |
@@ -61,8 +67,16 @@ jobs:
             fi
             sleep 1
           done
-          npm run test:launch:roles:e2e
-          npm run test:journey:application
+          # A browser check that fails on a server-side error leaves the only
+          # useful evidence in the server log, which used to be discarded with
+          # the runner. Print it on any failure.
+          dump_server_log() {
+            echo "----- server log (${1}) -----"
+            tail -200 /tmp/mutuals-role-server.log
+            echo "-----------------------------"
+          }
+          npm run test:launch:roles:e2e || { dump_server_log roles:e2e; exit 1; }
+          npm run test:journey:application || { dump_server_log journey:application; exit 1; }
 
   deploy:
     needs: ci
