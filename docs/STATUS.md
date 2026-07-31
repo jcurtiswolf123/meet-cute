@@ -2,7 +2,34 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-31 (the product is now called Mutuals, live in production)
+Last updated: 2026-07-31 (Mutuals live in production; Prelude wired as the
+no-registration SMS path, default provider still twilio)
+
+## 2026-07-31: Prelude wired as a third SMS provider
+
+Texting has been dead since the 10DLC campaign went to FAILED and every send
+started returning error 30034. Prelude is the way back: it lists the United
+States as **"No registration"**, so no brand, no campaign, no TCR.
+
+Shipped (Fly v146, both sjc machines healthy). `SMS_PROVIDER` is still unset in
+production, so the default remains twilio and this deploy changed no behavior.
+
+- **Account set up.** App "Mutuals", sender ID `Mutuals`, region US, four
+  transactional templates registered, company registration filed as Vanguard
+  Labs LLC. Key and template ids in `~/.gstack/credentials/prelude-api-key.txt`.
+- **Not a drop-in swap.** Prelude sends only pre-registered templates by id with
+  an exactly-matching variables map, and its inbound webhook is WhatsApp only.
+  There is no inbound SMS, so nobody can reply Y, N, or STOP by text. Under
+  prelude the invite copy links to the token-gated page instead, and decisions
+  keep arriving there or by email reply.
+- **Verified end to end.** With the live key and template id the API rejects only
+  on balance (402), not auth or template shape, and the code marks that
+  non-retryable. All 10 launch suites pass.
+- **Three things block a live text**: templates are still under review, the
+  balance is EUR 0.00, and opt-out is not wired because Prelude's subscription
+  management has to be enabled by their Customer Success team. Do not run real
+  traffic before that third one is on. Details and the exact secrets to flip:
+  `docs/SMS-PRELUDE.md`.
 
 ## 2026-07-31: renamed to Mutuals, and the browser checks are green again
 
