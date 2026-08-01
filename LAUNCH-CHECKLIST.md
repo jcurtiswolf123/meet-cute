@@ -4,7 +4,7 @@ Current status: LAUNCHED
 
 Last updated: 2026-07-23
 
-Live site: `https://hellomeetcute.com`
+Live site: `https://hellomutuals.com`
 
 Detailed evidence: `docs/LAUNCH-QA-2026-07-23.md`
 

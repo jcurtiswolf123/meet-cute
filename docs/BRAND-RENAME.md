@@ -16,7 +16,7 @@ below is a separate, ordered cutover.
 
 | Identifier | Where | Why it is held |
 | --- | --- | --- |
-| `hellomeetcute.com` | `fly.toml`, `next.config.mjs`, app URL fallbacks, member-facing contact addresses | Live domain. DNS, the Fly certificate, and the verified Resend sending domain all hang off it. |
+| ~~`hellomeetcute.com`~~ | `next.config.mjs` redirects only | **Done 2026-08-01.** Canonical host is now `hellomutuals.com`. The old apex and its www keep their Fly certificates and 308 to the new host, permanently: they are in sent email and on printed guides. |
 | `meetcutehq.com`, `www.*` | `next.config.mjs` redirects, Quick Start cover | Owned domains that redirect to the canonical host. |
 | `meet-cute.app` | `.env.example` sample `RESEND_FROM` | Not owned, never resolved. Left as-is only because the sample is already inert; the real sender is `hello@hellomeetcute.com`. |
 | `meet-cute` (Fly app) | `fly.toml` `app`, `fly ... -a meet-cute` in docs | Renaming the app in `fly.toml` makes `fly deploy` target an app that does not exist. |
@@ -56,12 +56,21 @@ resubmission, which is the cheaper path.
 
 Domain first, because everything else keys off it.
 
-1. **Domain.** Buy the Mutuals domain. Add the zone in Cloudflare, add it to the
-   Fly app (`fly certs add`), verify it as a Resend sending domain (DKIM, SPF,
-   MX, DMARC), then flip `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`,
-   `WATCHDOG_URL`, and `RESEND_FROM`. Keep `hellomeetcute.com` alive as a
-   redirect indefinitely: it is in sent email, in the A2P campaign, and on
-   printed guides.
+1. ~~**Domain.**~~ **Done 2026-08-01, live on Fly v151.** `hellomutuals.com` was
+   bought at Vercel, so the zone is on `ns1/ns2.vercel-dns.com` rather than
+   Cloudflare; the two older domains stay on Cloudflare. Apex and www A/AAAA
+   point at the `meet-cute` Fly ingress, `fly certs add` issued for both, the
+   domain is verified in Resend for sending (DKIM + SPF, plus a `p=none` DMARC
+   matching the old domain), and `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_URL`,
+   `RESEND_FROM`, and the `WATCHDOG_URL` repo variable are all flipped.
+   `hellomeetcute.com` stays alive as a redirect indefinitely: it is in sent
+   email, in the A2P campaign, and on printed guides.
+
+   `RESEND_INBOUND_DOMAIN` was deliberately not touched. Reply-by-email already
+   runs through `inbound.shiftsupportnetwork.com`, not the product domain, so
+   invites sitting in members' inboxes keep resolving and no receiving MX had to
+   move. Note that `hellomeetcute.com` reads `partially_failed` in Resend for
+   exactly that reason: its receiving MX record was never set.
 2. **Sentry.** Rename the project slug in the `riiva` org, then update
    `fly.toml`, `next.config.mjs`, and `watchdog.yml` together.
 3. **Fly app.** Fly cannot rename an app in place. Either keep `meet-cute` (it is

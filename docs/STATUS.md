@@ -2,8 +2,38 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-07-31 (Mutuals live in production; Prelude wired as the
-no-registration SMS path, default provider still twilio)
+Last updated: 2026-08-01 (canonical domain is now hellomutuals.com; Prelude
+still wired as the no-registration SMS path, default provider still twilio)
+
+## 2026-08-01: the address bar says Mutuals
+
+Shipped and verified live (Fly v151, both sjc machines healthy). The 7/31 rename
+changed every string but kept `hellomeetcute.com` as the address. That is closed.
+
+- **`hellomutuals.com` is the canonical host.** Bought at Vercel, so this one
+  zone lives on `ns1/ns2.vercel-dns.com` while the two older domains stay on
+  Cloudflare. Apex and www A/AAAA point at the `meet-cute` Fly ingress and both
+  hostnames have issued Let's Encrypt certificates.
+- **Five hosts 308 to it, path preserved**: `www.hellomutuals.com`,
+  `hellomeetcute.com`, `www.hellomeetcute.com`, `meetcutehq.com`, and
+  `www.meetcutehq.com`. The old certificates stay on the Fly app so each one
+  still terminates TLS before redirecting. Keep them forever: the old address is
+  in sent email, in the A2P campaign, and on printed guides.
+- **Email moved with it.** `hellomutuals.com` is verified in Resend for sending
+  (DKIM + SPF, plus a `p=none` DMARC matching the old domain), `RESEND_FROM` is
+  now `Mutuals <hello@hellomutuals.com>`, and a real send from that address was
+  confirmed `delivered`.
+- **`RESEND_INBOUND_DOMAIN` was deliberately left alone.** Reply-by-email runs
+  through `inbound.shiftsupportnetwork.com`, not the product domain, so invites
+  already in members' inboxes keep resolving and nothing had to be re-pointed.
+- **Two things to know.** Sessions are host-only cookies, so anyone logged in on
+  the old domain has to sign in again on the new one. And the 10DLC campaign,
+  still FAILED, now also disagrees with `/sms-opt-in`, which reads
+  `hellomutuals.com/apply`; both the brand name and that URL have to be updated
+  in TCR before it is resubmitted.
+- **Deployment identifiers are still meet-cute on purpose**: the Fly app, the
+  Sentry slug, the `meetcute` Postgres schema, the GitHub repo, and the local
+  checkout path. See `docs/BRAND-RENAME.md`.
 
 ## 2026-07-31: Prelude wired as a third SMS provider
 

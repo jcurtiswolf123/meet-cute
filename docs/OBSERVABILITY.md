@@ -48,7 +48,7 @@ The watchdog checks:
 The GitHub watchdog runs every 15 minutes. Configure:
 
 ```text
-WATCHDOG_URL=https://hellomeetcute.com
+WATCHDOG_URL=https://hellomutuals.com
 WATCHDOG_ALERT_EMAIL
 RESEND_API_KEY
 DATABASE_URL

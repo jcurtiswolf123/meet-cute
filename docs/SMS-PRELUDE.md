@@ -73,7 +73,7 @@ fly secrets set -a meet-cute \
   PRELUDE_TEMPLATE_INTRO_REMINDER=template_01kywrc9mdf61ahdavbeq2725y \
   PRELUDE_TEMPLATE_CONNECTED=template_01kywrc9mrf61b41gkrz3pa4c8 \
   PRELUDE_TEMPLATE_FEEDBACK_REQUEST=template_01kywrc9n7f619v1b4tkvr74tp \
-  PRELUDE_CALLBACK_URL=https://hellomeetcute.com/api/sms/prelude \
+  PRELUDE_CALLBACK_URL=https://hellomutuals.com/api/sms/prelude \
   PRELUDE_WEBHOOK_PUBLIC_KEY="$(cat prelude-webhook.pem)"
 ```
 

@@ -82,12 +82,12 @@ separate browser profile or incognito window.** One browser cannot hold three
 sessions, and signing in as the second account silently replaces the first.
 
 For a fully realistic run, have Jess request her own link at
-`https://hellomeetcute.com/studio/login` instead. That also tests magic-link
+`https://hellomutuals.com/studio/login` instead. That also tests magic-link
 delivery to a real Gmail account.
 
 ## The walkthrough
 
-**1. Jess signs into the Studio.** `https://hellomeetcute.com/studio`
+**1. Jess signs into the Studio.** `https://hellomutuals.com/studio`
 
 **2. She confirms both people are ready.** Directory, then each person. Status
 `active` and open to matching.
@@ -136,7 +136,7 @@ Then go back to step 3. Profiles persist, so setup is a one-time cost.
 - **Check the spam folder.** The invites are confirmed `delivered` at the
   provider, but Gmail has been filing them to Spam. The message itself scores
   9.3/10 on mail-tester with clean authentication; the open item is that
-  `hellomeetcute.com` publishes no MX record. See `docs/STATUS.md`.
+  `hellomutuals.com` publishes no MX record. See `docs/STATUS.md`.
 - **Email is the production channel.** SMS is not carrier-approved. Do not
   rehearse anything that depends on a text landing.
 - **Venue booking and calendar coordination are manual.** Nothing books a table.

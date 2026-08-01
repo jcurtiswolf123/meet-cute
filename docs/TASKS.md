@@ -15,7 +15,7 @@ _Lightweight backlog. Move items between sections as they progress._
 
 ## Done (2026-06-30 polish)
 - [x] Set prod Sentry env (Fly secrets) - verified all five secrets present
-- [x] Point Twilio Conversations onMessageAdded webhook at /api/sms/conversations - already wired to hellomeetcute.com, endpoint live + signature-guarded
+- [x] Point Twilio Conversations onMessageAdded webhook at /api/sms/conversations - already wired to hellomutuals.com, endpoint live + signature-guarded
 - [x] Health scoring: hours-level latency (ageShort + relativeAge); console shows relative last-activity ("3h ago")
 - [x] Operator bulk actions: bulkResendStalled + bulkCloseExpired on the console toolbar, shared thresholds (stalledWhere/expiredWhere); verified end to end
 - [x] Member feedback post-connection: surfaced kind:"feedback" notes on the conversation detail page + per-intro "Ask how it went" / "Resend invite" / "Close intro" quick actions

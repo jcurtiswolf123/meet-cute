@@ -2,7 +2,7 @@
 
 For Jess and other Mutuals operators. Last updated July 24, 2026.
 
-Live site: `https://hellomeetcute.com`
+Live site: `https://hellomutuals.com`
 
 ## The flow in one minute
 
@@ -22,15 +22,15 @@ Important current limitation: email is the reliable production channel. As of Ju
 
 | Purpose | Link |
 |---|---|
-| Operator sign-in | `https://hellomeetcute.com/studio/login` |
-| Operator Studio | `https://hellomeetcute.com/studio` |
-| Public member application | `https://hellomeetcute.com/apply` |
-| Member sign-in | `https://hellomeetcute.com/login` |
-| Member app | `https://hellomeetcute.com/app` |
+| Operator sign-in | `https://hellomutuals.com/studio/login` |
+| Operator Studio | `https://hellomutuals.com/studio` |
+| Public member application | `https://hellomutuals.com/apply` |
+| Member sign-in | `https://hellomutuals.com/login` |
+| Member app | `https://hellomutuals.com/app` |
 
 ## 1. Sign in to the Operator Studio
 
-1. Open `https://hellomeetcute.com/studio/login`.
+1. Open `https://hellomutuals.com/studio/login`.
 2. Enter your operator email. Jess should use `jesswolflord@gmail.com`.
 3. Open the email with the subject `Your Mutuals sign-in link`.
 4. Click the link within 15 minutes.
@@ -111,11 +111,11 @@ The normal invitation is the public application.
 
 Send the person:
 
-`https://hellomeetcute.com/apply`
+`https://hellomutuals.com/apply`
 
 Suggested message:
 
-> I would love to invite you to Mutuals. It is a curated matchmaking community in NYC and San Francisco. Start here: https://hellomeetcute.com/apply. You will receive a one-time email link, then the application takes a few minutes.
+> I would love to invite you to Mutuals. It is a curated matchmaking community in NYC and San Francisco. Start here: https://hellomutuals.com/apply. You will receive a one-time email link, then the application takes a few minutes.
 
 What happens next:
 
@@ -147,7 +147,7 @@ This creates or updates the person and marks them ready to match.
 
 The Add person action does not automatically send a welcome email or sign-in link. If you want the person to use the member app, send them:
 
-`https://hellomeetcute.com/login`
+`https://hellomutuals.com/login`
 
 They must use the same email that you entered. They can then request a one-time sign-in link and edit their profile.
 
@@ -167,7 +167,7 @@ Before matching someone, open their Directory profile and check:
 - There are no blocks, safety concerns, or conflicting notes.
 - You have reviewed their recent match history to avoid repeating or overlapping an introduction.
 
-If the person does not appear in the Matchmaking picker, they are usually not marked ready. Ask them to sign in at `https://hellomeetcute.com/login`, open Home, and click `Opt in to get matched`.
+If the person does not appear in the Matchmaking picker, they are usually not marked ready. Ask them to sign in at `https://hellomutuals.com/login`, open Home, and click `Opt in to get matched`.
 
 ## 6. Choose and send a match
 
@@ -282,7 +282,7 @@ Only a super admin can do this.
 
 If the invitation email succeeds, the new operator receives a magic sign-in link. If the account is added but the email fails, ask the operator to visit:
 
-`https://hellomeetcute.com/studio/login`
+`https://hellomutuals.com/studio/login`
 
 They should enter the exact email used in Team.
 

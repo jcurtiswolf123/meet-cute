@@ -1,6 +1,6 @@
 # Mutuals Quick Start
 
-Live app: `https://hellomeetcute.com`
+Live app: `https://hellomutuals.com`
 
 Mutuals is a curated matchmaking service. Members use passwordless magic-link
 sign-in. Operators review applicants and create one introduction at a time.

@@ -1,6 +1,6 @@
 # Mutuals Deployment Guide
 
-Production runs on Fly.io at `https://hellomeetcute.com`. The application uses
+Production runs on Fly.io at `https://hellomutuals.com`. The application uses
 Neon PostgreSQL and a standalone Next.js Docker image.
 
 Launch status: LIVE as of 2026-07-23.
@@ -36,7 +36,7 @@ The watchdog also uses:
 - Optional `OPENAI_API_KEY` for guarded autofix pull requests
 
 Set the `WATCHDOG_URL` repository variable to
-`https://hellomeetcute.com`. Inspect names only when auditing configuration.
+`https://hellomutuals.com`. Inspect names only when auditing configuration.
 Never print secret values.
 
 ## Automated release path
@@ -127,10 +127,10 @@ verified backup only if a reviewed forward repair is unsafe.
 
 ```bash
 fly status -a meet-cute
-curl -fsS https://hellomeetcute.com/healthz
-curl -fsS https://hellomeetcute.com/readyz
-curl -fsSI https://hellomeetcute.com/
-curl -fsSI https://hellomeetcute.com/apply
+curl -fsS https://hellomutuals.com/healthz
+curl -fsS https://hellomutuals.com/readyz
+curl -fsSI https://hellomutuals.com/
+curl -fsSI https://hellomutuals.com/apply
 ```
 
 Then verify desktop and mobile browser behavior, no console errors, protected

@@ -2,10 +2,10 @@
 
 Last updated 2026-07-23.
 
-- Live app: `https://hellomeetcute.com`
+- Live app: `https://hellomutuals.com`
 - Repository: `https://github.com/jcurtiswolf123/meet-cute`
-- Operator studio: `https://hellomeetcute.com/studio`
-- Public application: `https://hellomeetcute.com/apply`
+- Operator studio: `https://hellomutuals.com/studio`
+- Public application: `https://hellomutuals.com/apply`
 
 ## Product
 

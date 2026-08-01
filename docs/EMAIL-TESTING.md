@@ -61,10 +61,10 @@ cd ~/Projects/meet-cute
 MUTUALS_LIVE_E2E=i-understand-this-writes-to-production \
 LIVE_E2E_TO="you@gmail.com,you@outlook.com" \
 RESEND_API_KEY="$(fly secrets list -a meet-cute >/dev/null; echo YOUR_KEY)" \
-RESEND_FROM="Mutuals <hello@hellomeetcute.com>" \
+RESEND_FROM="Mutuals <hello@hellomutuals.com>" \
 RESEND_REPLY_TO="josh@shiftsupportnetwork.com" \
 RESEND_INBOUND_DOMAIN=inbound.shiftsupportnetwork.com \
-NEXT_PUBLIC_APP_URL=https://hellomeetcute.com \
+NEXT_PUBLIC_APP_URL=https://hellomutuals.com \
 node --env-file=.env --import tsx scripts/live-reply-e2e.ts setup
 ```
 
@@ -157,7 +157,7 @@ pw = open(os.path.expanduser("~/.gstack/credentials/shift-josh-gmail-app-passwor
 M = imaplib.IMAP4_SSL("imap.gmail.com"); M.login("josh@shiftsupportnetwork.com", pw)
 for box in ["INBOX", '"[Gmail]/Spam"']:
     M.select(box)
-    print(box, len(M.search(None, '(FROM "hellomeetcute.com")')[1][0].split()))
+    print(box, len(M.search(None, '(FROM "hellomutuals.com")')[1][0].split()))
 ```
 
 **Score the message.** Get an address from https://www.mail-tester.com, put it
@@ -171,7 +171,7 @@ formatting, blocklists, and links all clean. The only real deduction was
 14 to 28 days. That is domain age and it ages out on its own.
 
 So when invites file to Spam at Gmail, the cause is not the message. The open
-structural item is that **hellomeetcute.com publishes no MX record**, so the
+structural item is that **hellomutuals.com publishes no MX record**, so the
 From domain cannot receive mail. See `docs/STATUS.md` for the exact record and
 the Cloudflare blocker.
 

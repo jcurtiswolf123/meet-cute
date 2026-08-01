@@ -14,7 +14,8 @@ Premium matchmaking with public applications, a member app, and an operator stud
 ## Stack and key paths
 - Language / framework: TypeScript/Node (Next.js, Tailwind, LLM)
 - Entry point: src/app/ (Next.js App Router)
-- Deploy target / live URL: Fly.io at https://hellomeetcute.com
+- Deploy target / live URL: Fly.io at https://hellomutuals.com
+  (`hellomeetcute.com` and `meetcutehq.com` still resolve and 308 there)
 - Important dirs/files: src, scripts, docs, public, prisma
 
 ## How to run

@@ -4,7 +4,7 @@ Last updated 2026-07-23.
 
 ## Members
 
-1. Visit `https://hellomeetcute.com/apply`.
+1. Visit `https://hellomutuals.com/apply`.
 2. Enter an email and use the single-use sign-in link.
 3. Complete the application and adult, legal, and optional SMS-consent steps.
 4. Wait for an operator to activate the account.
