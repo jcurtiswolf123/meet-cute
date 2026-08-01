@@ -24,6 +24,9 @@ const ROOT = process.cwd();
 const OUT_DIR = join(ROOT, ".watchdog");
 const INTERVAL_MS = Number(process.env.WATCHDOG_INTERVAL_MS) || 5 * 60 * 1000;
 const URL = (process.env.WATCHDOG_URL || "https://hellomeetcute.com").replace(/\/$/, "");
+/** How far back a permanently-failed delivery still counts as an active alarm. */
+const RECENT_FAILURE_WINDOW_MS =
+  Number(process.env.WATCHDOG_FAILURE_WINDOW_MS) || 24 * 60 * 60 * 1000;
 const BUILD_EVERY = Number(process.env.WATCHDOG_BUILD_EVERY) || 12; // ~hourly at 5m
 const SKIP_BUILD = process.env.WATCHDOG_SKIP_BUILD === "1";
 const ALERT_EMAIL = process.env.WATCHDOG_ALERT_EMAIL || process.env.RESEND_REPLY_TO || "";
@@ -153,8 +156,15 @@ async function checkDeliveryQueue(): Promise<Check> {
   }
   try {
     const { prisma } = await import("../src/lib/prisma");
-    const [failed, staleProcessing] = await Promise.all([
-      prisma.deliveryJob.count({ where: { status: "failed" } }),
+    // Only recent failures are actionable. Counting every failure ever recorded
+    // means one permanently-failed job pins this red until a human goes and
+    // deletes the row, and an alarm that is always on is an alarm nobody reads.
+    // A QA send that failed on 2026-07-24 alerted every 15 minutes for a week
+    // and taught exactly that lesson.
+    const since = new Date(Date.now() - RECENT_FAILURE_WINDOW_MS);
+    const [failed, olderFailed, staleProcessing] = await Promise.all([
+      prisma.deliveryJob.count({ where: { status: "failed", updatedAt: { gte: since } } }),
+      prisma.deliveryJob.count({ where: { status: "failed", updatedAt: { lt: since } } }),
       prisma.deliveryJob.count({
         where: {
           status: "processing",
@@ -163,10 +173,11 @@ async function checkDeliveryQueue(): Promise<Check> {
       }),
     ]);
     const ok = failed === 0 && staleProcessing === 0;
+    const olderNote = olderFailed > 0 ? `, ${olderFailed} older (not alerting)` : "";
     return {
       name: "delivery",
       ok,
-      detail: `${failed} permanently failed, ${staleProcessing} stale processing`,
+      detail: `${failed} failed in the last ${RECENT_FAILURE_WINDOW_MS / 3_600_000}h${olderNote}, ${staleProcessing} stale processing`,
     };
   } catch (e) {
     return { name: "delivery", ok: false, detail: `queue check error: ${(e as Error).message}` };
