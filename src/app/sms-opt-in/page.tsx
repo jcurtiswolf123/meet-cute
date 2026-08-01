@@ -44,7 +44,7 @@ export default function SmsOptIn() {
           <p>
             Every member applies at{" "}
             <Link href="/apply" className="text-claret underline">
-              hellomeetcute.com/apply
+              hellomutuals.com/apply
             </Link>
             . The application asks for an email address first and sends a one-time sign-in link, so
             the form itself sits behind sign-in. The block below is that form&apos;s consent step,

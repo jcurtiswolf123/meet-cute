@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 // opt-out signal on this provider at all. That is a compliance gate, not a
 // nice-to-have: see docs/SMS-PRELUDE.md.
 //
-//   POST https://hellomeetcute.com/api/sms/prelude
+//   POST https://hellomutuals.com/api/sms/prelude
 //
 // Unlike Twilio and Telnyx this endpoint never carries an inbound member reply.
 // Prelude's inbound events are WhatsApp only, and we do not run WhatsApp, so a

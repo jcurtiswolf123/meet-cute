@@ -652,7 +652,7 @@ export async function setMemberStatus(formData: FormData) {
   // approval. Best-effort - the status change already committed.
   if (change.action === "approve" && change.email) {
     try {
-      const base = (process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com").replace(/\/$/, "");
+      const base = (process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "");
       const msg = applicationApprovedEmail({ name: change.name, appUrl: `${base}/app` });
       await queueEmailDelivery({
         kind: "application_approved",
@@ -1266,7 +1266,7 @@ export async function askForFeedback(formData: FormData) {
           operatorName: op.name,
           // Prelude cannot receive a reply, so the text has to point somewhere.
           // The member app is the one page every member can already reach.
-          feedbackUrl: `${(process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com").replace(/\/$/, "")}/app`,
+          feedbackUrl: `${(process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "")}/app`,
         }),
         idempotencyKey: makeDeliveryKey("feedback", matchId, id, window),
         matchId,

@@ -44,7 +44,7 @@ export default async function Dinners({
         {sp?.error && (
           <div className="mt-8 rounded-lg border border-claret/30 bg-claret/5 px-5 py-4 text-sm text-claret">
             {sp.error === "send"
-              ? "We could not record your request just now. Please try again, or email hello@hellomeetcute.com and we will hold a seat."
+              ? "We could not record your request just now. Please try again, or email hello@hellomutuals.com and we will hold a seat."
               : "We need your name and email to hold a seat. Please try again."}
           </div>
         )}

@@ -27,7 +27,7 @@ type Case = {
 const GMAIL_QUOTE =
   "On Mon, Jul 27, 2026 at 9:02 AM Mutuals <r+tok@inbound.shiftsupportnetwork.com> wrote:\n" +
   "> We think you two should meet. Reply Y to say yes, N to pass.\n" +
-  "> View her profile: https://hellomeetcute.com/i/tok\n";
+  "> View her profile: https://hellomutuals.com/i/tok\n";
 
 const cases: Case[] = [
   // --- plain affirmatives -------------------------------------------------

@@ -22,7 +22,7 @@ primary_region = "sjc"
 
 [env]
   NODE_ENV = "production"
-  NEXT_PUBLIC_SITE_URL = "https://hellomeetcute.com"
+  NEXT_PUBLIC_SITE_URL = "https://hellomutuals.com"
 
 # Legacy meetcute_data volume, one per machine. No longer read (DB is on Neon),
 # but kept mounted so the config matches the live machines. Fly has no zero-

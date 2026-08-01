@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   // production, so a fly.dev fallback is what shipped, and every link shared to
   // a chat app pulled its preview image from meet-cute.fly.dev.
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com",
+    process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com",
   ),
   title: {
     default: "Mutuals - private matchmaking",

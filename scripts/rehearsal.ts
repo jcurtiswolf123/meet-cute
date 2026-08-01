@@ -25,7 +25,7 @@ import { createLoginToken, normalizeEmail } from "../src/lib/auth";
 const OPERATOR = normalizeEmail(process.env.REHEARSAL_OPERATOR || "jesswolflord@gmail.com");
 const MEMBER_A = normalizeEmail(process.env.REHEARSAL_A || "jessicaraquelwolf@gmail.com");
 const MEMBER_B = normalizeEmail(process.env.REHEARSAL_B || "admin@shiftsupportnetwork.com");
-const BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com").replace(/\/$/, "");
+const BASE = (process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "");
 
 const confirmed = process.argv.includes("--yes");
 

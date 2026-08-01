@@ -29,7 +29,7 @@ function signBody(body: string): string {
 function request(body: string, signature: string | null): NextRequest {
   const headers = new Headers({ "Content-Type": "application/json" });
   if (signature) headers.set("x-webhook-signature", signature);
-  return new NextRequest("https://hellomeetcute.com/api/sms/prelude", {
+  return new NextRequest("https://hellomutuals.com/api/sms/prelude", {
     method: "POST",
     headers,
     body,

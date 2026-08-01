@@ -62,12 +62,12 @@ function main() {
   // 2. Application approved (operator approves -> "you're in").
   const approved = applicationApprovedEmail({
     name: "Alex Chen",
-    appUrl: "https://hellomeetcute.com/apply",
+    appUrl: "https://hellomutuals.com/apply",
   });
   assertWellFormed("applicationApproved", approved);
   assertOnBrand("applicationApproved", approved);
   assert.match(approved.subject, /welcome|in\b/i);
-  assert.match(approved.html, /hellomeetcute\.com\/apply/);
+  assert.match(approved.html, /hellomutuals\.com\/apply/);
   assert.match(approved.html, /Round out your profile/);
 
   // 3. Match reminder ("reminder to meet").
@@ -128,16 +128,16 @@ function main() {
       recommendation: "Alex is the most curious person I know.",
       voucherName: "Priya N.",
       prompts: [{ question: "A perfect Sunday", answer: "Greenmarket, then nothing." }],
-      photoUrl: "https://hellomeetcute.com/api/invite/tok/photo/p1.webp",
+      photoUrl: "https://hellomutuals.com/api/invite/tok/photo/p1.webp",
     },
     matchmakerNote: "You both moved from Chicago last year.",
-    profileUrl: "https://hellomeetcute.com/i/tok",
+    profileUrl: "https://hellomutuals.com/i/tok",
   });
   assertWellFormed("matchInvite", invite);
   assertOnBrand("matchInvite", invite);
   assert.match(invite.subject, /introduction to Alex/i);
   assert.match(invite.text, /reply Y/i);
-  assert.match(invite.html, /hellomeetcute\.com\/i\/tok/);
+  assert.match(invite.html, /hellomutuals\.com\/i\/tok/);
   // The profile travels in the email itself, in the member's own words.
   for (const own of ["I draw buildings all day", "Someone who argues about food", "A perfect Sunday", "most curious person I know"]) {
     assert.ok(invite.html.includes(own.replace(/'/g, "&#39;")), `matchInvite html is missing "${own}"`);
@@ -171,7 +171,7 @@ function main() {
     city: "NYC",
     venue: "Le Coucou",
     when: "Thursday, March 12 at 7pm",
-    link: "https://hellomeetcute.com/dinners",
+    link: "https://hellomutuals.com/dinners",
   });
   assertWellFormed("eventInvite", event);
   assertOnBrand("eventInvite", event);
@@ -180,7 +180,7 @@ function main() {
   // HTML-injection guard: a hostile display name must not break out into markup.
   const hostile = applicationApprovedEmail({
     name: '<script>alert(1)</script>',
-    appUrl: "https://hellomeetcute.com/apply",
+    appUrl: "https://hellomutuals.com/apply",
   });
   assert.ok(!hostile.html.includes("<script>alert(1)</script>"), "approved: unescaped name");
 
@@ -204,7 +204,7 @@ function main() {
       prompts: [{ question: attack, answer: attack }],
     },
     matchmakerNote: attack,
-    profileUrl: "https://hellomeetcute.com/i/tok3n",
+    profileUrl: "https://hellomutuals.com/i/tok3n",
   });
   assert.ok(!hostileInvite.html.includes(attack), "invite: unescaped member field");
   // The escaped text legitimately still contains the characters "onerror=", so
@@ -228,7 +228,7 @@ function main() {
     bareAddress("Mutuals <r+tok3n@inbound.shiftsupportnetwork.com>"),
     "r+tok3n@inbound.shiftsupportnetwork.com",
   );
-  assert.equal(bareAddress("hello@hellomeetcute.com"), "hello@hellomeetcute.com");
+  assert.equal(bareAddress("hello@hellomutuals.com"), "hello@hellomutuals.com");
   assert.equal(bareAddress("  spaced@example.com  "), "spaced@example.com");
   assert.doesNotMatch(
     `<mailto:${bareAddress("Mutuals <r+tok3n@example.com>")}>`,

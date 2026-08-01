@@ -39,13 +39,13 @@ async function main() {
   process.env.SMS_PROVIDER = "prelude";
   process.env.PRELUDE_API_KEY = "sk_pipeline_test";
   process.env.PRELUDE_TEMPLATE_INTRO_INVITE = TEMPLATE_ID;
-  process.env.PRELUDE_CALLBACK_URL = "https://hellomeetcute.com/api/sms/prelude";
+  process.env.PRELUDE_CALLBACK_URL = "https://hellomutuals.com/api/sms/prelude";
 
   // makeDeliveryKey truncates its first part to 48 chars when building the key,
   // so a long prefix stops matching idempotencyPrefix. Keep it short.
   const prefix = `plp-${randomUUID().slice(0, 8)}`;
   const phone = "+16465550188";
-  const profileUrl = "https://hellomeetcute.com/i/pipelinetoken";
+  const profileUrl = "https://hellomutuals.com/i/pipelinetoken";
 
   // Capture what the app would put on the wire, without putting it there.
   const realFetch = globalThis.fetch;
@@ -89,7 +89,7 @@ async function main() {
     assert.equal(req.body.to, phone, "must address the member's E.164 number");
     assert.equal(
       req.body.callback_url,
-      "https://hellomeetcute.com/api/sms/prelude",
+      "https://hellomutuals.com/api/sms/prelude",
       "delivery events must be routed back to our webhook",
     );
     assert.deepEqual(

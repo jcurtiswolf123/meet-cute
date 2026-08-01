@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 // person's pending introduction, and connect them when both have said yes.
 //
 // Configure Twilio: Messaging > the number > "A message comes in" ->
-//   POST  https://hellomeetcute.com/api/sms/inbound
+//   POST  https://hellomutuals.com/api/sms/inbound
 //
 // Replies are returned as TwiML; the actual confirmation/connection texts are
 // sent out-of-band via the REST API so we fully control wording and timing.

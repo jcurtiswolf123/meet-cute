@@ -23,7 +23,7 @@ import { sendEmail } from "../src/lib/email";
 const ROOT = process.cwd();
 const OUT_DIR = join(ROOT, ".watchdog");
 const INTERVAL_MS = Number(process.env.WATCHDOG_INTERVAL_MS) || 5 * 60 * 1000;
-const URL = (process.env.WATCHDOG_URL || "https://hellomeetcute.com").replace(/\/$/, "");
+const URL = (process.env.WATCHDOG_URL || "https://hellomutuals.com").replace(/\/$/, "");
 /** How far back a permanently-failed delivery still counts as an active alarm. */
 const RECENT_FAILURE_WINDOW_MS =
   Number(process.env.WATCHDOG_FAILURE_WINDOW_MS) || 24 * 60 * 60 * 1000;

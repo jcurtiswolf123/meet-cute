@@ -41,7 +41,7 @@ export default async function Coaching({
         {sp?.error && (
           <div className="mt-8 rounded-lg border border-claret/30 bg-claret/5 px-5 py-4 text-sm text-claret">
             {sp.error === "send"
-              ? "We could not record your request just now. Please try again, or email hello@hellomeetcute.com and we will pick it up from there."
+              ? "We could not record your request just now. Please try again, or email hello@hellomutuals.com and we will pick it up from there."
               : "We need your name and email to follow up. Please try again."}
           </div>
         )}

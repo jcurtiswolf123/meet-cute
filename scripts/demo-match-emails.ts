@@ -17,7 +17,7 @@ if (!["127.0.0.1", "localhost"].includes(new URL(url).hostname)) {
   throw new Error("Refusing to run: DATABASE_URL is not a local database.");
 }
 process.env.RESEND_API_KEY = process.env.RESEND_API_KEY || "demo-key";
-process.env.NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com";
+process.env.NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com";
 
 async function main() {
   const { prisma } = await import("../src/lib/prisma");

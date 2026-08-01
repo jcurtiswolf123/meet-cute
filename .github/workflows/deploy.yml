@@ -109,6 +109,6 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       - name: Verify production canary
         run: |
-          curl --fail --silent --show-error --retry 5 --retry-delay 3 https://hellomeetcute.com/healthz
-          curl --fail --silent --show-error --retry 5 --retry-delay 3 https://hellomeetcute.com/readyz
-          curl --fail --silent --show-error --retry 5 --retry-delay 3 https://hellomeetcute.com/ > /dev/null
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 https://hellomutuals.com/healthz
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 https://hellomutuals.com/readyz
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 https://hellomutuals.com/ > /dev/null

@@ -34,7 +34,7 @@ export function inviteIsExpired(createdAt: Date, now: number = Date.now()): bool
 
 /** Public origin for building invite links. Falls back to the production host. */
 function appBaseUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL || "https://hellomeetcute.com").replace(/\/$/, "");
+  return (process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "");
 }
 
 /** Token-gated page that shows the OTHER person's profile with Yes/Pass buttons. */
