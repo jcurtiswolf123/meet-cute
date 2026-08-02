@@ -6,44 +6,88 @@ import { reportPerson, blockPerson } from "@/lib/actions";
 // Compact report/block menu shown next to a member you are matched with.
 export function SafetyControls({ subjectId, name }: { subjectId: string; name: string }) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"menu" | "report">("menu");
+  const [mode, setMode] = useState<"menu" | "report" | "block">("menu");
 
   return (
     <details
       open={open}
       onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
-      className="relative"
+      className="relative shrink-0"
     >
-      <summary className="cursor-pointer list-none rounded-full px-2 py-1 text-muted hover:bg-paper" aria-label="Safety options">
+      <summary
+        className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-full text-muted hover:bg-paper hover:text-ink"
+        aria-label={`Safety options for ${name}`}
+      >
         &#8943;
       </summary>
-      <div className="absolute right-0 z-10 mt-1 w-64 rounded-xl border border-line bg-panel p-3 text-sm shadow-card">
-        {mode === "menu" ? (
-          <div className="space-y-2">
-            <button onClick={() => setMode("report")} className="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-paper">
+      <div className="absolute right-0 z-10 mt-1 w-72 rounded-xl border border-line bg-panel p-3 text-sm shadow-card">
+        {mode === "menu" && (
+          <div className="space-y-1">
+            <button
+              onClick={() => setMode("report")}
+              className="block min-h-11 w-full rounded-lg px-2 text-left hover:bg-paper"
+            >
               Report {name}
             </button>
-            <form action={blockPerson}>
-              <input type="hidden" name="subjectId" value={subjectId} />
-              <button className="block w-full rounded-lg px-2 py-1.5 text-left text-claret hover:bg-paper">
+            <button
+              onClick={() => setMode("block")}
+              className="block min-h-11 w-full rounded-lg px-2 text-left text-claret hover:bg-paper"
+            >
+              Block {name}
+            </button>
+          </div>
+        )}
+
+        {/* Blocking closes the match and hides you from each other, and nothing
+            in the member app undoes it. It used to submit on the first click. */}
+        {mode === "block" && (
+          <form action={blockPerson} className="space-y-3">
+            <input type="hidden" name="subjectId" value={subjectId} />
+            <p className="text-sm">
+              Block {name}? This closes your match and you will not see each other again. A
+              matchmaker can help if you change your mind.
+            </p>
+            <div className="flex gap-2">
+              <button className="min-h-11 rounded-full bg-claret px-4 text-xs font-medium text-white">
                 Block {name}
               </button>
-            </form>
-          </div>
-        ) : (
+              <button
+                type="button"
+                onClick={() => setMode("menu")}
+                className="min-h-11 rounded-full border border-line px-4 text-xs"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {mode === "report" && (
           <form action={reportPerson} className="space-y-2">
             <input type="hidden" name="subjectId" value={subjectId} />
-            <select name="reason" className="field" defaultValue="harassment">
+            <label htmlFor="report-reason" className="label">
+              Reason
+            </label>
+            <select id="report-reason" name="reason" className="field" defaultValue="harassment">
               <option value="harassment">Harassment</option>
               <option value="fake">Fake profile</option>
               <option value="inappropriate">Inappropriate content</option>
               <option value="safety">Safety concern</option>
               <option value="other">Other</option>
             </select>
-            <textarea name="detail" placeholder="What happened? (optional)" className="field min-h-20" />
+            <label htmlFor="report-detail" className="label">
+              What happened? (optional)
+            </label>
+            <textarea id="report-detail" name="detail" className="field min-h-20" />
             <div className="flex gap-2">
-              <button className="rounded-full bg-claret px-3 py-1 text-xs font-medium text-white">Submit report</button>
-              <button type="button" onClick={() => setMode("menu")} className="rounded-full border border-line px-3 py-1 text-xs">
+              <button className="min-h-11 rounded-full bg-claret px-4 text-xs font-medium text-white">
+                Submit report
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("menu")}
+                className="min-h-11 rounded-full border border-line px-4 text-xs"
+              >
                 Cancel
               </button>
             </div>

@@ -4,6 +4,7 @@ import { requireMemberPage } from "@/lib/page-auth";
 import { prisma } from "@/lib/prisma";
 import { isConnectedTo, vouchesFor, mutualFriends } from "@/lib/social";
 import { Avatar } from "@/components/ui";
+import { SafetyControls } from "@/components/SafetyControls";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,11 @@ export default async function ConnectionDetail({ params }: { params: Promise<{ i
             <p className="mt-2 font-display text-lg text-claret">{person.headline}</p>
           )}
         </div>
+        {/* reportPerson and blockPerson were fully implemented and authorized
+            server-side, and SafetyControls was written, but nothing ever
+            rendered it: a member had no way to report or block anyone from
+            inside the product. This is the screen where they would look. */}
+        <SafetyControls subjectId={person.id} name={person.name.split(" ")[0]} />
       </div>
 
       {person.bio && (
