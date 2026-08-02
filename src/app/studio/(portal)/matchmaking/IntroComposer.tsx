@@ -25,6 +25,8 @@ function channelsFor(p: Person): string {
 export function IntroComposer({
   people,
   lockedAId,
+  returnTo,
+  notice,
   title = "New introduction",
   intro = "Pick two approved people who are ready to match. Each one gets the other's profile by email, in that person's own words. A text nudge is added only for people who separately opted in to SMS.",
 }: {
@@ -34,6 +36,11 @@ export function IntroComposer({
   // operator can match someone with anyone on the roster, not just the ranked
   // suggestions.
   lockedAId?: string;
+  // The studio path this composer lives on. The action redirects back here with
+  // the outcome, so a refused introduction reports itself in place instead of
+  // throwing the operator onto the generic error page.
+  returnTo: string;
+  notice?: string;
   title?: string;
   intro?: string;
 }) {
@@ -56,6 +63,15 @@ export function IntroComposer({
       <h2 className="font-sans tracking-[-0.012em] text-lg font-medium">{title}</h2>
       <p className="mt-1 text-sm text-muted">{intro}</p>
 
+      {notice && (
+        <p
+          role="status"
+          className="mt-3 rounded-lg border border-studio-line bg-studio-subtle px-3 py-2 text-sm text-ink"
+        >
+          {notice}
+        </p>
+      )}
+
       <form
         action={createIntroduction}
         className="mt-4 grid gap-3 sm:grid-cols-2"
@@ -67,6 +83,7 @@ export function IntroComposer({
           }
         }}
       >
+        <input type="hidden" name="returnTo" value={returnTo} />
         {locked ? (
           <div className="block">
             <span className="label">First person</span>

@@ -7,6 +7,8 @@ import {
   hasOperatorAccess,
   hasSuperAdminAccess,
 } from "../src/lib/auth";
+import { LIVE_INTRO_STAGES, introReturnPath } from "../src/lib/introductions";
+import { introNotice } from "../src/app/studio/(portal)/matchmaking/intro-notice";
 
 assert.equal(uploadStorageMode({ production: true, blobToken: "" }), "database");
 assert.equal(uploadStorageMode({ production: true, blobToken: "configured" }), "blob");
@@ -49,5 +51,51 @@ assert.equal(
   ),
   false,
 );
+
+// Regression: an operator standing on a person profile sent an introduction to
+// someone that person already had a match row with, and got the generic
+// "Something went sideways." page four times (Sentry 7648555016, actions.ts:1045).
+// Two defects, both covered here.
+
+// 1. Only a LIVE invitation blocks a new introduction. "suggested" is the stage
+//    BEFORE an introduction and has emailed nobody, so treating it as open made
+//    every pair the Status board or the co-pilot had ever suggested permanently
+//    un-introducible. "exit" and "connected" are finished and can be re-opened.
+assert.equal(LIVE_INTRO_STAGES.includes("invited"), true);
+assert.equal(LIVE_INTRO_STAGES.includes("mutual_yes"), true);
+assert.equal(LIVE_INTRO_STAGES.includes("connecting"), true);
+assert.equal(LIVE_INTRO_STAGES.includes("suggested"), false);
+assert.equal(LIVE_INTRO_STAGES.includes("exit"), false);
+assert.equal(LIVE_INTRO_STAGES.includes("connected"), false);
+
+// 2. Every outcome has operator-readable copy, so no refusal can reach the error
+//    boundary unexplained. Each code the action can emit must resolve.
+for (const code of [
+  "sent",
+  "pick-two",
+  "same-person",
+  "missing-person",
+  "not-approved",
+  "no-channel",
+  "already-open",
+  "blocked",
+]) {
+  assert.ok(introNotice(code), `no operator copy for intro outcome "${code}"`);
+}
+assert.equal(introNotice(undefined), undefined);
+assert.equal(introNotice("not-a-real-code"), undefined);
+
+// The redirect target comes from a hidden form field, so it must never leave the
+// studio. Absolute and protocol-relative values fall back rather than redirect.
+assert.equal(introReturnPath("/studio"), "/studio");
+assert.equal(introReturnPath("/studio/matchmaking"), "/studio/matchmaking");
+assert.equal(introReturnPath("/studio/person/abc123"), "/studio/person/abc123");
+assert.equal(introReturnPath("https://evil.example/studio"), "/studio");
+assert.equal(introReturnPath("//evil.example"), "/studio");
+assert.equal(introReturnPath("/studio/../../app"), "/studio");
+assert.equal(introReturnPath("/app"), "/studio");
+assert.equal(introReturnPath(""), "/studio");
+assert.equal(introReturnPath(undefined), "/studio");
+assert.equal(introReturnPath(null), "/studio");
 
 console.log("launch pure checks passed");

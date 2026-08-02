@@ -9,6 +9,7 @@ import {
   setIntroFollowUp,
 } from "@/lib/actions";
 import { IntroComposer } from "./IntroComposer";
+import { introNotice } from "./intro-notice";
 import { ConfirmActionForm } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,11 @@ function statusFor(m: { stage: string; aDecision: string; bDecision: string; per
   return { label: "Awaiting both", tone: "bg-champagne/20 text-ink border-champagne/40" };
 }
 
-export default async function Matchmaking() {
+export default async function Matchmaking({
+  searchParams,
+}: {
+  searchParams?: Promise<{ intro?: string }>;
+}) {
   await requireOperatorPage();
 
   const [people, intros] = await Promise.all([
@@ -94,7 +99,11 @@ export default async function Matchmaking() {
         ))}
       </div>
 
-      <IntroComposer people={composerPeople} />
+      <IntroComposer
+        people={composerPeople}
+        returnTo="/studio/matchmaking"
+        notice={introNotice((await searchParams)?.intro)}
+      />
 
       {/* Quick-add a person. Stays open (a server-action submit re-renders and
           would otherwise re-collapse it, re-charging the expand click each add). */}

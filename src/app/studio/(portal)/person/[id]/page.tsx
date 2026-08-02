@@ -8,6 +8,7 @@ import { connectionsOf, vouchesFor } from "@/lib/social";
 import { Avatar, StageBadge } from "@/components/ui";
 import { SubmitButton } from "@/components/forms";
 import { IntroComposer } from "../../matchmaking/IntroComposer";
+import { introNotice } from "../../matchmaking/intro-notice";
 
 export const dynamic = "force-dynamic";
 
@@ -22,11 +23,12 @@ export default async function PersonPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ suggest?: string }>;
+  searchParams?: Promise<{ suggest?: string; intro?: string }>;
 }) {
   await requireOperatorPage();
   const { id } = await params;
-  const suggestNotice = SUGGEST_MESSAGE[(await searchParams)?.suggest ?? ""];
+  const sp = await searchParams;
+  const suggestNotice = SUGGEST_MESSAGE[sp?.suggest ?? ""];
   const p = await prisma.person.findUnique({
     where: { id },
     include: {
@@ -175,6 +177,8 @@ export default async function PersonPage({
                 <IntroComposer
                   people={composerPeople}
                   lockedAId={id}
+                  returnTo={`/studio/person/${id}`}
+                  notice={introNotice(sp?.intro)}
                   title={`Introduce ${p.name.split(" ")[0]} to anyone on the list`}
                   intro="Search the full list, not just the ranked suggestions. Both people get a private invite and are only connected after they both say yes."
                 />

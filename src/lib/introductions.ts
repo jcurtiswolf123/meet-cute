@@ -274,6 +274,30 @@ const DAY = 24 * 3600 * 1000;
 export const STALLED_DAYS = 3; // no reply for this long -> offer a resend
 export const EXPIRED_DAYS = 14; // no reply for this long -> offer to close
 
+/** Stages where an invitation is already out and awaiting an answer. These are
+ *  the only ones that block a new introduction for the same pair: re-sending
+ *  rotates the invite token and would strand the email that person is holding.
+ *
+ *  Deliberately excludes "suggested", which is the stage BEFORE an introduction
+ *  (the pipeline reads suggested -> invited -> mutual_yes -> connected) and has
+ *  contacted nobody, so it gets promoted into a real introduction instead. Also
+ *  excludes "exit" and "connected", which are finished and can be re-opened. */
+export const LIVE_INTRO_STAGES = ["invited", "mutual_yes", "connecting"];
+
+/** Where createIntroduction sends the operator back to with its outcome. The
+ *  composer submits the page it lives on, and only an in-app studio path is
+ *  honoured: anything absolute, protocol-relative, or absent falls back, so a
+ *  tampered hidden field cannot turn a server action into an open redirect. */
+export function introReturnPath(raw: unknown): string {
+  const value = typeof raw === "string" ? raw : "";
+  // A single leading slash rules out "//host" and "https://host". No dot
+  // segments, so "/studio/../../app" cannot climb out of the studio. The rest is
+  // an ordinary path: id segments only, no query or fragment of its own.
+  if (!/^\/studio(\/[A-Za-z0-9._~%-]+)*$/.test(value)) return "/studio";
+  if (value.split("/").some((seg) => seg === "." || seg === "..")) return "/studio";
+  return value;
+}
+
 /** Prisma where-clause for intros that have stalled: still invited or waiting on
  *  one reply, last invited at least STALLED_DAYS ago. */
 export function stalledWhere(now: Date = new Date()): Prisma.MatchWhereInput {

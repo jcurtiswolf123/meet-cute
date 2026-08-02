@@ -4,13 +4,14 @@ import { requireOperatorPage } from "@/lib/page-auth";
 import { Avatar } from "@/components/ui";
 import { retryDeliveryJob, setMemberStatus } from "@/lib/actions";
 import { IntroComposer } from "./matchmaking/IntroComposer";
+import { introNotice } from "./matchmaking/intro-notice";
 
 export const dynamic = "force-dynamic";
 
 export default async function Roster({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; city?: string; gender?: string; sort?: string }>;
+  searchParams: Promise<{ q?: string; city?: string; gender?: string; sort?: string; intro?: string }>;
 }) {
   await requireOperatorPage();
   const sp = await searchParams;
@@ -201,7 +202,7 @@ export default async function Roster({
           <span className="ml-2 text-sm text-muted">Introduce two members straight from the list.</span>
         </summary>
         <div className="mt-3">
-          <IntroComposer people={composerPeople} />
+          <IntroComposer people={composerPeople} returnTo="/studio" notice={introNotice(sp.intro)} />
         </div>
       </details>
       {/* Metrics ledger. "Together" is the north-star outcome, so it earns weight

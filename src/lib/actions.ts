@@ -33,7 +33,7 @@ import {
   feedbackRequestSMS,
   feedbackRequestTemplate,
 } from "./sms";
-import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInvites, recordInviteDecision } from "./introductions";
+import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInvites, recordInviteDecision, LIVE_INTRO_STAGES, introReturnPath } from "./introductions";
 import { rateLimit } from "./ratelimit";
 import { calendarAge, parseCalendarDate } from "./age";
 import { mutualFriends } from "./social";
@@ -1005,9 +1005,18 @@ export async function quickAddPerson(formData: FormData) {
 
 // Operator: start an introduction between two people. Creates the Match, marks
 // both sides notified, and texts each the "want an intro?" message.
+// Every reason an introduction can be refused is an ordinary operator mistake
+// made against a page that went stale, not a crash. Throwing sent the operator
+// to the generic "Something went sideways." boundary with no idea which of the
+// eight checks rejected them, and raised a Sentry issue per click. Report the
+// outcome on the page they sent from instead, the same way createSuggestion
+// does. Keys are short so they survive in a URL; the host page owns the copy.
 export async function createIntroduction(formData: FormData) {
   const op = await requireOperator();
   if (!op) throw new Error("operators only");
+
+  const back = introReturnPath(formData.get("returnTo"));
+  const reject = (code: string) => redirect(`${back}?intro=${code}`);
 
   const aId = String(formData.get("personAId") || "");
   const bId = String(formData.get("personBId") || "");
@@ -1015,14 +1024,14 @@ export async function createIntroduction(formData: FormData) {
   // both climbers who just moved to Brooklyn"), never a description of either
   // person. Each member is presented in their own profile words.
   const blurb = String(formData.get("blurb") || "").trim().slice(0, 1000) || null;
-  if (!aId || !bId) throw new Error("Pick two people.");
-  if (aId === bId) throw new Error("Pick two different people.");
+  if (!aId || !bId) return reject("pick-two");
+  if (aId === bId) return reject("same-person");
 
   const [a, b] = await Promise.all([
     prisma.person.findUnique({ where: { id: aId }, select: { id: true, name: true, phone: true, email: true, instagram: true, smsConsentAt: true, openToMatch: true, status: true } }),
     prisma.person.findUnique({ where: { id: bId }, select: { id: true, name: true, phone: true, email: true, instagram: true, smsConsentAt: true, openToMatch: true, status: true } }),
   ]);
-  if (!a || !b) throw new Error("One of those people no longer exists.");
+  if (!a || !b) return reject("missing-person");
   // An operator explicitly introducing two people IS the readiness decision, so
   // this does not require the member-app `openToMatch` opt-in: that flag is a
   // member's self-serve pause switch, and gating operator intros on it left every
@@ -1030,24 +1039,31 @@ export async function createIntroduction(formData: FormData) {
   // unchanged - each person still has to answer Y to the double opt-in email
   // before anyone is connected. We only require an active roster member here.
   if (a.status !== "active" || b.status !== "active") {
-    throw new Error("Both people must be approved members before you can introduce them.");
+    return reject("not-approved");
   }
   // Email is the baseline opt-in channel (double opt-in link + Y/N reply); SMS is
   // sent only with separate SMS consent. Require one authorized channel each.
   if ((!a.email && !(a.phone && a.smsConsentAt)) || (!b.email && !(b.phone && b.smsConsentAt))) {
-    throw new Error("Both people need an email or explicit text consent before you can introduce them.");
+    return reject("no-channel");
   }
 
   const existing = await prisma.match.findFirst({
     where: { OR: [{ personAId: aId, personBId: bId }, { personAId: bId, personBId: aId }] },
   });
-  if (existing && !["exit", "connected"].includes(existing.stage)) {
-    throw new Error("These two already have an open introduction.");
+  // Only a LIVE invitation blocks a new one: someone is holding an unanswered
+  // email and re-sending would rotate their token out from under them. A
+  // `suggested` row is the stage before an introduction (the pipeline reads
+  // suggested -> invited -> mutual_yes -> connected) and emailed nobody, so it
+  // gets promoted here rather than refusing forever. Treating it as "open" made
+  // every pair the Status board or the co-pilot had ever suggested permanently
+  // un-introducible, and said so with a crash page.
+  if (existing && LIVE_INTRO_STAGES.includes(existing.stage)) {
+    return reject("already-open");
   }
   const blocked = await prisma.block.findFirst({
     where: { OR: [{ blockerId: aId, blockedId: bId }, { blockerId: bId, blockedId: aId }] },
   });
-  if (blocked) throw new Error("Cannot connect: a block exists between these two.");
+  if (blocked) return reject("blocked");
 
   // Reuse the existing row when re-introducing a pair that previously closed or
   // connected: the (personAId, personBId) unique constraint means a blind create
@@ -1105,6 +1121,9 @@ export async function createIntroduction(formData: FormData) {
   // The intro can be started from either person's profile, so refresh both.
   revalidatePath(`/studio/person/${aId}`);
   revalidatePath(`/studio/person/${bId}`);
+  // Sending was the only outcome with no feedback at all: the form cleared and
+  // the operator had to open Delivery to learn whether anything went out.
+  redirect(`${back}?intro=sent`);
 }
 
 // Operator: re-send the invitation to whoever hasn't replied yet. Rotating the
