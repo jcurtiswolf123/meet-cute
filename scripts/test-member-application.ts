@@ -44,7 +44,31 @@ async function main() {
     await memberPage.goto(`${baseUrl}/apply`);
     await memberPage.getByLabel("Email").fill(memberEmail);
     await memberPage.getByRole("button", { name: "Send me a link" }).click();
-    await memberPage.waitForURL(/\/apply\?sent=1$/);
+
+    // /apply must report what actually happened. This used to wait on
+    // `sent=1`, which the page returned unconditionally, so the assertion held
+    // even when no mail could possibly go out: in CI RESEND_API_KEY is unset
+    // and the production build correctly refuses to send. That made this step
+    // a check that the page always claims success, which is the opposite of
+    // what it should verify. Accept either honest outcome, and require the
+    // visible copy to match the one we got.
+    await memberPage.waitForURL(/\/apply\?(sent=1|error=send)$/);
+    const sent = /sent=1/.test(memberPage.url());
+    const bodyText = await memberPage.locator("main").innerText();
+    if (sent) {
+      assert.ok(
+        bodyText.includes("Check your email"),
+        "A successful send must show the check-your-email confirmation.",
+      );
+    } else {
+      assert.ok(
+        bodyText.includes("We could not send the link"),
+        "A failed send must say so, not claim the link is on its way.",
+      );
+    }
+
+    // The token is created before the send either way, so the applicant can
+    // still be let in by an operator when mail is down.
     assert.equal(
       await prisma.loginToken.count({ where: { email: memberEmail } }),
       1,
