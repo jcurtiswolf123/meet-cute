@@ -2,8 +2,33 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-01 (canonical domain is now hellomutuals.com; Prelude
-still wired as the no-registration SMS path, default provider still twilio)
+Last updated: 2026-08-02 (public voice warmed: "Meet your friend's friends" and
+"curated matchmaking"; canonical domain is hellomutuals.com; Prelude still wired
+as the no-registration SMS path, default provider still twilio)
+
+## 2026-08-02: the public voice is warmer, and the OG card is on-brand
+
+Shipped and verified live (Fly v154, both sjc machines healthy).
+
+- **New line: "Meet your friend's friends."** It replaces "Meet someone worth
+  knowing" in the hero, the OG card, and the closing call to action. Jess asked
+  for it off the iMessage link preview.
+- **The word "private" is gone from the public site.** Zero occurrences on the
+  homepage, `/apply`, `/dinners`, and `/coaching`. Where it carried a real
+  mechanic the copy now states who sees what instead ("Nobody finds out who
+  passed", "Only your matchmaker sees them").
+- **"Curated matchmaking" is the positioning line.** Page title, meta
+  description, OG title, and the lifecycle email footer.
+- **The members-club posture is out.** No more "By application", "Request
+  membership", "accept a fraction of them", "the list", or "the roster". The
+  CTA is "Join Mutuals", members are "members". `DESIGN.md` records the new
+  direction and drops the Raya reference; the typographic restraint stays.
+- **The OG card renders in Instrument Serif and Sans.** Satori has no system
+  fonts, so the card had been falling back to a generic sans. Both faces (plus
+  Sans 700 for the wordmark) are fetched at build time, with a fallback to the
+  old system stack if any of them fail.
+- **Still open:** the 10DLC campaign samples (below) are unaffected by this and
+  still say Meet Cute.
 
 ## 2026-08-01: the address bar says Mutuals
 
@@ -67,8 +92,9 @@ Shipped and verified live (Fly v144, both sjc machines healthy):
 
 - **The product is Mutuals.** Every member-facing and operator-facing string,
   email and SMS template, legal page, calendar entry, OG image, print guide, and
-  doc. `hellomeetcute.com` serves `Mutuals - private matchmaking`, and no page
-  still renders the old name. Deployment identifiers are deliberately unchanged:
+  doc. `hellomeetcute.com` served `Mutuals - private matchmaking` at the time,
+  and no page still renders the old name. (The title is now `Mutuals - curated
+  matchmaking`; see 2026-08-02 above.) Deployment identifiers are deliberately unchanged:
   the domains, the Fly app, the Sentry slug, and the `meetcute` Postgres schema.
   See `docs/BRAND-RENAME.md` for the table and the cutover order.
 - **The 10DLC campaign still says Meet Cute** and must be updated before it is
