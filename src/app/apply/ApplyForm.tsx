@@ -50,9 +50,10 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
           readOnly
           placeholder="you@email.com"
           aria-invalid={e.email ? true : undefined}
+          aria-describedby={e.email ? "email-error" : undefined}
         />
         {e.email ? (
-          <p className="mt-1 text-xs text-claret">{e.email}</p>
+          <p id="email-error" className="mt-1 text-xs text-claret">{e.email}</p>
         ) : (
           <p className="mt-1 text-xs text-muted">
             How we reach you, and how you and a match are introduced by email when you both say yes.
@@ -74,9 +75,10 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
             defaultValue={val("phone")}
             placeholder="(555) 123-4567"
             aria-invalid={e.phone ? true : undefined}
+            aria-describedby={e.phone ? "phone-error" : undefined}
           />
           {e.phone ? (
-            <p className="mt-1 text-xs text-claret">{e.phone}</p>
+            <p id="phone-error" className="mt-1 text-xs text-claret">{e.phone}</p>
           ) : (
             <p className="mt-1 text-xs text-muted">Only needed if you opt in to text introductions below.</p>
           )}
@@ -99,9 +101,10 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
           max={defaults.maxBirthdate}
           defaultValue={v.birthdate ?? ""}
           aria-invalid={e.birthdate ? true : undefined}
+          aria-describedby={e.birthdate ? "birthdate-error" : undefined}
         />
         {e.birthdate ? (
-          <p className="mt-1 text-xs text-claret">{e.birthdate}</p>
+          <p id="birthdate-error" className="mt-1 text-xs text-claret">{e.birthdate}</p>
         ) : (
           <p className="mt-1 text-xs text-muted">You must be 18 or older to join.</p>
         )}
@@ -146,8 +149,9 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
               defaultValue={val("voucherName")}
               placeholder="Their full name"
               aria-invalid={e.voucherName ? true : undefined}
+              aria-describedby={e.voucherName ? "voucherName-error" : undefined}
             />
-            {e.voucherName && <p className="mt-1 text-xs text-claret">{e.voucherName}</p>}
+            {e.voucherName && <p id="voucherName-error" className="mt-1 text-xs text-claret">{e.voucherName}</p>}
           </div>
           <div>
             <label className="label" htmlFor="voucherContact">How do we reach them?</label>
@@ -158,8 +162,9 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
               defaultValue={val("voucherContact")}
               placeholder="Their email or phone"
               aria-invalid={e.voucherContact ? true : undefined}
+              aria-describedby={e.voucherContact ? "voucherContact-error" : undefined}
             />
-            {e.voucherContact && <p className="mt-1 text-xs text-claret">{e.voucherContact}</p>}
+            {e.voucherContact && <p id="voucherContact-error" className="mt-1 text-xs text-claret">{e.voucherContact}</p>}
           </div>
         </div>
         <div>
@@ -178,7 +183,13 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
           to join. */}
       <div>
         <label className="flex items-start gap-3 text-sm">
-          <input type="checkbox" name="agree" className="mt-1" aria-invalid={e.agree ? true : undefined} />
+          <input
+            type="checkbox"
+            name="agree"
+            className="mt-1"
+            aria-invalid={e.agree ? true : undefined}
+            aria-describedby={e.agree ? "agree-error" : undefined}
+          />
           <span className="text-muted">
             I am 18 or older and I agree to the{" "}
             <Link href="/terms" className="text-claret underline" target="_blank">
@@ -191,7 +202,7 @@ export function ApplyForm({ defaults }: { defaults: Defaults }) {
             .
           </span>
         </label>
-        {e.agree && <p className="mt-1 text-xs text-claret">{e.agree}</p>}
+        {e.agree && <p id="agree-error" className="mt-1 text-xs text-claret">{e.agree}</p>}
       </div>
 
       {/* SEPARATE, OPTIONAL SMS opt-in. Unchecked by default and never required to
