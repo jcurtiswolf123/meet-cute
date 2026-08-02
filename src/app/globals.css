@@ -64,7 +64,7 @@ body {
   /* min-h-11 is the 44px target the buttons already hold to. Without it these
      rendered at 43px, one pixel short across every form on the site. */
   .field {
-    @apply w-full min-h-11 rounded-md border border-line bg-panel px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted/70 focus:border-ink focus:bg-cream;
+    @apply w-full min-h-11 rounded-md border border-line bg-panel px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted focus:border-ink focus:bg-cream;
   }
 
   .pill {

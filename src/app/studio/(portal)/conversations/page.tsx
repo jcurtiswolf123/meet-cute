@@ -145,7 +145,7 @@ export default async function Conversations({
                     {lastBody ? <span title={lastBody}>{lastBody}</span> : "-"}
                     {lastMessageAt && (
                       <span
-                        className="block text-[11px] text-muted/70"
+                        className="block text-[11px] text-muted"
                         title={lastMessageAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                       >
                         {relativeAge(lastMessageAt, now)}

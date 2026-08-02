@@ -103,9 +103,9 @@ export default async function ConversationDetail({ params }: { params: Promise<{
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-medium uppercase tracking-wide text-muted">
                       {msg.author}
-                      <span className="ml-1 lowercase text-muted/70">· {msg.kind}</span>
+                      <span className="ml-1 lowercase text-muted">· {msg.kind}</span>
                     </span>
-                    <span className="text-[11px] text-muted/70">
+                    <span className="text-[11px] text-muted">
                       {msg.createdAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                     </span>
                   </div>
@@ -128,7 +128,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
                   <span className="text-xs font-medium uppercase tracking-wide text-muted">
                     {firstName(n.subject.name)}
                   </span>
-                  <span className="text-[11px] text-muted/70" title={n.createdAt.toLocaleString()}>
+                  <span className="text-[11px] text-muted" title={n.createdAt.toLocaleString()}>
                     {relativeAge(n.createdAt)}
                   </span>
                 </div>
