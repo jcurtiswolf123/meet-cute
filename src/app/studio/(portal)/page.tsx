@@ -120,7 +120,7 @@ export default async function Roster({
           above it, where they were the first thing read every single visit. */}
       {failedDeliveries.length > 0 && (
         <section
-          className="mt-6 rounded-xl2 border border-[#e3e3e6] border-l-2 border-l-ink bg-[#fafafa] p-5"
+          className="mt-6 rounded-xl2 border border-studio-line border-l-2 border-l-ink bg-studio-subtle p-5"
           aria-labelledby="delivery-failures-heading"
         >
           <h2 id="delivery-failures-heading" className="label !text-ink">
@@ -157,7 +157,7 @@ export default async function Roster({
         </section>
       )}
       {pendingApplicants.length > 0 && (
-        <div className="mt-6 rounded-xl2 border border-[#e3e3e6] border-l-2 border-l-ink bg-[#fafafa] p-5">
+        <div className="mt-6 rounded-xl2 border border-studio-line border-l-2 border-l-ink bg-studio-subtle p-5">
           <p className="label !text-ink">New applicants ({pendingApplicants.length})</p>
           <p className="mt-1 text-sm text-muted">Review and approve to add them to the list.</p>
           <ul className="mt-4 space-y-2">
@@ -220,7 +220,7 @@ export default async function Roster({
           <div className="ledger-num">{stageCount("suggested") + stageCount("mutual_yes") + stageCount("date_scheduled")}</div>
           <div className="ledger-label">In pipeline</div>
         </div>
-        <div className="ledger-cell bg-[#f5f5f6]">
+        <div className="ledger-cell bg-studio-canvas">
           <div className="ledger-num font-semibold text-ink">{stageCount("relationship")}</div>
           <div className="ledger-label">Together</div>
         </div>

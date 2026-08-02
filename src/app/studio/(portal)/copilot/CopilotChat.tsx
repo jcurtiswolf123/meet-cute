@@ -120,7 +120,7 @@ export default function CopilotChat() {
               <p className="label mb-2 text-muted">Ask</p>
               <div className="flex flex-wrap gap-2">
                 {ASK_STARTERS.map((s) => (
-                  <button key={s} onClick={() => send(s)} className="pill hover:border-[#e3e3e6]">{s}</button>
+                  <button key={s} onClick={() => send(s)} className="pill hover:border-studio-line">{s}</button>
                 ))}
               </div>
             </div>
@@ -128,7 +128,7 @@ export default function CopilotChat() {
               <p className="label mb-2 text-muted">Do <span className="font-normal normal-case">(runs live)</span></p>
               <div className="flex flex-wrap gap-2">
                 {DO_STARTERS.map((s) => (
-                  <button key={s} onClick={() => send(s)} className="pill border-[#e3e3e6] text-ink hover:bg-[#fafafa]">{s}</button>
+                  <button key={s} onClick={() => send(s)} className="pill border-studio-line text-ink hover:bg-studio-subtle">{s}</button>
                 ))}
               </div>
             </div>
@@ -138,7 +138,7 @@ export default function CopilotChat() {
           <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
             <div
               className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm ${
-                m.role === "user" ? "bg-ink text-cream" : "bg-[#fafafa] text-ink"
+                m.role === "user" ? "bg-ink text-cream" : "bg-studio-subtle text-ink"
               }`}
             >
               {m.content}

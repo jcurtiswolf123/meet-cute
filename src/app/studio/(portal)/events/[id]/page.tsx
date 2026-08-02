@@ -61,7 +61,7 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-            <button className="rounded-full border border-line px-3 py-1.5 text-xs hover:border-[#e3e3e6]">Save</button>
+            <button className="rounded-full border border-line px-3 py-1.5 text-xs hover:border-studio-line">Save</button>
           </form>
         </div>
         <p className="mt-3 text-sm text-muted">
@@ -83,7 +83,7 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
             <input type="hidden" name="dinnerId" value={event.id} />
             <div className="max-h-80 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
               {eligible.map((m) => (
-                <label key={m.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-[#fafafa]">
+                <label key={m.id} className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-studio-subtle">
                   <input type="checkbox" name="memberId" value={m.id} className="h-4 w-4 accent-claret" />
                   <Avatar url={m.photos[0]?.url} name={m.name} size={32} />
                   <span className="text-sm">
@@ -119,7 +119,7 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
                         <option key={v} value={v}>{l}</option>
                       ))}
                     </select>
-                    <button className="rounded-full border border-line px-2.5 py-1 text-xs hover:border-[#e3e3e6]">Set</button>
+                    <button className="rounded-full border border-line px-2.5 py-1 text-xs hover:border-studio-line">Set</button>
                   </form>
                   {/* Sat next to a Set button, and fired on the first click. */}
                   <ConfirmActionForm
@@ -128,7 +128,7 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
                     triggerLabel="Remove"
                     confirmLabel="Remove"
                     pendingText="Removing..."
-                    buttonClassName="rounded-full border border-line px-2.5 py-1 text-xs text-muted hover:border-[#e3e3e6] hover:text-ink"
+                    buttonClassName="rounded-full border border-line px-2.5 py-1 text-xs text-muted hover:border-studio-line hover:text-ink"
                   >
                     <input type="hidden" name="attendeeId" value={a.id} />
                   </ConfirmActionForm>

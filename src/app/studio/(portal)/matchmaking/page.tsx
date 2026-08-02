@@ -22,13 +22,13 @@ type Decision = "pending" | "yes" | "pass";
 function statusFor(m: { stage: string; aDecision: string; bDecision: string; personA: { name: string }; personB: { name: string } }) {
   const a = m.aDecision as Decision;
   const b = m.bDecision as Decision;
-  if (m.stage === "connected") return { label: "Connected", tone: "bg-[#f5f5f6] text-ink border-ink/25" };
+  if (m.stage === "connected") return { label: "Connected", tone: "bg-studio-canvas text-ink border-ink/25" };
   if (m.stage === "exit") {
     const passer = a === "pass" ? firstName(m.personA.name) : b === "pass" ? firstName(m.personB.name) : null;
-    return { label: passer ? `${passer} passed` : "Closed", tone: "bg-[#fafafa] text-muted border-line" };
+    return { label: passer ? `${passer} passed` : "Closed", tone: "bg-studio-subtle text-muted border-line" };
   }
-  if (a === "yes" && b === "pending") return { label: `${firstName(m.personA.name)} said yes`, tone: "bg-[#fafafa] text-ink border-[#e3e3e6]" };
-  if (b === "yes" && a === "pending") return { label: `${firstName(m.personB.name)} said yes`, tone: "bg-[#fafafa] text-ink border-[#e3e3e6]" };
+  if (a === "yes" && b === "pending") return { label: `${firstName(m.personA.name)} said yes`, tone: "bg-studio-subtle text-ink border-studio-line" };
+  if (b === "yes" && a === "pending") return { label: `${firstName(m.personB.name)} said yes`, tone: "bg-studio-subtle text-ink border-studio-line" };
   return { label: "Awaiting both", tone: "bg-champagne/20 text-ink border-champagne/40" };
 }
 
@@ -176,7 +176,7 @@ export default async function Matchmaking() {
                         {s.label}
                       </span>
                       {m.followUpAt && (
-                        <span className="inline-flex items-center rounded-full border border-line bg-[#fafafa] px-2.5 py-0.5 text-xs text-muted">
+                        <span className="inline-flex items-center rounded-full border border-line bg-studio-subtle px-2.5 py-0.5 text-xs text-muted">
                           Follow up {m.followUpAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </span>
                       )}
@@ -280,7 +280,7 @@ export default async function Matchmaking() {
                     <span className="flex items-center gap-2">
                       {p.name}
                       {p.openToMatch && (
-                        <span className="inline-flex items-center rounded-full border border-ink/25 bg-[#f5f5f6] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink">
+                        <span className="inline-flex items-center rounded-full border border-ink/25 bg-studio-canvas px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink">
                           Ready
                         </span>
                       )}

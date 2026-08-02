@@ -25,9 +25,9 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 function toneFor(stage: string): string {
-  if (stage === "connected") return "border-ink/25 bg-[#f5f5f6] text-ink";
-  if (stage === "exit") return "border-line bg-[#fafafa] text-muted";
-  return "border-[#e3e3e6] bg-[#fafafa] text-ink";
+  if (stage === "connected") return "border-ink/25 bg-studio-canvas text-ink";
+  if (stage === "exit") return "border-line bg-studio-subtle text-muted";
+  return "border-studio-line bg-studio-subtle text-ink";
 }
 
 // Pinned to New York: the server clock is UTC in production, so an evening
@@ -102,7 +102,7 @@ export default async function MatchesHistory() {
                   {rows.map((m) => (
                     <li
                       key={m.id}
-                      className="flex flex-wrap items-center justify-between gap-4 px-4 py-3.5 transition-colors hover:bg-[#f5f5f6]/70"
+                      className="flex flex-wrap items-center justify-between gap-4 px-4 py-3.5 transition-colors hover:bg-studio-canvas/70"
                     >
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex -space-x-2">

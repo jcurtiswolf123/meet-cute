@@ -72,7 +72,7 @@ export default async function Events() {
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {upcoming.map((e) => (
-              <Link key={e.id} href={`/studio/events/${e.id}`} className="card block p-5 transition hover:border-[#e3e3e6]">
+              <Link key={e.id} href={`/studio/events/${e.id}`} className="card block p-5 transition hover:border-studio-line">
                 <div className="flex items-center justify-between">
                   <span className="pill">{e.city}</span>
                   <span className="text-xs text-muted">

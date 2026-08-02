@@ -68,7 +68,7 @@ export default async function Conversations({
       </div>
 
       {(sp.resent !== undefined || sp.closed !== undefined) && (
-        <div className="rounded-xl border border-ink/25 bg-[#f5f5f6] px-4 py-3 text-sm text-ink">
+        <div className="rounded-xl border border-ink/25 bg-studio-canvas px-4 py-3 text-sm text-ink">
           {sp.resent !== undefined && <span>Resent {sp.resent} stalled {Number(sp.resent) === 1 ? "intro" : "intros"}. </span>}
           {sp.closed !== undefined && <span>Closed {sp.closed} expired {Number(sp.closed) === 1 ? "intro" : "intros"}.</span>}
         </div>
@@ -88,7 +88,7 @@ export default async function Conversations({
       </div>
 
       {(stalledCount > 0 || expiredCount > 0) && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-[#fafafa] px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-studio-subtle px-4 py-3">
           <span className="text-xs uppercase tracking-wide text-muted">Bulk actions</span>
           {stalledCount > 0 && (
             <form action={bulkResendStalled}>
@@ -115,7 +115,7 @@ export default async function Conversations({
       ) : (
         <div className="overflow-x-auto rounded-xl2 border border-line bg-panel">
           <table className="w-full min-w-[640px] text-sm">
-            <thead className="border-b border-line bg-[#fafafa] text-left text-xs uppercase tracking-wide text-muted">
+            <thead className="border-b border-line bg-studio-subtle text-left text-xs uppercase tracking-wide text-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">Pair</th>
                 <th className="px-4 py-3 font-medium">Opt-in (A/B)</th>
@@ -126,11 +126,11 @@ export default async function Conversations({
             </thead>
             <tbody>
               {rows.map(({ m, health, lastMessageAt, lastBody }) => (
-                <tr key={m.id} className="border-b border-line/70 hover:bg-[#f5f5f6]/60">
+                <tr key={m.id} className="border-b border-line/70 hover:bg-studio-canvas/60">
                   <td className="px-4 py-3 font-medium text-ink">
                     {firstName(m.personA.name)} + {firstName(m.personB.name)}
                     {m.conversationSid && (
-                      <span className="ml-2 inline-flex items-center rounded-full border border-ink/25 bg-[#f5f5f6] px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink">
+                      <span className="ml-2 inline-flex items-center rounded-full border border-ink/25 bg-studio-canvas px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink">
                         group
                       </span>
                     )}

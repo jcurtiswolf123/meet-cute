@@ -142,7 +142,7 @@ export default async function PersonPage({
         {p.bio && <p className="mt-5 text-sm leading-relaxed">{p.bio}</p>}
 
         {(p.recommendation || p.voucherName) && (
-          <div className="mt-5 rounded-xl border border-ink/25 bg-[#f5f5f6] p-4">
+          <div className="mt-5 rounded-xl border border-ink/25 bg-studio-canvas p-4">
             <p className="label text-ink">Recommendation</p>
             {p.recommendation && <p className="mt-1.5 text-sm italic leading-relaxed text-ink/85">&ldquo;{p.recommendation}&rdquo;</p>}
             {p.voucherName && (
@@ -235,7 +235,7 @@ export default async function PersonPage({
             {suggestNotice && (
               <p
                 role="status"
-                className="mb-2 rounded-lg border border-[#e3e3e6] bg-[#fafafa] px-3 py-2 text-xs text-ink"
+                className="mb-2 rounded-lg border border-studio-line bg-studio-subtle px-3 py-2 text-xs text-ink"
               >
                 {suggestNotice}
               </p>
@@ -243,7 +243,7 @@ export default async function PersonPage({
             <div className="space-y-2">
               {candidates.map((c) => (
                 <form key={c.p.id} action={createSuggestion.bind(null, id, c.p.id, `Co-pilot suggested: fit ${c.score.toFixed(2)}, ${c.vouches} vouches.`)}>
-                  <button className="flex w-full items-center gap-2 rounded-lg border border-line p-2 text-left text-sm transition hover:border-[#e3e3e6]">
+                  <button className="flex w-full items-center gap-2 rounded-lg border border-line p-2 text-left text-sm transition hover:border-studio-line">
                     <Avatar url={undefined} name={c.p.name} size={32} />
                     <span className="flex-1">
                       <span className="block font-medium">{c.p.name}</span>

@@ -34,7 +34,7 @@ export default async function StudioPortalLayout({ children }: { children: React
     // the warm cream and claret; an operator console staring at the same screen
     // all day wants greyscale with one accent reserved for things that need a
     // decision.
-    <div className="studio-shell flex h-dvh flex-col overflow-hidden bg-[#f5f5f6] md:flex-row">
+    <div className="studio-shell flex h-dvh flex-col overflow-hidden bg-studio-canvas md:flex-row">
       <PortalSidebar
         workspace="Mutuals"
         subtitle="Studio"
@@ -47,7 +47,7 @@ export default async function StudioPortalLayout({ children }: { children: React
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-2 md:p-3 md:pl-0">
         <StudioPortalHeader />
-        <main className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-[#e3e3e6] bg-white">
+        <main className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-studio-line bg-white">
           <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
             {children}
           </div>

@@ -258,6 +258,10 @@ textarea:focus-visible {
     --studio-line: #e3e3e6;
     --studio-panel: #ffffff;
     --studio-canvas: #f5f5f6;
+    /* One step lighter than canvas: row stripes, hover fills, inset wells. */
+    --studio-subtle: #fafafa;
+    /* One step darker: the selected navigation row. */
+    --studio-active: #f0f0f1;
     --studio-accent: #16161a;
   }
 

@@ -78,7 +78,7 @@ export function StudioPortalHeader() {
       <div className="flex items-center gap-2">
         <Link
           href="/studio/matchmaking"
-          className="inline-flex h-7 items-center gap-1.5 rounded border border-line bg-[#fafafa] px-2.5 text-[12px] font-medium text-ink transition hover:border-ink/20 hover:bg-ink/[0.025]"
+          className="inline-flex h-7 items-center gap-1.5 rounded border border-line bg-studio-subtle px-2.5 text-[12px] font-medium text-ink transition hover:border-ink/20 hover:bg-ink/[0.025]"
         >
           <PortalIcon name="sparkles" />
           New match

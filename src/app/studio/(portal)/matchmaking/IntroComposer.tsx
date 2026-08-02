@@ -70,7 +70,7 @@ export function IntroComposer({
         {locked ? (
           <div className="block">
             <span className="label">First person</span>
-            <div className="mt-1.5 flex items-center justify-between rounded-lg border border-line bg-[#fafafa] px-3 py-2 text-sm">
+            <div className="mt-1.5 flex items-center justify-between rounded-lg border border-line bg-studio-subtle px-3 py-2 text-sm">
               <span className="font-medium text-ink">{locked.name}</span>
               <span className="text-xs text-muted">{locked.city}</span>
             </div>
@@ -113,7 +113,7 @@ export function IntroComposer({
         </label>
 
         {a && b && (
-          <div className="sm:col-span-2 rounded-xl border border-line bg-[#fafafa] p-3">
+          <div className="sm:col-span-2 rounded-xl border border-line bg-studio-subtle p-3">
             <p className="label mb-2 text-muted">What goes out</p>
             <div className="space-y-2">
               <p className="text-sm leading-relaxed">
@@ -230,7 +230,7 @@ function PersonCombobox({
                 type="button"
                 onMouseEnter={() => setActive(i)}
                 onMouseDown={(e) => { e.preventDefault(); choose(p.id); }}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${i === active ? "bg-[#f5f5f6]" : ""}`}
+                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm ${i === active ? "bg-studio-canvas" : ""}`}
               >
                 <span className="text-ink">{p.name}</span>
                 <span className="text-xs text-muted">{p.city}{p.phone ? "" : " · no phone"}</span>

@@ -20,11 +20,11 @@ const FILTERS = [
 ] as const;
 
 const STATUS_TONE: Record<string, string> = {
-  sent: "border-ink/25 bg-[#f5f5f6] text-ink",
-  pending: "border-[#e3e3e6] bg-[#fafafa] text-ink",
-  processing: "border-[#e3e3e6] bg-[#fafafa] text-ink",
-  failed: "border-[#e3e3e6] bg-[#fafafa] text-ink",
-  cancelled: "border-line bg-[#fafafa] text-muted",
+  sent: "border-ink/25 bg-studio-canvas text-ink",
+  pending: "border-studio-line bg-studio-subtle text-ink",
+  processing: "border-studio-line bg-studio-subtle text-ink",
+  failed: "border-studio-line bg-studio-subtle text-ink",
+  cancelled: "border-line bg-studio-subtle text-muted",
 };
 
 function humanizeKind(kind: string): string {
@@ -115,7 +115,7 @@ export default async function DeliveryLog({
           </p>
         </div>
         <div className="ledger">
-          <div className="ledger-cell bg-[#f5f5f6]">
+          <div className="ledger-cell bg-studio-canvas">
             <div className="ledger-num text-ink">{count("sent")}</div>
             <div className="ledger-label">Sent</div>
           </div>
@@ -136,7 +136,7 @@ export default async function DeliveryLog({
             key={f.key}
             href={f.key === "all" ? "/studio/delivery" : `/studio/delivery?status=${f.key}`}
             className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-              status === f.key ? "border-ink bg-ink text-white" : "border-line text-muted hover:border-[#e3e3e6]"
+              status === f.key ? "border-ink bg-ink text-white" : "border-line text-muted hover:border-studio-line"
             }`}
           >
             {f.label}
@@ -187,8 +187,8 @@ export default async function DeliveryLog({
                       role="status"
                       className={`mt-1.5 rounded-lg border px-3 py-1.5 text-xs ${
                         checked.ok && checked.lastEvent === "delivered"
-                          ? "border-ink/25 bg-[#f5f5f6] text-ink"
-                          : "border-[#e3e3e6] bg-[#fafafa] text-ink"
+                          ? "border-ink/25 bg-studio-canvas text-ink"
+                          : "border-studio-line bg-studio-subtle text-ink"
                       }`}
                     >
                       {checked.ok
@@ -212,7 +212,7 @@ export default async function DeliveryLog({
                 <div className="flex shrink-0 items-center gap-3">
                   <span
                     className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-                      STATUS_TONE[job.status] ?? "border-line bg-[#fafafa] text-muted"
+                      STATUS_TONE[job.status] ?? "border-line bg-studio-subtle text-muted"
                     }`}
                   >
                     {job.status === "processing" ? "Sending" : job.status.replace(/^\w/, (c) => c.toUpperCase())}
@@ -227,7 +227,7 @@ export default async function DeliveryLog({
                           check: job.id,
                         },
                       }}
-                      className="rounded-full border border-line px-3 py-1 text-xs text-muted hover:border-[#e3e3e6] hover:text-ink"
+                      className="rounded-full border border-line px-3 py-1 text-xs text-muted hover:border-studio-line hover:text-ink"
                     >
                       Check provider
                     </Link>
@@ -235,7 +235,7 @@ export default async function DeliveryLog({
                   {job.status === "failed" && (
                     <form action={retryDeliveryJob}>
                       <input type="hidden" name="deliveryJobId" value={job.id} />
-                      <button className="rounded-full border border-[#e3e3e6] px-3 py-1 text-xs text-ink">
+                      <button className="rounded-full border border-studio-line px-3 py-1 text-xs text-ink">
                         Retry
                       </button>
                     </form>

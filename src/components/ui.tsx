@@ -40,7 +40,7 @@ export function Avatar({
     />
   ) : (
     <span
-      className="inline-flex items-center justify-center rounded-full bg-[#ecebe8] font-medium text-ink"
+      className="inline-flex items-center justify-center rounded-full bg-paper font-medium text-ink"
       style={{ width: size, height: size, fontSize: size * 0.36 }}
     >
       {initials}
@@ -71,7 +71,7 @@ export function StageBadge({ stage }: { stage: string }) {
     stage === "relationship" || stage === "connected"
       ? "bg-ink text-white border-ink"
       : stage === "exit"
-        ? "bg-[#f0f0f1] text-muted border-line"
+        ? "bg-studio-canvas text-muted border-line"
         : "bg-transparent text-ink border-ink/30";
   return (
     <span

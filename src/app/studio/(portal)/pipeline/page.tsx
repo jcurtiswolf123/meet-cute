@@ -78,7 +78,7 @@ export default async function Pipeline() {
         {STAGES.map(([key, label]) => {
           const col = matches.filter((m) => m.stage === key);
           return (
-            <div key={key} className="rounded-xl2 bg-[#fafafa] p-2">
+            <div key={key} className="rounded-xl2 bg-studio-subtle p-2">
               <div className="flex items-center justify-between px-2 py-1.5">
                 <span className="text-xs font-medium uppercase tracking-wide text-muted">{label}</span>
                 <span className="text-xs text-muted">{col.length}</span>

@@ -169,8 +169,8 @@ export function PortalSidebar({
         }}
         className={`hidden h-dvh shrink-0 md:flex md:flex-col ${
           variant === "twenty"
-            ? "bg-[#f5f5f6]"
-            : "sticky top-0 border-r border-line bg-[#fafafa] backdrop-blur"
+            ? "bg-studio-canvas"
+            : "sticky top-0 border-r border-line bg-studio-subtle backdrop-blur"
         } ${
           visuallyCollapsed
             ? variant === "twenty"
@@ -184,11 +184,11 @@ export function PortalSidebar({
         {rail}
       </aside>
 
-      <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-[#fafafa] px-4 py-2.5 md:hidden">
+      <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-studio-subtle px-4 py-2.5 md:hidden">
         <button
           ref={openButtonRef}
           onClick={() => setMobileOpen(true)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-ink transition hover:bg-[#f5f5f6]"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-ink transition hover:bg-studio-canvas"
           aria-label="Open menu"
           aria-expanded={mobileOpen}
           aria-controls="mobile-navigation"
@@ -214,7 +214,7 @@ export function PortalSidebar({
             aria-modal="true"
             aria-label={`${workspace} navigation`}
             className={`absolute left-0 top-0 flex h-full flex-col border-r border-line shadow-card ${
-              variant === "twenty" ? "w-[220px] bg-[#f5f5f6]" : "w-64 bg-[#fafafa]"
+              variant === "twenty" ? "w-[220px] bg-studio-canvas" : "w-64 bg-studio-subtle"
             }`}
           >
             <SidebarInner
@@ -293,7 +293,7 @@ function SidebarInner({
         <div
           className={`flex shrink-0 items-center justify-center ${
             twenty
-              ? "h-6 w-6 rounded-full border border-[#e3e3e6] bg-[#fafafa] text-ink"
+              ? "h-6 w-6 rounded-full border border-studio-line bg-studio-subtle text-ink"
               : "h-8 w-8 rounded-lg bg-ember text-cream"
           }`}
         >
@@ -338,11 +338,11 @@ function SidebarInner({
           <input
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
-            className="h-8 w-full rounded border border-line bg-[#fafafa] pl-8 pr-12 text-[12px] text-ink outline-none transition placeholder:text-muted focus:border-ink/30 focus:ring-2 focus:ring-ink/5"
+            className="h-8 w-full rounded border border-line bg-studio-subtle pl-8 pr-12 text-[12px] text-ink outline-none transition placeholder:text-muted focus:border-ink/30 focus:ring-2 focus:ring-ink/5"
             placeholder="Quick search..."
             aria-label="Quick search"
           />
-          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-line bg-[#f5f5f6] px-1.5 py-0.5 font-mono text-[9px] text-muted">
+          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-line bg-studio-canvas px-1.5 py-0.5 font-mono text-[9px] text-muted">
             /
           </span>
         </div>
@@ -383,11 +383,11 @@ function SidebarInner({
                       } ${
                         active
                           ? twenty
-                            ? "bg-[#f0f0f1] font-medium text-ink ring-1 ring-inset ring-[#e3e3e6]"
-                            : "bg-[#f0f0f1] font-medium text-ink"
+                            ? "bg-studio-active font-medium text-ink ring-1 ring-inset ring-studio-line"
+                            : "bg-studio-active font-medium text-ink"
                           : twenty
                             ? "text-muted hover:bg-ink/[0.055] hover:text-ink"
-                            : "text-muted hover:bg-[#f5f5f6] hover:text-ink"
+                            : "text-muted hover:bg-studio-canvas hover:text-ink"
                       }`}
                     >
                       <span className={`shrink-0 ${active ? "text-ink" : "text-muted group-hover:text-ink"}`}>
@@ -426,7 +426,7 @@ function SidebarInner({
         <input type="hidden" name="returnTo" value={logoutTo} />
         <button
           className={`flex w-full items-center gap-2.5 px-2.5 py-2 text-sm text-muted transition ${
-            twenty ? "rounded hover:bg-ink/[0.055]" : "rounded-lg hover:bg-[#f5f5f6]"
+            twenty ? "rounded hover:bg-ink/[0.055]" : "rounded-lg hover:bg-studio-canvas"
           } hover:text-ink ${
             collapsed ? "justify-center" : ""
           }`}
