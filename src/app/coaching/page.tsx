@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SubmitButton } from "@/components/forms";
+import { LabelledField } from "@/components/LabelledField";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Coaching" };
@@ -43,7 +44,9 @@ export default async function Coaching({
           <div className="mt-8 rounded-lg border border-claret/30 bg-claret/5 px-5 py-4 text-sm text-claret">
             {sp.error === "send"
               ? "We could not record your request just now. Please try again, or email hello@hellomutuals.com and we will pick it up from there."
-              : "We need your name and email to follow up. Please try again."}
+              : sp.error === "throttled"
+                ? "That is a lot of requests from your network in a short window, so we did not record this one. Try again in a little while, or email hello@hellomutuals.com and we will pick it up from there."
+                : "We need your name and email to follow up. Please try again."}
           </div>
         )}
 
@@ -87,17 +90,24 @@ export default async function Coaching({
                   <p className="text-xs text-muted">Applying as {me.name} ({me.email}).</p>
                 ) : (
                   <>
-                    <input name="name" required placeholder="Your name" className="field" />
-                    <input name="email" type="email" required placeholder="you@email.com" className="field" />
+                    <LabelledField id="coach-name" label="Your name">
+                      <input id="coach-name" name="name" required autoComplete="name" className="field mt-1.5" />
+                    </LabelledField>
+                    <LabelledField id="coach-email" label="Email">
+                      <input
+                        id="coach-email"
+                        name="email"
+                        type="email"
+                        required
+                        autoComplete="email"
+                        className="field mt-1.5"
+                      />
+                    </LabelledField>
                   </>
                 )}
-                <textarea
-                  name="note"
-                  rows={3}
-                  maxLength={600}
-                  placeholder="What would you like help with?"
-                  className="field"
-                />
+                <LabelledField id="coach-note" label="What would you like help with?">
+                  <textarea id="coach-note" name="note" rows={3} maxLength={600} className="field mt-1.5" />
+                </LabelledField>
                 <SubmitButton className="btn-primary w-full text-sm" pendingText="Sending...">
                   Apply for coaching
                 </SubmitButton>

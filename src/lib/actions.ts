@@ -1498,8 +1498,13 @@ export async function requestDinnerSeat(formData: FormData) {
   const me = await getCurrentPerson();
 
   const ip = await clientIp();
+  // A throttled request is discarded, so it must not render the success state.
+  // This used to redirect to `requested=1`, which told someone "Request
+  // received. A matchmaker will follow up personally" for a lead that was
+  // never recorded. Shared office and campus NAT means a real guest can hit
+  // this cap without doing anything wrong.
   if (!(await rateLimit(`dinnerreq:ip:${ip}`, 15, 60 * 60 * 1000)).ok) {
-    redirect("/dinners?requested=1");
+    redirect("/dinners?error=throttled");
   }
 
   const name = (me?.name || String(formData.get("name") || "")).trim().slice(0, 80);
@@ -1562,8 +1567,10 @@ export async function requestCoaching(formData: FormData) {
   const note = String(formData.get("note") || "").trim().slice(0, 600);
 
   const ip = await clientIp();
+  // Same as the dinner request above: throttled means discarded, so it cannot
+  // render the success state.
   if (!(await rateLimit(`coachreq:ip:${ip}`, 15, 60 * 60 * 1000)).ok) {
-    redirect("/coaching?requested=1");
+    redirect("/coaching?error=throttled");
   }
 
   const name = (me?.name || String(formData.get("name") || "")).trim().slice(0, 80);

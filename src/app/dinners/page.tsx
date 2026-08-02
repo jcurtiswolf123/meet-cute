@@ -4,6 +4,7 @@ import { requestDinnerSeat } from "@/lib/actions";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SubmitButton } from "@/components/forms";
+import { LabelledField } from "@/components/LabelledField";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Dinners" };
@@ -16,11 +17,25 @@ export default async function Dinners({
   const sp = await searchParams;
   const me = await getCurrentPerson();
   const dinners = await prisma.dinner.findMany({
-    include: { _count: { select: { attendees: true } } },
+    // Seats left has to count people who are actually coming. Counting every
+    // attendee row included invited-but-unanswered and noshow records, so a
+    // dinner could advertise "0 of 12 seats left" while half the table was
+    // still open.
+    include: {
+      _count: { select: { attendees: { where: { status: { in: ["confirmed", "attended"] } } } } },
+    },
     orderBy: { date: "asc" },
   });
-  const upcoming = dinners.filter((d) => d.status !== "done");
-  const past = dinners.filter((d) => d.status === "done");
+  // A dinner is upcoming if it has not happened yet. Filtering on status alone
+  // meant any dinner an operator forgot to mark "done" stayed under Upcoming
+  // forever, still taking seat requests for a date that had passed. Compare on
+  // the calendar day so a dinner is not dropped partway through its own evening.
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const isPast = (d: (typeof dinners)[number]) => d.status === "done" || d.date < startOfToday;
+  const upcoming = dinners.filter((d) => !isPast(d));
+  // Soonest first for upcoming, most recent first for the archive.
+  const past = dinners.filter(isPast).reverse();
 
   return (
     <>
@@ -46,7 +61,9 @@ export default async function Dinners({
           <div className="mt-8 rounded-lg border border-claret/30 bg-claret/5 px-5 py-4 text-sm text-claret">
             {sp.error === "send"
               ? "We could not record your request just now. Please try again, or email hello@hellomutuals.com and we will hold a seat."
-              : "We need your name and email to hold a seat. Please try again."}
+              : sp.error === "throttled"
+                ? "That is a lot of requests from your network in a short window, so we did not record this one. Try again in a little while, or email hello@hellomutuals.com and we will hold a seat."
+                : "We need your name and email to hold a seat. Please try again."}
           </div>
         )}
 
@@ -79,17 +96,36 @@ export default async function Dinners({
                       </p>
                     ) : (
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <input name="name" required placeholder="Your name" className="field" />
-                        <input name="email" type="email" required placeholder="you@email.com" className="field" />
+                        <LabelledField id={`seat-name-${d.id}`} label="Your name">
+                          <input
+                            id={`seat-name-${d.id}`}
+                            name="name"
+                            required
+                            autoComplete="name"
+                            className="field mt-1.5"
+                          />
+                        </LabelledField>
+                        <LabelledField id={`seat-email-${d.id}`} label="Email">
+                          <input
+                            id={`seat-email-${d.id}`}
+                            name="email"
+                            type="email"
+                            required
+                            autoComplete="email"
+                            className="field mt-1.5"
+                          />
+                        </LabelledField>
                       </div>
                     )}
-                    <textarea
-                      name="note"
-                      rows={2}
-                      maxLength={600}
-                      placeholder="Anything we should know? (optional)"
-                      className="field"
-                    />
+                    <LabelledField id={`seat-note-${d.id}`} label="Anything we should know? (optional)">
+                      <textarea
+                        id={`seat-note-${d.id}`}
+                        name="note"
+                        rows={2}
+                        maxLength={600}
+                        className="field mt-1.5"
+                      />
+                    </LabelledField>
                     <SubmitButton className="btn-primary text-sm" pendingText="Sending...">
                       Request this seat
                     </SubmitButton>
@@ -99,22 +135,40 @@ export default async function Dinners({
             );
           })}
           {!upcoming.length && (
-            <div className="card p-6">
-              <p className="text-sm text-muted">Next dates announced soon.</p>
+            /* With no dinners on the books this was one half-width card in a
+               two-column grid, so the row sat half empty and the page read
+               unfinished rather than between seatings. */
+            <div className="card p-6 md:col-span-2">
+              <p className="text-sm text-muted">
+                Next dates announced soon. Tell us where you are and we will let you know first.
+              </p>
               <details className="group mt-4">
                 <summary className="btn-ghost w-fit cursor-pointer list-none text-sm">
                   Tell me about the next one
                 </summary>
-                <form action={requestDinnerSeat} className="mt-4 space-y-3 border-t border-line pt-4">
+                <form action={requestDinnerSeat} className="mt-4 max-w-xl space-y-3 border-t border-line pt-4">
                   {me ? (
                     <p className="text-xs text-muted">Requesting as {me.name} ({me.email}).</p>
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <input name="name" required placeholder="Your name" className="field" />
-                      <input name="email" type="email" required placeholder="you@email.com" className="field" />
+                      <LabelledField id="notify-name" label="Your name">
+                        <input id="notify-name" name="name" required autoComplete="name" className="field mt-1.5" />
+                      </LabelledField>
+                      <LabelledField id="notify-email" label="Email">
+                        <input
+                          id="notify-email"
+                          name="email"
+                          type="email"
+                          required
+                          autoComplete="email"
+                          className="field mt-1.5"
+                        />
+                      </LabelledField>
                     </div>
                   )}
-                  <textarea name="note" rows={2} maxLength={600} placeholder="Which city, and anything we should know?" className="field" />
+                  <LabelledField id="notify-note" label="Which city, and anything we should know?">
+                    <textarea id="notify-note" name="note" rows={2} maxLength={600} className="field mt-1.5" />
+                  </LabelledField>
                   <SubmitButton className="btn-primary text-sm" pendingText="Sending...">
                     Keep me posted
                   </SubmitButton>
