@@ -5,6 +5,7 @@ import { DemoOperatorPicker } from "@/components/DemoOperatorPicker";
 import { allowMemberDemoLogin } from "@/lib/demo-login";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Sign in" };
 
 export default async function Login({
   searchParams,

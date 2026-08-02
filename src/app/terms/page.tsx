@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
 
-export const metadata = { title: "Terms of Service | Mutuals" };
+// The root layout template already appends " · Mutuals".
+export const metadata = { title: "Terms of Service" };
 
 export default function Terms() {
   return (

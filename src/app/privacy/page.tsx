@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
 
-export const metadata = { title: "Privacy Policy | Mutuals" };
+// The root layout template already appends " · Mutuals"; naming the brand here
+// too produced "Privacy Policy | Mutuals · Mutuals" in the tab.
+export const metadata = { title: "Privacy Policy" };
 
 export default function Privacy() {
   return (

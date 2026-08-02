@@ -7,6 +7,7 @@ import { ApplyForm } from "./ApplyForm";
 import { PhotoUpload } from "./PhotoUpload";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Apply" };
 
 export default async function Apply() {
   const me = await getCurrentPerson();

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Logo } from "@/components/ui";
 
 export const metadata = {
-  title: "SMS Opt-In | Mutuals",
+  // The root layout template already appends " · Mutuals".
+  title: "SMS Opt-In",
   description:
     "How Mutuals collects express written consent for text message introductions, including the exact consent language shown during application.",
 };

@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Coaching" };
 
 export default async function Coaching({
   searchParams,
