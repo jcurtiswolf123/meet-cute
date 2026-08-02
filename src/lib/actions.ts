@@ -35,6 +35,7 @@ import {
 } from "./sms";
 import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInvites, recordInviteDecision } from "./introductions";
 import { rateLimit } from "./ratelimit";
+import { calendarAge, parseCalendarDate } from "./age";
 import { mutualFriends } from "./social";
 import { deleteUpload } from "./uploads";
 import {
@@ -492,12 +493,12 @@ export async function completeApplication(
   } else if (phoneRaw.trim() && !isTextablePhone(phone)) {
     fieldErrors.phone = "That does not look like a valid mobile number. Use a 10-digit number.";
   }
-  const birthdate = birthdateRaw ? new Date(birthdateRaw) : null;
-  if (!birthdate || Number.isNaN(birthdate.getTime())) {
+  const birthParts = birthdateRaw ? parseCalendarDate(birthdateRaw) : null;
+  const birthdate = birthParts ? new Date(Date.UTC(birthParts.y, birthParts.m - 1, birthParts.d)) : null;
+  if (!birthParts || !birthdate) {
     fieldErrors.birthdate = "Enter your date of birth.";
-  } else {
-    const age = Math.floor((Date.now() - birthdate.getTime()) / (365.25 * 24 * 3600 * 1000));
-    if (age < 18) fieldErrors.birthdate = "You must be 18 or older to join Mutuals.";
+  } else if (calendarAge(birthParts) < 18) {
+    fieldErrors.birthdate = "You must be 18 or older to join Mutuals.";
   }
   if (!agreed) fieldErrors.agree = "Please accept the Terms and Privacy Policy to continue.";
   // Mutuals is vouched-for: every applicant names someone in the community.
@@ -508,7 +509,7 @@ export async function completeApplication(
     return { fieldErrors, values };
   }
 
-  const age = Math.floor((Date.now() - birthdate!.getTime()) / (365.25 * 24 * 3600 * 1000));
+  const age = calendarAge(birthParts!);
   const name = `${first} ${last}`.trim() || me!.name;
   await prisma.person.update({
     where: { id: me!.id },

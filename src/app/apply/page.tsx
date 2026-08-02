@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentPerson } from "@/lib/auth";
 import { requestMagicLink } from "@/lib/actions";
 import { magicLinkErrorMessage } from "@/lib/magic-link-status";
+import { maxBirthdateForAge } from "@/lib/age";
 import { ApplyForm } from "./ApplyForm";
 import { PhotoUpload } from "./PhotoUpload";
 
@@ -87,11 +88,10 @@ export default async function Apply({
   // brand-new applicant's name is auto-derived from their email local part, so we
   // leave it blank rather than show them a guessed name to clear.
   const [first = "", last = ""] = me.appliedAt ? (me.name || "").split(" ") : ["", ""];
-  // 18+ gate computed at render time so the max date never goes stale.
-  const today = new Date();
-  const maxBirthdate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())
-    .toISOString()
-    .slice(0, 10);
+  // 18+ gate computed at render time so the max date never goes stale. Built
+  // from calendar parts rather than toISOString(), which converts a local date
+  // to UTC and so shifted the cutoff by a day west of Greenwich.
+  const maxBirthdate = maxBirthdateForAge(18);
   const photos = await prisma.photo.findMany({
     where: { personId: me.id },
     orderBy: { order: "asc" },
