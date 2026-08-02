@@ -3,17 +3,25 @@ import { Logo } from "@/components/ui";
 import { prisma } from "@/lib/prisma";
 import { getCurrentPerson } from "@/lib/auth";
 import { requestMagicLink } from "@/lib/actions";
+import { magicLinkErrorMessage } from "@/lib/magic-link-status";
 import { ApplyForm } from "./ApplyForm";
 import { PhotoUpload } from "./PhotoUpload";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Apply" };
 
-export default async function Apply() {
+export default async function Apply({
+  searchParams,
+}: {
+  searchParams: Promise<{ sent?: string; error?: string }>;
+}) {
   const me = await getCurrentPerson();
+  const sp = await searchParams;
 
   // Not signed in yet: collect an email and send a magic link to begin.
   if (!me) {
+    const sent = sp.sent === "1";
+    const errorMessage = magicLinkErrorMessage(sp.error);
     return (
       <main className="container-mc min-h-screen py-12">
         <Logo />
@@ -24,6 +32,23 @@ export default async function Apply() {
             Enter your email and we will send a one-time link to begin. A real person reads every
             application, and you will hear back either way.
           </p>
+
+          {/* This page used to redirect back to itself after a request and render
+              the identical empty form, so an applicant had no way to tell whether
+              anything had happened. */}
+          {sent && (
+            <div className="card mt-8 p-6">
+              <p className="text-sm">
+                Check your email for a link to continue. It expires in 15 minutes and works once.
+              </p>
+            </div>
+          )}
+          {errorMessage && (
+            <p role="alert" className="mt-8 text-sm text-claret">
+              {errorMessage}
+            </p>
+          )}
+
           <form action={requestMagicLink} className="mt-8 space-y-3">
             {/* Keep the applicant in the application flow (not the generic /login
                 "check your email" screen) before and after the magic link. */}

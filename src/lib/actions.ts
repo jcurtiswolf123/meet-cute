@@ -107,20 +107,38 @@ export async function requestMagicLink(formData: FormData) {
   const ipOk = (await rateLimit(`magic:ip:${ip}`, 10, 60 * 60 * 1000)).ok;
   const emailOk = validEmail && (await rateLimit(`magic:email:${email}`, 3, 15 * 60 * 1000)).ok;
 
-  if (base && validEmail && ipOk && emailOk) {
+  // Every branch below has to be reflected back to the requester. This used to
+  // redirect to `sent=1` unconditionally, so a typo'd address, a throttled
+  // request, a missing NEXT_PUBLIC_APP_URL, and a hard provider failure all
+  // rendered "check your email" for a link that was never sent. There is no
+  // enumeration concern here: this endpoint mails any address, so it reveals
+  // nothing about who has an account. (requestOperatorMagicLink below is the
+  // opposite case and deliberately stays silent.)
+  let outcome: "sent" | "email" | "throttled" | "send" = "sent";
+  if (!validEmail) {
+    outcome = "email";
+  } else if (!ipOk || !emailOk) {
+    outcome = "throttled";
+  } else if (!base) {
+    console.error("[auth] NEXT_PUBLIC_APP_URL must be set in production to send magic links");
+    outcome = "send";
+  } else {
     const token = await createLoginToken(email);
     const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
     const { subject, html, text } = magicLinkEmail(link);
-    await sendEmail({ to: email, subject, html, text });
+    const result = await sendEmail({ to: email, subject, html, text });
+    if (!result.ok) {
+      console.error("[auth] magic link send failed:", result.error);
+      outcome = "send";
+    }
     void purgeExpiredAuth();
-  } else if (!base) {
-    console.error("[auth] NEXT_PUBLIC_APP_URL must be set in production to send magic links");
   }
 
   const rawAfter = String(formData.get("after") || "/login");
   const after = rawAfter.startsWith("/") && !rawAfter.startsWith("//") ? rawAfter : "/login";
-  const dest = after.includes("sent=") ? after : `${after}${after.includes("?") ? "&" : "?"}sent=1`;
-  redirect(dest);
+  const base_ = after.split("?")[0];
+  const param = outcome === "sent" ? "sent=1" : `error=${outcome}`;
+  redirect(`${base_}?${param}`);
 }
 
 // Operator-only magic link (studio sign-in). Sends a link only when the email

@@ -3,6 +3,7 @@ import { loginAs, requestMagicLink } from "@/lib/actions";
 import { Avatar, Logo } from "@/components/ui";
 import { DemoOperatorPicker } from "@/components/DemoOperatorPicker";
 import { allowMemberDemoLogin } from "@/lib/demo-login";
+import { magicLinkErrorMessage } from "@/lib/magic-link-status";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sign in" };
@@ -14,7 +15,7 @@ export default async function Login({
 }) {
   const sp = await searchParams;
   const sent = sp.sent === "1";
-  const expired = sp.error === "expired";
+  const errorMessage = magicLinkErrorMessage(sp.error);
 
   return (
     <main className="container-mc min-h-screen py-12">
@@ -37,9 +38,9 @@ export default async function Login({
           </div>
         ) : (
           <form action={requestMagicLink} className="mt-8 space-y-3">
-            {expired && (
-              <p className="text-sm text-claret">
-                That link expired or was already used. Request a new one below.
+            {errorMessage && (
+              <p role="alert" className="text-sm text-claret">
+                {errorMessage}
               </p>
             )}
             <label htmlFor="email" className="label">
