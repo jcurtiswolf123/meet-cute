@@ -53,10 +53,26 @@ unconditionally, so it was asserting that the page always claims success even
 though CI has no RESEND_API_KEY and correctly refuses to send. It now accepts
 either honest outcome and checks the visible copy matches.
 
-**Known and deliberately not done:** the studio pipeline renders records as
-stacked cards where the card is not the interaction (a real redesign, operator
-only), the copilot's `h-[calc(100vh-180px)]` is fragile inside an `h-dvh` shell,
-and some studio components hardcode hex values instead of the studio variables.
+**The three deferred items are now done** (Fly v158):
+
+- **Status is a table, not a card mosaic.** Six columns of ~165px cards at 11px
+  where the card was not the interaction and nothing dragged. Now the studio's
+  `.roster` table, sorted by how long a match has sat still with anything
+  waiting on the operator first. Staleness was never shown before; the oldest
+  open match is 36 days. Fixed a real gap in the rewrite: the stage list only
+  covered the older dating path, so every match at `invited` or `connected`
+  was missing from the page entirely. The summary now reconciles with the table.
+- **The copilot no longer sizes off `100vh` and a magic 180.** It derives from
+  `--studio-chrome` against `dvh`, so it stops overflowing the shell on mobile
+  and stops going stale when the header changes.
+- **The studio greys have names.** 80 pasted hex literals across 17 files now
+  resolve through the CSS variables that already existed, exposed as Tailwind
+  colours (`border-studio-line`, `bg-studio-subtle`). Named the two greys that
+  had no variable, `--studio-subtle` and `--studio-active`.
+
+Also cleared the two other card stacks in the same finding: the person sidebar
+is one divided panel rather than four read-only cards, and the conversations
+counts use the shared ledger strip.
 
 ## 2026-08-02: the public voice is warmer, and the OG card is on-brand
 
