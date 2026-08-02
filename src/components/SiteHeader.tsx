@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
 
+// The two content sections plus how-it-works. Kept in one place so the desktop
+// row and the small-screen row can never drift apart.
+const SECTIONS = [
+  { href: "/#how-it-works", label: "How it works" },
+  { href: "/dinners", label: "Dinners" },
+  { href: "/coaching", label: "Coaching" },
+];
+
 // `overlay` floats the header over a hero; `light` styles it for a dark hero
 // (cream logo and links). Off a dark hero it stays on the cream surface.
 export function SiteHeader({ overlay = false, light = false }: { overlay?: boolean; light?: boolean }) {
@@ -23,15 +31,15 @@ export function SiteHeader({ overlay = false, light = false }: { overlay?: boole
       <div className="container-mc flex h-20 items-center justify-between gap-5">
         <Logo light={light} />
         <nav aria-label="Primary navigation" className="flex items-center gap-5 text-sm sm:gap-7">
-          <Link href="/#how-it-works" className={`hidden ${linkBase} ${linkColor} md:inline`}>
-            How it works
-          </Link>
-          <Link href="/dinners" className={`hidden ${linkBase} ${linkColor} sm:inline`}>
-            Dinners
-          </Link>
-          <Link href="/coaching" className={`hidden ${linkBase} ${linkColor} sm:inline`}>
-            Coaching
-          </Link>
+          {SECTIONS.map((section) => (
+            <Link
+              key={section.href}
+              href={section.href}
+              className={`hidden ${linkBase} ${linkColor} md:inline`}
+            >
+              {section.label}
+            </Link>
+          ))}
           <Link href="/login" className={`${linkBase} ${linkColor}`}>
             Sign in
           </Link>
@@ -40,6 +48,21 @@ export function SiteHeader({ overlay = false, light = false }: { overlay?: boole
           </Link>
         </nav>
       </div>
+
+      {/* Below md the main row only has space for Sign in and Apply, which used
+          to leave Dinners and Coaching unreachable from the header entirely: the
+          two pages the site is actually about. A hamburger would bury them one
+          tap deeper, so give them their own quiet row instead. */}
+      <nav
+        aria-label="Sections"
+        className="container-mc -mt-2 flex items-center gap-6 pb-3 text-sm md:hidden"
+      >
+        {SECTIONS.map((section) => (
+          <Link key={section.href} href={section.href} className={`${linkBase} ${linkColor}`}>
+            {section.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }
