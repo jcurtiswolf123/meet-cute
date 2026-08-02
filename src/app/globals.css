@@ -263,6 +263,17 @@ textarea:focus-visible {
     /* One step darker: the selected navigation row. */
     --studio-active: #f0f0f1;
     --studio-accent: #16161a;
+    /* Everything the shell puts above and below a page's own content: the
+       outer padding, the header, the gap, and main's vertical padding. Pages
+       that need to fill the viewport (the co-pilot) subtract this instead of
+       hardcoding a guess that goes stale when the header changes. */
+    --studio-chrome: 8.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .studio-shell {
+      --studio-chrome: 10rem;
+    }
   }
 
   /* Section eyebrows read as structure, not as an alert. */

@@ -99,7 +99,14 @@ export default function CopilotChat() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-180px)] max-w-2xl flex-col">
+    // Was h-[calc(100vh-180px)]. 100vh on mobile includes the browser chrome
+    // that is not actually on screen, so the column ran past the bottom of the
+    // shell and put a second scrollbar inside one that already scrolled; and
+    // the 180 was a guess at the shell's own chrome that nothing kept in sync
+    // with the header. dvh tracks the real viewport, --studio-chrome lives
+    // next to the shell that produces it, and min-h keeps the thing usable on
+    // a short window.
+    <div className="mx-auto flex h-[calc(100dvh-var(--studio-chrome))] min-h-[26rem] max-w-2xl flex-col">
       <div className="flex items-center justify-between">
         <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Co-pilot</h1>
         {live !== null && (
