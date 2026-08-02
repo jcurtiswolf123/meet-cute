@@ -2,9 +2,61 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-02 (public voice warmed: "Meet your friend's friends" and
-"curated matchmaking"; canonical domain is hellomutuals.com; Prelude still wired
+Last updated: 2026-08-02 (public voice warmed, then a full design and
+functionality audit; canonical domain is hellomutuals.com; Prelude still wired
 as the no-registration SMS path, default provider still twilio)
+
+## 2026-08-02: design and functionality audit
+
+Shipped and verified live (Fly v156). Full audit of the eight public pages plus
+the member app and studio, cross-checked against a Codex source review. Eleven
+fixes, each committed on its own.
+
+Functional defects, all confirmed before fixing:
+
+- **Sign-in links reported success when nothing was sent.** requestMagicLink
+  redirected to `sent=1` on every path, discarding sendEmail's `{ok:false}`. A
+  typo'd address, a throttled request, a missing NEXT_PUBLIC_APP_URL and a hard
+  provider failure all said "check your email". Each outcome now has its own
+  state. `/apply` also had no success state at all: it re-rendered the same
+  empty form.
+- **The 18+ gate refused people on their actual 18th birthday.** Elapsed-ms
+  divided by 365.25 days is still 17 for most of the day someone turns 18.
+  Replaced with calendar comparison (`src/lib/age.ts`), covered by
+  `npm run test:launch:age`.
+- **Rate-limited dinner and coaching leads were discarded behind a success
+  message.** Now `?error=throttled` with copy and a mailbox fallback.
+- **Report and block were unreachable.** `SafetyControls` had zero imports;
+  members could not report anyone. Wired into the connection screen, and
+  blocking now confirms first.
+- **Dinner seats counted invited and noshow rows**, and "upcoming" filtered on
+  status rather than date, so a past dinner kept taking requests forever.
+
+Design and accessibility:
+
+- Mobile lost Dinners and Coaching from the header entirely with no hamburger.
+- Four pages had no title; three doubled the brand ("... | Mutuals · Mutuals").
+- Every name/email/note field used a placeholder as its only label.
+- `.label` put the one brand accent on every form label; now muted, matching
+  `.public-label` and the studio override.
+- /privacy, /terms and /sms-opt-in had no header or footer; legal body ran 14px
+  at ~99 characters a line. Now 16px at 69.
+- Fields were 43px, one under the 44px target. Secondary text at
+  `text-muted/70` measured 2.90:1, under the 4.5:1 minimum.
+- Reduced-motion only disabled two animations; spinners and the copilot's
+  typing dots kept moving.
+- Apply-form errors set `aria-invalid` with no `aria-describedby`.
+- Connect now / Close / Remove fired on the first click in the studio.
+
+**CI note:** the journey test waited on `/apply?sent=1`, which the page returned
+unconditionally, so it was asserting that the page always claims success even
+though CI has no RESEND_API_KEY and correctly refuses to send. It now accepts
+either honest outcome and checks the visible copy matches.
+
+**Known and deliberately not done:** the studio pipeline renders records as
+stacked cards where the card is not the interaction (a real redesign, operator
+only), the copilot's `h-[calc(100vh-180px)]` is fragile inside an `h-dvh` shell,
+and some studio components hardcode hex values instead of the studio variables.
 
 ## 2026-08-02: the public voice is warmer, and the OG card is on-brand
 
