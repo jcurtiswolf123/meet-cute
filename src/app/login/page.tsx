@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { loginAs, requestMagicLink } from "@/lib/actions";
 import { Avatar, Logo } from "@/components/ui";
+import { SiteFooter } from "@/components/SiteFooter";
 import { DemoOperatorPicker } from "@/components/DemoOperatorPicker";
 import { allowMemberDemoLogin } from "@/lib/demo-login";
 import { magicLinkErrorMessage } from "@/lib/magic-link-status";
@@ -18,7 +19,8 @@ export default async function Login({
   const errorMessage = magicLinkErrorMessage(sp.error);
 
   return (
-    <main className="container-mc min-h-screen py-12">
+    <>
+    <main id="main-content" className="container-mc min-h-screen py-12">
       <Logo />
       <div className="mt-10 max-w-md">
         <h1 className="font-display text-3xl font-medium tracking-tight">Sign in</h1>
@@ -64,6 +66,8 @@ export default async function Login({
 
       {allowMemberDemoLogin() && <DemoPicker />}
     </main>
+      <SiteFooter />
+    </>
   );
 }
 

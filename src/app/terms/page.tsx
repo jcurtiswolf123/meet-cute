@@ -1,23 +1,21 @@
 import Link from "next/link";
-import { Logo } from "@/components/ui";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 
 // The root layout template already appends " · Mutuals".
 export const metadata = { title: "Terms of Service" };
 
 export default function Terms() {
   return (
-    <main className="container-mc min-h-screen py-12">
-      <Logo />
-      <div className="mx-auto mt-10 max-w-2xl">
-        <Link href="/" className="text-sm text-claret underline">
-          ← Back to home
-        </Link>
-
+    <>
+      <SiteHeader />
+      <main id="main-content" className="container-mc min-h-screen py-12 md:py-16">
+        <div className="max-w-[35rem]">
         <p className="label mt-8 mb-3">Terms</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Terms of Service</h1>
         <p className="mt-3 text-sm text-muted">Last updated: 2026-07-23</p>
 
-        <p className="mt-6 text-sm leading-relaxed text-muted">
+        <p className="mt-6 text-base leading-relaxed text-muted">
           These Terms of Service (&quot;Terms&quot;) are an agreement between you and Mutuals
           (&quot;Mutuals,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). They govern
           your use of the Mutuals matchmaking service and website. By creating an account or using
@@ -29,7 +27,7 @@ export default function Terms() {
             You must be at least 18 years old to use Mutuals. By using the service you confirm that
             you are 18 or older, that you are legally able to enter into this agreement, and that you
             are not barred from using the service under any applicable law. Mutuals is an
-            invitation-only, curated service, and acceptance of an application is at our discretion.
+            curated service, and acceptance of an application is at our discretion.
           </p>
         </Section>
 
@@ -206,8 +204,10 @@ export default function Terms() {
             ← Back to home
           </Link>
         </div>
-      </div>
-    </main>
+        </div>
+      </main>
+      <SiteFooter />
+    </>
   );
 }
 
@@ -215,7 +215,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="mt-10">
       <h2 className="font-display text-2xl font-medium tracking-tight">{title}</h2>
-      <div className="mt-3 space-y-3 text-sm leading-relaxed text-muted">{children}</div>
+      <div className="mt-3 space-y-3 text-base leading-relaxed text-muted">{children}</div>
     </section>
   );
 }

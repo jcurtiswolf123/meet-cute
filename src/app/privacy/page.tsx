@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Logo } from "@/components/ui";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 
 // The root layout template already appends " · Mutuals"; naming the brand here
 // too produced "Privacy Policy | Mutuals · Mutuals" in the tab.
@@ -7,19 +8,16 @@ export const metadata = { title: "Privacy Policy" };
 
 export default function Privacy() {
   return (
-    <main className="container-mc min-h-screen py-12">
-      <Logo />
-      <div className="mx-auto mt-10 max-w-2xl">
-        <Link href="/" className="text-sm text-claret underline">
-          ← Back to home
-        </Link>
-
+    <>
+      <SiteHeader />
+      <main id="main-content" className="container-mc min-h-screen py-12 md:py-16">
+        <div className="max-w-[35rem]">
         <p className="label mt-8 mb-3">Privacy</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Privacy Policy</h1>
         <p className="mt-3 text-sm text-muted">Last updated: 2026-07-23</p>
 
-        <p className="mt-6 text-sm leading-relaxed text-muted">
-          Mutuals is a curated, invitation-only matchmaking service. To introduce you to people
+        <p className="mt-6 text-base leading-relaxed text-muted">
+          Mutuals is a curated matchmaking service. To introduce you to people
           you might actually want to date, we collect and use personal information. This policy
           explains what we collect, why we collect it, who we share it with, how long we keep it,
           and the choices and rights you have. We have written it to be read, not to be skipped.
@@ -225,8 +223,10 @@ export default function Privacy() {
             ← Back to home
           </Link>
         </div>
-      </div>
-    </main>
+        </div>
+      </main>
+      <SiteFooter />
+    </>
   );
 }
 
@@ -234,7 +234,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="mt-10">
       <h2 className="font-display text-2xl font-medium tracking-tight">{title}</h2>
-      <div className="mt-3 space-y-3 text-sm leading-relaxed text-muted">{children}</div>
+      <div className="mt-3 space-y-3 text-base leading-relaxed text-muted">{children}</div>
     </section>
   );
 }

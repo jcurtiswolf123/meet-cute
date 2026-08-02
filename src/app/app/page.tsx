@@ -13,12 +13,12 @@ export default async function Home() {
   if (!me.openToMatch) {
     return (
       <div className="mx-auto max-w-xl animate-fadeup px-4 py-16 text-center">
-        <p className="label text-claret">Your membership</p>
+        <p className="label">Your membership</p>
         <h1 className="mt-6 font-display text-4xl font-medium">Ready to meet someone?</h1>
         <p className="mx-auto mt-4 max-w-md text-lg leading-relaxed text-muted">
           Opt in and your matchmaker starts looking for the right introduction for you. If they find
-          one, Mutuals will email you a private introduction. You can say yes or pass privately,
-          and a mutual yes connects you both by email. No swiping, no feed.
+          one, Mutuals will email you the introduction. You can say yes or pass on your own, and a
+          mutual yes connects you both by email. No swiping, no feed.
         </p>
         <form action="/api/me/match-opt-in" method="post" className="mt-8">
           <input type="hidden" name="on" value="1" />
@@ -37,10 +37,10 @@ export default async function Home() {
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
       <p className="label text-claret">Your membership</p>
-      <h1 className="mt-6 font-display text-4xl font-medium">You are on the list.</h1>
+      <h1 className="mt-6 font-display text-4xl font-medium">You are in.</h1>
       <p className="mx-auto mt-4 max-w-md text-lg leading-relaxed text-muted">
         Your matchmaker is looking for your next introduction. When they find a fit, Mutuals will
-        email you a private introduction. You can decide privately from the email or profile page. A
+        email you the introduction. You can decide from the email or your profile page, on your own. A
         good introduction is worth the wait.
       </p>
 

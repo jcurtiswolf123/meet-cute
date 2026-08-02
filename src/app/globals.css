@@ -47,8 +47,14 @@ body {
     @apply rounded-lg border border-line bg-panel shadow-card;
   }
 
+  /* Eyebrows and field labels read as structure, not as an alert. This was
+     text-claret, which put the one brand accent on every label on every form
+     and inner page while the marketing pages used .public-label in muted. Two
+     label systems, two colours, same job. DESIGN.md reserves oxblood for
+     focus, hover and rare emphasis; the studio had already overridden this to
+     muted for the same reason. Callers that want the accent can add it. */
   .label {
-    @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-claret;
+    @apply text-[11px] font-semibold uppercase tracking-[0.16em] text-muted;
   }
 
   .public-label {

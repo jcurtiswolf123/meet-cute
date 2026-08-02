@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
+import { SiteFooter } from "@/components/SiteFooter";
 import { prisma } from "@/lib/prisma";
 import { getCurrentPerson } from "@/lib/auth";
 import { requestMagicLink } from "@/lib/actions";
@@ -24,9 +25,10 @@ export default async function Apply({
     const sent = sp.sent === "1";
     const errorMessage = magicLinkErrorMessage(sp.error);
     return (
-      <main className="container-mc min-h-screen py-12">
+      <>
+      <main id="main-content" className="container-mc min-h-screen py-12">
         <Logo />
-        <div className="mx-auto mt-10 max-w-xl">
+        <div className="mt-10 max-w-xl">
           <p className="label mb-3">Application</p>
           <h1 className="font-display text-4xl font-medium tracking-tight">Start your application.</h1>
           <p className="mt-3 text-sm leading-relaxed text-muted">
@@ -80,6 +82,8 @@ export default async function Apply({
           </form>
         </div>
       </main>
+        <SiteFooter />
+      </>
     );
   }
 
@@ -98,14 +102,17 @@ export default async function Apply({
     select: { id: true, url: true, status: true },
   });
   return (
-    <main className="container-mc min-h-screen py-12">
+    <>
+    <main id="main-content" className="container-mc min-h-screen py-12">
       <Logo />
-      <div className="mx-auto mt-10 max-w-xl">
+      <div className="mt-10 max-w-xl">
         <p className="label mb-3">Application</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">The basics.</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          Signed in as {me.email}. This takes a minute - just a few essentials and your socials so we
-          can get to know you.
+          {/* email is nullable on Person: an operator can create a member record
+              without one, and "Signed in as ." reads as a broken sentence. */}
+          {me.email ? `Signed in as ${me.email}. ` : ""}This takes a minute - just a few essentials
+          and your socials so we can get to know you.
         </p>
 
         <div className="mt-8">
@@ -130,5 +137,7 @@ export default async function Apply({
         />
       </div>
     </main>
+      <SiteFooter />
+    </>
   );
 }
