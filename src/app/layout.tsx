@@ -32,14 +32,14 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com",
   ),
   title: {
-    default: "Mutuals - private matchmaking",
+    default: "Mutuals - curated matchmaking",
     template: "%s · Mutuals",
   },
   description:
-    "Private, one-to-one introductions made by a real matchmaker in New York and San Francisco.",
+    "Curated, one-to-one introductions made by a real matchmaker in New York and San Francisco.",
   openGraph: {
-    title: "Mutuals - private matchmaking",
-    description: "Meet someone worth knowing. One private introduction at a time.",
+    title: "Mutuals - curated matchmaking",
+    description: "Meet your friend's friends. One introduction at a time.",
     type: "website",
   },
   twitter: { card: "summary_large_image" },

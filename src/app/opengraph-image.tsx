@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "nodejs";
-export const alt = "Mutuals - private matchmaking";
+export const alt = "Mutuals - curated matchmaking";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -45,7 +45,7 @@ export default async function OG() {
               maxWidth: 980,
             }}
           >
-            <span>Meet someone worth knowing.</span>
+            <span>Meet your friend&rsquo;s friends.</span>
           </div>
           <div
             style={{
@@ -56,7 +56,7 @@ export default async function OG() {
               fontFamily: "Arial, sans-serif",
             }}
           >
-            Private matchmaking. One introduction at a time. NYC + SF.
+            Curated matchmaking. One introduction at a time. NYC + SF.
           </div>
         </div>
       </div>

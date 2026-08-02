@@ -31,8 +31,8 @@ export default async function Dinners({
             Twelve people, one long table.
           </h1>
           <p className="mt-5 text-lg leading-8 text-muted">
-            Monthly curated dinners in New York and San Francisco. Half the fun is who is in the room.
-            Standalone, and the most natural way onto the roster.
+            Monthly dinners in New York and San Francisco. Half the fun is who else is at the table.
+            Come for the dinner alone, or as the easiest way to meet everyone at once.
           </p>
         </div>
 
@@ -102,7 +102,7 @@ export default async function Dinners({
               <p className="text-sm text-muted">Next dates announced soon.</p>
               <details className="group mt-4">
                 <summary className="btn-ghost w-fit cursor-pointer list-none text-sm">
-                  Ask to be invited
+                  Tell me about the next one
                 </summary>
                 <form action={requestDinnerSeat} className="mt-4 space-y-3 border-t border-line pt-4">
                   {me ? (
@@ -115,7 +115,7 @@ export default async function Dinners({
                   )}
                   <textarea name="note" rows={2} maxLength={600} placeholder="Which city, and anything we should know?" className="field" />
                   <SubmitButton className="btn-primary text-sm" pendingText="Sending...">
-                    Ask for an invitation
+                    Keep me posted
                   </SubmitButton>
                 </form>
               </details>

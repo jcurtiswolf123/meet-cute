@@ -8,7 +8,7 @@ export function SiteFooter() {
         <div className="md:col-span-5">
           <Logo light />
           <p className="mt-6 max-w-[28ch] font-display text-3xl leading-tight text-cream/85">
-            Private introductions for people ready to meet in real life.
+            Real introductions, for people ready to meet in real life.
           </p>
         </div>
 

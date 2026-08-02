@@ -2,16 +2,16 @@
 
 ## Product context
 
-- What this is: A private matchmaking service with public applications, member introductions, and an operator studio.
+- What this is: A curated matchmaking service with public applications, member introductions, and an operator studio.
 - Who it is for: Adults in New York and San Francisco who want a considered introduction instead of another public dating profile.
-- Project type: Public membership site, member web app, and internal operating tool.
+- Project type: Public site, member web app, and internal operating tool.
 
 ## Aesthetic direction
 
-- Direction: Quiet members club.
+- Direction: Warm and editorial. The feeling is a well-connected friend making the introduction, not a velvet rope.
 - Decoration: Minimal. Typography, scale, rules, and negative space carry the design.
-- Mood: Discreet, selective, warm, and confident. It should feel run by people with judgment.
-- Reference: [Raya](https://www.rayatheapp.com/) for restraint and membership posture. Do not copy its logo, rings, rainbow palette, or exact layout.
+- Mood: Warm, plain-spoken, and confident. It should feel run by people with judgment who are glad you came.
+- Restraint is for craft, not status. Keep the typographic discipline; do not borrow members-club or gatekeeping posture from Raya or its imitators.
 - Avoid: gradients, floating cards, startup feature grids, public vanity metrics, glass effects, and decorative copy.
 
 ## Typography
@@ -60,10 +60,12 @@
 
 ## Public copy
 
-- Write like a discreet person, not a luxury brand.
+- Write like a friend who is good at this, not a luxury brand and not a startup.
 - Use short sentences and concrete mechanics.
-- Do not claim exclusivity through numbers, celebrity associations, or vague status language.
-- Prefer "request membership" to generic conversion language.
+- Do not claim exclusivity through numbers, celebrity associations, selection rates, or vague status language.
+- The line is "Meet your friend's friends." The positioning line is "curated matchmaking."
+- Say "join" and "apply to join," not "request membership." Say "members," not "the list" or "the roster."
+- Do not use "private" as brand language. Describe the actual privacy mechanic instead (who sees what, and when).
 - Do not expose operator links in public navigation.
 
 ## Decisions log
@@ -71,5 +73,6 @@
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-07-26 | Adopt the quiet members club direction | Joshua asked for less generated styling and a more Raya-like level of restraint. |
+| 2026-08-02 | Warm the voice and drop the members-club posture | Jess asked to cut the word "private," lead with "Meet your friend's friends," and use "curated matchmaking" as the positioning line. Joshua asked for friendlier language overall, less Raya. The typographic restraint stays; the gatekeeping tone does not. |
 | 2026-07-26 | Remove public roster counts | A small live count weakens the membership posture and is not useful to an applicant. |
 | 2026-07-26 | Keep the homepage free of hero photography | The site had already moved away from a hero photo, and typographic restraint fits the new direction better. |

@@ -63,8 +63,8 @@ export function PhotoUpload({ initial }: { initial: Item[] }) {
     <fieldset className="space-y-4 rounded-xl border border-line bg-paper/40 p-4">
       <legend className="label px-1">Your photos</legend>
       <p className="-mt-1 text-xs text-muted">
-        Add a few clear, recent photos - at least one of just you. They stay private to your
-        matchmaker and are only shown to a match after you both say yes. Up to {MAX}.
+        Add a few clear, recent photos - at least one of just you. Only your matchmaker sees them,
+        and a match only sees them after you both say yes. Up to {MAX}.
       </p>
 
       {items.length > 0 && (

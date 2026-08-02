@@ -8,7 +8,7 @@ const steps = [
   {
     number: "01",
     title: "Tell us who you are.",
-    body: "Apply privately. A matchmaker reads every application and gets to know the people invited onto the list.",
+    body: "Fill out a short application. A real matchmaker reads every one and takes the time to get to know you.",
   },
   {
     number: "02",
@@ -18,7 +18,7 @@ const steps = [
   {
     number: "03",
     title: "Decide for yourself.",
-    body: "You each say yes or pass in private. No one sees who declined.",
+    body: "You each say yes or no on your own. Nobody finds out who passed.",
   },
   {
     number: "04",
@@ -37,11 +37,12 @@ export default function Home() {
         <section className="border-b border-line">
           <div className="container-mc grid gap-12 py-20 md:grid-cols-12 md:items-end md:py-section-lg">
             <Reveal className="md:col-span-3">
-              <p className="public-label text-muted">The arrangement</p>
+              <p className="public-label text-muted">The idea</p>
             </Reveal>
             <Reveal className="md:col-span-8 md:col-start-5" delay={0.08}>
               <p className="font-display text-4xl leading-[1.08] tracking-[-0.025em] text-ink sm:text-5xl lg:text-6xl">
-                One introduction. Two private decisions. Contact details only after a mutual yes.
+                One introduction. Two answers, kept between you and us. Contact details only after
+                you both say yes.
               </p>
             </Reveal>
           </div>
@@ -86,15 +87,15 @@ export default function Home() {
             </Reveal>
             <Reveal className="md:col-span-6 md:col-start-7" delay={0.08}>
               <p className="max-w-[50ch] text-xl leading-8 text-ink">
-                Members can vouch for people they know. A short note from a friend gives your
-                matchmaker the part a profile cannot.
+                Members can vouch for people they know. A short note from a friend tells your
+                matchmaker the part a profile never could.
               </p>
               <p className="mt-6 max-w-[50ch] leading-7 text-muted">
-                Vouches stay private. They are context for the matchmaker, not content for a public
-                feed.
+                Vouches stay between you and your matchmaker. They are context for us, not content
+                for a feed.
               </p>
               <Link href="/apply" className="text-link mt-9">
-                Request membership
+                Apply to join
               </Link>
             </Reveal>
           </div>
@@ -130,8 +131,8 @@ export default function Home() {
             </Reveal>
             <Reveal className="md:col-span-6 md:col-start-7" delay={0.08}>
               <p className="max-w-[50ch] text-xl leading-8 text-ink">
-                Dating coaching for people on the list, and couples coaching for the pairs who met
-                through us and the ones who found each other elsewhere.
+                Dating coaching for members, and couples coaching for the pairs who met through us
+                and the ones who found each other elsewhere.
               </p>
               <Link href="/coaching" className="text-link mt-9">
                 Explore coaching
@@ -144,15 +145,15 @@ export default function Home() {
           <div className="container-mc grid min-h-[26rem] items-center gap-10 py-20 md:min-h-[32rem] md:grid-cols-12 md:py-section-md">
             <Reveal className="md:col-span-7">
               <h2 className="font-display text-5xl leading-[0.98] tracking-[-0.03em] sm:text-6xl lg:text-7xl">
-                Ready to meet someone worth knowing?
+                Ready to meet your friend&rsquo;s friends?
               </h2>
             </Reveal>
             <Reveal className="md:col-span-4 md:col-start-9" delay={0.08}>
               <Link href="/apply" className="btn-primary w-full px-8 py-4 sm:w-auto">
-                Request membership
+                Join Mutuals
               </Link>
               <p className="mt-5 text-sm leading-6 text-muted">
-                Every application is read by a person.
+                Every application is read by a person, and you will hear back either way.
               </p>
             </Reveal>
           </div>

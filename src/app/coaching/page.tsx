@@ -27,9 +27,9 @@ export default async function Coaching({
             We helped you meet. Now we help you build it.
           </h1>
           <p className="mt-5 text-lg leading-8 text-muted">
-            A small bench of hand-picked coaches. Dating coaching for people on the roster - profile
-            help, date prep, post-date debriefs. Couples coaching for the pairs who met through us, and
-            the ones who found each other elsewhere.
+            A small bench of coaches we know and trust. Dating coaching for members - profile help,
+            date prep, post-date debriefs. Couples coaching for the pairs who met through us, and the
+            ones who found each other elsewhere.
           </p>
         </div>
 
@@ -63,7 +63,7 @@ export default async function Coaching({
               </div>
             ) : (
               <p className="mt-5 text-sm text-muted">
-                Coaches are introduced privately once we understand what you are working on.
+                We will introduce you to the right coach once we understand what you are working on.
               </p>
             )}
           </div>

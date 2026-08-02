@@ -217,7 +217,7 @@ function emailShell(inner: string, preheader = ""): string {
           ${inner}
         </td></tr>
         <tr><td style="padding:20px 4px 0;font-family:${SANS};font-size:12px;line-height:1.6;color:${BRAND.muted}">
-          Private matchmaking in New York and San Francisco.<br/>
+          Curated matchmaking in New York and San Francisco.<br/>
           Reply to this email any time - a person reads it.
         </td></tr>
       </table>
@@ -247,7 +247,7 @@ export function applicationReceivedEmail(args: {
   const text =
     `Hi ${first},\n\n` +
     `Thank you for applying to Mutuals${place ? ` in ${place}` : ""}. A matchmaker reads every application by hand, so this takes a little time - that is on purpose.\n\n` +
-    `If it is a fit, we will be in touch to welcome you onto the list and start making introductions. Either way, you will hear from a person, not a form.\n\n` +
+    `If it is a fit, we will be in touch to welcome you in and start making introductions. Either way, you will hear from a person, not a form.\n\n` +
     `Warmly,\nMutuals`;
   const inner =
     h1("Thank you for applying.") +
@@ -257,8 +257,8 @@ export function applicationReceivedEmail(args: {
   return { subject, html: emailShell(inner, "A matchmaker reads every application by hand."), text };
 }
 
-// Sent when an operator approves an applicant onto the roster. This is the
-// "welcome, you'll start getting matches" moment.
+// Sent when an operator approves an applicant. This is the "welcome, you'll
+// start getting matches" moment.
 export function applicationApprovedEmail(args: {
   name: string;
   appUrl: string;
@@ -267,17 +267,17 @@ export function applicationApprovedEmail(args: {
   const subject = "You're in - welcome to Mutuals";
   const text =
     `Hi ${first},\n\n` +
-    `Good news: you have been accepted onto the Mutuals list. Welcome.\n\n` +
-    `From here, a matchmaker introduces you to one person at a time - no public profile, no feed, no endless messaging. When we find someone worth meeting, you will get a private introduction by email and decide for yourself.\n\n` +
+    `Good news: you are in. Welcome to Mutuals.\n\n` +
+    `From here, a matchmaker introduces you to one person at a time - no public profile, no feed, no endless messaging. When we find someone we think you should meet, the introduction comes by email and you decide for yourself.\n\n` +
     `Take a minute to round out your profile and tell us what you are looking for:\n${args.appUrl}\n\n` +
     `Warmly,\nMutuals`;
   const inner =
     h1("Welcome to Mutuals.") +
-    p(`Hi ${esc(first)}, you have been accepted onto the list. From here a matchmaker introduces you to <strong>one person at a time</strong> - no public profile, no feed, no endless messaging.`) +
-    p(`When we find someone worth meeting, you will get a private introduction by email and decide for yourself. If you both say yes, we connect you.`) +
+    p(`Hi ${esc(first)}, you are in. From here a matchmaker introduces you to <strong>one person at a time</strong> - no public profile, no feed, no endless messaging.`) +
+    p(`When we find someone we think you should meet, the introduction comes by email and you decide for yourself. If you both say yes, we connect you.`) +
     `<p style="margin:24px 0 0">${emailButton("Round out your profile", args.appUrl)}</p>` +
     small("The more we know about what you are looking for, the better the introductions.");
-  return { subject, html: emailShell(inner, "You've been accepted onto the list."), text };
+  return { subject, html: emailShell(inner, "You're in - welcome to Mutuals."), text };
 }
 
 // A gentle nudge sent to one side of a connected match who hasn't taken it

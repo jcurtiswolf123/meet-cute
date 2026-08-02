@@ -20,8 +20,8 @@ export default async function Apply() {
           <p className="label mb-3">Application</p>
           <h1 className="font-display text-4xl font-medium tracking-tight">Start your application.</h1>
           <p className="mt-3 text-sm leading-relaxed text-muted">
-            Enter your email and we will send a one-time link to begin. We read every application by
-            hand and accept a fraction of them.
+            Enter your email and we will send a one-time link to begin. A real person reads every
+            application, and you will hear back either way.
           </p>
           <form action={requestMagicLink} className="mt-8 space-y-3">
             {/* Keep the applicant in the application flow (not the generic /login
