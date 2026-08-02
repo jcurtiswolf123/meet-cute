@@ -2,9 +2,48 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-02 (public voice warmed, then a full design and
-functionality audit; canonical domain is hellomutuals.com; Prelude still wired
-as the no-registration SMS path, default provider still twilio)
+Last updated: 2026-08-02 (Send introductions no longer crashes the studio, and a
+suggested pair can be introduced; before that, public voice warmed and a full
+design and functionality audit; canonical domain is hellomutuals.com; Prelude
+still wired as the no-registration SMS path, default provider still twilio)
+
+## 2026-08-02: Send introductions crashed the studio, twice over
+
+Found live while Joshua was running his first real introductions from the
+studio. Sending from a person profile dropped him on the generic "Something
+went sideways." page. Production Sentry issue 7648555016 logged it four times
+in two minutes, every one from `actions.ts:1045`.
+
+- **Every refusal was a raw `throw`.** In a Next.js server action that goes to
+  the global error boundary, so all eight checks in `createIntroduction` (no
+  people picked, the same person twice, a deleted row, an unapproved member, no
+  authorized channel, a live invitation, a block) rendered the same blank
+  apology with no reason, and raised a Sentry issue per click. This is exactly
+  the ISSUE-004 pattern fixed for `createSuggestion` on 7/27 and never applied
+  here. Each outcome now redirects back to the page the composer was submitted
+  from carrying a short code, and all three host pages (Directory, Matchmaking,
+  a person profile) render operator copy in place. Sending successfully had no
+  feedback at all before; it now confirms.
+- **A `suggested` match wrongly counted as an open introduction.** The pipeline
+  reads `suggested -> invited -> mutual_yes -> connected`, and a suggested row
+  has emailed nobody, so it is the stage before an introduction rather than one
+  in flight. Refusing it meant every pair the Status board or the co-pilot had
+  ever suggested was permanently un-introducible, and said so with a crash
+  page. Four pairs on the current roster were stuck that way. Only `invited`,
+  `mutual_yes` and `connecting` block a new introduction now, since those hold
+  an unanswered invite whose token a resend would rotate away.
+- **The return path is pinned to the studio.** It arrives in a hidden form
+  field, so `introReturnPath` rejects absolute, protocol-relative and
+  dot-segment values. The first draft let `/studio/../../app` through, which
+  the new test caught.
+
+Verified against the real dev server signed in as an operator: the exact click
+that crashed renders "These two already have an invitation out and unanswered"
+at `?intro=already-open`, and a channel-less member renders the no-channel
+copy. No console errors, and zero rows written on either refusal. typecheck,
+lint, the production build, and the database-free launch suites pass. The
+database-backed suites were not run in this session (no local PostgreSQL
+available, and they are never run against Neon).
 
 ## 2026-08-02: design and functionality audit
 
