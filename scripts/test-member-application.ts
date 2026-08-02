@@ -135,7 +135,7 @@ async function main() {
     await approvedMemberPage.goto(`${baseUrl}/app`);
     await approvedMemberPage
       .getByText(
-        "Opt in and your matchmaker starts looking for the right introduction for you. If they find one, Mutuals will email you a private introduction. You can say yes or pass privately, and a mutual yes connects you both by email. No swiping, no feed.",
+        "Opt in and your matchmaker starts looking for the right introduction for you. If they find one, Mutuals will email you the introduction. You can say yes or pass on your own, and a mutual yes connects you both by email. No swiping, no feed.",
         { exact: true },
       )
       .waitFor();
@@ -148,11 +148,11 @@ async function main() {
       .getByRole("button", { name: "Opt in to get matched" })
       .click();
     await approvedMemberPage
-      .getByRole("heading", { name: "You are on the list." })
+      .getByRole("heading", { name: "You are in." })
       .waitFor();
     await approvedMemberPage
       .getByText(
-        "Your matchmaker is looking for your next introduction. When they find a fit, Mutuals will email you a private introduction. You can decide privately from the email or profile page. A good introduction is worth the wait.",
+        "Your matchmaker is looking for your next introduction. When they find a fit, Mutuals will email you the introduction. You can decide from the email or your profile page, on your own. A good introduction is worth the wait.",
         { exact: true },
       )
       .waitFor();
