@@ -47,7 +47,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
+    // data-scroll-behavior opts the smooth scrolling in globals.css out of Next's
+    // route transitions. Without it every navigation animated its scroll reset,
+    // and Next warns about exactly this in the console.
+    <html
+      lang="en"
+      data-scroll-behavior="smooth"
+      className={`${display.variable} ${sans.variable} ${mono.variable}`}
+    >
       <head>
         {/* Scroll reveals render at opacity 0 and are animated in by the client
             bundle. Without JavaScript nothing would ever reveal them, leaving the
