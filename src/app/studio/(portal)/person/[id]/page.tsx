@@ -258,41 +258,49 @@ export default async function PersonPage({
           </div>
         )}
 
-        <div className="card p-4">
-          <p className="label">Vouches ({vouches.length})</p>
-          <div className="mt-2 space-y-2">
-            {vouches.map((v) => (
-              <div key={v.id} className="text-sm">
-                <span className="font-medium">{v.voucher.name}</span>
-                {v.note && <p className="text-xs italic text-muted">&ldquo;{v.note}&rdquo;</p>}
-              </div>
-            ))}
-            {!vouches.length && <p className="text-xs text-muted">None yet.</p>}
-          </div>
-        </div>
-
-        <div className="card p-4">
-          <p className="label">Knows ({connections.length})</p>
-          <p className="mt-2 text-sm text-muted">{connections.map((c) => c.name.split(" ")[0]).join(", ") || "No connections mapped."}</p>
-          {p.referredBy && <p className="mt-2 text-xs text-muted">Referred by {p.referredBy.name}</p>}
-        </div>
-
-        <div className="card p-4">
-          <p className="label">Dinners ({p.dinnerAttendance.length})</p>
-          <div className="mt-2 space-y-1 text-sm text-muted">
-            {p.dinnerAttendance.map((d) => <div key={d.id}>{d.dinner.theme} · {d.status}</div>)}
-            {!p.dinnerAttendance.length && <p className="text-xs">None.</p>}
-          </div>
-        </div>
-
-        {p.coachingAsClient.length > 0 && (
-          <div className="card p-4">
-            <p className="label">Coaching</p>
-            <div className="mt-2 space-y-1 text-sm text-muted">
-              {p.coachingAsClient.map((c) => <div key={c.id}>{c.type} with {c.coach.name} · {c.sessions} sessions</div>)}
+        {/* Vouches, Knows, Dinners and Coaching were four separate cards
+            stacked down the sidebar. None of them is interactive: they are
+            read-only sections, and a border and shadow around each added
+            chrome without adding information. One panel, divided. The
+            candidates block above stays a card because clicking it is the
+            interaction. */}
+        <div className="overflow-hidden rounded-lg border border-studio-line bg-studio-panel">
+          <section className="border-b border-studio-line p-4">
+            <p className="label">Vouches ({vouches.length})</p>
+            <div className="mt-2 space-y-2">
+              {vouches.map((v) => (
+                <div key={v.id} className="text-sm">
+                  <span className="font-medium">{v.voucher.name}</span>
+                  {v.note && <p className="text-xs italic text-muted">&ldquo;{v.note}&rdquo;</p>}
+                </div>
+              ))}
+              {!vouches.length && <p className="text-xs text-muted">None yet.</p>}
             </div>
-          </div>
-        )}
+          </section>
+
+          <section className="border-b border-studio-line p-4">
+            <p className="label">Knows ({connections.length})</p>
+            <p className="mt-2 text-sm text-muted">{connections.map((c) => c.name.split(" ")[0]).join(", ") || "No connections mapped."}</p>
+            {p.referredBy && <p className="mt-2 text-xs text-muted">Referred by {p.referredBy.name}</p>}
+          </section>
+
+          <section className={p.coachingAsClient.length > 0 ? "border-b border-studio-line p-4" : "p-4"}>
+            <p className="label">Dinners ({p.dinnerAttendance.length})</p>
+            <div className="mt-2 space-y-1 text-sm text-muted">
+              {p.dinnerAttendance.map((d) => <div key={d.id}>{d.dinner.theme} · {d.status}</div>)}
+              {!p.dinnerAttendance.length && <p className="text-xs">None.</p>}
+            </div>
+          </section>
+
+          {p.coachingAsClient.length > 0 && (
+            <section className="p-4">
+              <p className="label">Coaching</p>
+              <div className="mt-2 space-y-1 text-sm text-muted">
+                {p.coachingAsClient.map((c) => <div key={c.id}>{c.type} with {c.coach.name} · {c.sessions} sessions</div>)}
+              </div>
+            </section>
+          )}
+        </div>
       </aside>
     </div>
   );

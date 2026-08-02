@@ -74,15 +74,17 @@ export default async function Conversations({
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      {/* Three counts, previously drawn as three separate cards. Every other
+          studio page states its numbers with the shared ledger strip. */}
+      <div className="ledger">
         {[
           { label: "Active", value: rows.length },
           { label: "Needs attention", value: needsAttention },
           { label: "Connected", value: connected },
         ].map((k) => (
-          <div key={k.label} className="card p-4">
-            <div className="font-sans tracking-[-0.012em] text-2xl text-ink">{k.value}</div>
-            <div className="mt-0.5 text-xs uppercase tracking-wide text-muted">{k.label}</div>
+          <div key={k.label} className="ledger-cell">
+            <div className="ledger-num">{k.value}</div>
+            <div className="ledger-label">{k.label}</div>
           </div>
         ))}
       </div>
