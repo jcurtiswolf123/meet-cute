@@ -61,8 +61,10 @@ body {
     @apply text-xs font-semibold uppercase tracking-[0.16em];
   }
 
+  /* min-h-11 is the 44px target the buttons already hold to. Without it these
+     rendered at 43px, one pixel short across every form on the site. */
   .field {
-    @apply w-full rounded-md border border-line bg-panel px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted/70 focus:border-ink focus:bg-cream;
+    @apply w-full min-h-11 rounded-md border border-line bg-panel px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted/70 focus:border-ink focus:bg-cream;
   }
 
   .pill {
@@ -223,14 +225,22 @@ textarea:focus-visible {
   }
 }
 
+/* This used to name only .animate-fadeup and the skeleton shimmer, so the
+   copilot's bouncing typing dots and every submit spinner kept animating for
+   someone who had asked the OS for less motion. Cover everything and let the
+   few things that must keep moving opt back in. */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
 
-  .animate-fadeup,
-  .skeleton::after {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

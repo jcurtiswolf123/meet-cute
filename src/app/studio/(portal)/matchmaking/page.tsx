@@ -9,6 +9,7 @@ import {
   setIntroFollowUp,
 } from "@/lib/actions";
 import { IntroComposer } from "./IntroComposer";
+import { ConfirmActionForm } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
@@ -206,14 +207,30 @@ export default async function Matchmaking() {
                           <input type="hidden" name="matchId" value={m.id} />
                           <button className="btn-ghost text-xs">Resend</button>
                         </form>
-                        <form action={connectIntroNow}>
+                        {/* Connecting shares both members' contact details with
+                            each other and cannot be taken back, and closing
+                            ends the introduction. Both used to fire on the
+                            first click, next to a Resend button. */}
+                        <ConfirmActionForm
+                          action={connectIntroNow}
+                          confirmMessage="This shares both members' contact details with each other now, without waiting for a mutual yes."
+                          triggerLabel="Connect now"
+                          confirmLabel="Yes, connect them"
+                          pendingText="Connecting..."
+                          buttonClassName="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white"
+                        >
                           <input type="hidden" name="matchId" value={m.id} />
-                          <button className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white">Connect now</button>
-                        </form>
-                        <form action={closeIntroduction}>
+                        </ConfirmActionForm>
+                        <ConfirmActionForm
+                          action={closeIntroduction}
+                          confirmMessage="This closes the introduction. Neither member hears about it again."
+                          triggerLabel="Close"
+                          confirmLabel="Close it"
+                          pendingText="Closing..."
+                          buttonClassName="btn-ghost text-xs text-muted"
+                        >
                           <input type="hidden" name="matchId" value={m.id} />
-                          <button className="btn-ghost text-xs text-muted">Close</button>
-                        </form>
+                        </ConfirmActionForm>
                       </>
                     )}
                     {isConnected && (

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { addEventInvitees, removeAttendee, setAttendeeStatus, setEventStatus } from "@/lib/actions";
 import { Avatar } from "@/components/ui";
+import { ConfirmActionForm } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
@@ -120,10 +121,17 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
                     </select>
                     <button className="rounded-full border border-line px-2.5 py-1 text-xs hover:border-[#e3e3e6]">Set</button>
                   </form>
-                  <form action={removeAttendee}>
+                  {/* Sat next to a Set button, and fired on the first click. */}
+                  <ConfirmActionForm
+                    action={removeAttendee}
+                    confirmMessage="Remove them from this dinner?"
+                    triggerLabel="Remove"
+                    confirmLabel="Remove"
+                    pendingText="Removing..."
+                    buttonClassName="rounded-full border border-line px-2.5 py-1 text-xs text-muted hover:border-[#e3e3e6] hover:text-ink"
+                  >
                     <input type="hidden" name="attendeeId" value={a.id} />
-                    <button className="rounded-full border border-line px-2.5 py-1 text-xs text-muted hover:border-[#e3e3e6] hover:text-ink">Remove</button>
-                  </form>
+                  </ConfirmActionForm>
                 </div>
               </li>
             ))}

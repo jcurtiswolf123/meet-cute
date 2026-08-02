@@ -89,7 +89,12 @@ export default function CopilotChat() {
     } finally {
       clearTimeout(timer);
       setBusy(false);
-      setTimeout(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      // Honour the OS reduced-motion setting: a smooth auto-scroll is exactly
+      // the kind of unrequested movement it is meant to suppress.
+      setTimeout(() => {
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        endRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
+      }, 50);
     }
   }
 
