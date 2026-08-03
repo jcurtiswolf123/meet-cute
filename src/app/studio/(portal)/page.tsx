@@ -42,7 +42,15 @@ export default async function Roster({
       const last = matches.map((m) => m.createdAt).sort((a, b) => b.getTime() - a.getTime())[0];
       return { p, vouches: p.vouchesReceived.length, lastSuggested: last, dinners: p.dinnerAttendance.length, active: matches.length };
     })
-    .filter(({ p }) => !q || `${p.name} ${p.headline} ${p.bio} ${p.lookingFor}`.toLowerCase().includes(q));
+    // Email and phone are searchable too: an operator who has a reply in their
+    // inbox and wants the member behind it was searching by name and failing.
+    .filter(
+      ({ p }) =>
+        !q ||
+        `${p.name} ${p.headline} ${p.bio} ${p.lookingFor} ${p.email ?? ""} ${p.phone ?? ""}`
+          .toLowerCase()
+          .includes(q)
+    );
 
   if (sp.sort === "vouches") enriched.sort((a, b) => b.vouches - a.vouches);
   else if (sp.sort === "stale") enriched.sort((a, b) => (a.lastSuggested?.getTime() ?? 0) - (b.lastSuggested?.getTime() ?? 0));
@@ -244,6 +252,7 @@ export default async function Roster({
           <thead>
             <tr>
               <th>Member</th>
+              <th>Contact</th>
               <th>Wants</th>
               <th>Vouches</th>
               <th>Dinners</th>
@@ -262,6 +271,29 @@ export default async function Roster({
                     </span>
                   </Link>
                 </td>
+                {/* Jess's ask, 2026-08-02: an operator needs to be able to
+                    reach a member from the list rather than opening the
+                    profile to find out how. Live mailto/tel links, not text,
+                    and the SMS-consent state is shown because texting someone
+                    who never consented is the one contact route with a legal
+                    edge to it. */}
+                <td className="text-xs">
+                  {p.email ? (
+                    <a href={`mailto:${p.email}`} className="block break-all text-ink hover:underline">
+                      {p.email}
+                    </a>
+                  ) : (
+                    <span className="block text-muted">no email</span>
+                  )}
+                  {p.phone ? (
+                    <a href={`tel:${p.phone}`} className="mt-0.5 block text-ink hover:underline">
+                      {formatPhone(p.phone)}
+                      {!p.smsConsentAt && <span className="ml-1 text-muted">(no SMS consent)</span>}
+                    </a>
+                  ) : (
+                    <span className="mt-0.5 block text-muted">no phone</span>
+                  )}
+                </td>
                 <td className="max-w-[22ch] text-muted">{p.lookingFor?.slice(0, 60)}</td>
                 <td>{vouches > 0 ? <span className="pill">{vouches}</span> : <span className="text-muted">-</span>}</td>
                 <td className="text-muted">{dinners}</td>
@@ -273,6 +305,14 @@ export default async function Roster({
       </div>
     </div>
   );
+}
+
+/** E.164 is what we store and what `tel:` needs; this is only for reading. */
+function formatPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (ten.length !== 10) return phone;
+  return `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`;
 }
 
 function humanizeDeliveryKind(kind: string): string {
