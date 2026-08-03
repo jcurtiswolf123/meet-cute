@@ -2,10 +2,15 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-03 (connection email suggests where to go, live but inert
-until venues are verified; roster pruned to two real members and four operators,
-Send introductions no longer crashes the studio, and a suggested pair can be
-introduced; the database is healthy, the latency cost is sjc app plus us-east-2
+Last updated: 2026-08-03 (the co-pilot runs on NVIDIA and no longer surfaces
+provider errors as answers; `npm run dev` is now a throwaway local database
+instead of production; event times are read and rendered in the dinner's own
+city; photos lead the invitation; whole names once two people match; match email
+no longer declares itself a mailing list. Before that: connection email suggests
+where to go, live but inert until venues are verified; roster pruned to two real
+members and four operators, Send introductions no longer crashes the studio, and
+a suggested pair can be introduced; the database is healthy, the latency cost is
+sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
 
@@ -98,6 +103,114 @@ introduction race, and Prelude SMS all pass, on top of pure, reply-parse and
 age-gate. Three suites (`test:journey:email`, `test:prelude:pipeline`,
 `test:prelude:webhook`) hard-require a `127.0.0.1` or `localhost` hostname by
 design and were not run. That guard is correct and was left alone.
+
+## 2026-08-03: the co-pilot could not act, and dev ran against production
+
+Shipped and verified live (Fly v165, both sjc machines healthy). Eight commits,
+PR #19. Everything below was found while Joshua was trying to create one dinner.
+
+**The co-pilot answered with its own billing error.** `Create a NYC dinner at
+Via Carota on 2026-07-12 7pm` came back as "The co-pilot hit an error: 429 You
+have no credits remaining." Two defects stacked:
+
+- The tool-calling agent knew about Anthropic and OpenAI only. Production has
+  `NVIDIA_API_KEY` and `OPENAI_API_KEY` and no Anthropic key, so it picked the
+  one account with no credits. `src/lib/ai.ts` has treated NVIDIA as the primary
+  provider for chat and embeddings since it was written; the one path that can
+  actually take actions was never given it.
+- Every provider failure was caught and returned as chat text. Non-empty text
+  reads as success to `/api/copilot`, so it never fell through to the
+  deterministic path, which needs no AI spend and would have created the dinner.
+  One dead billing account took out the whole co-pilot.
+
+Providers now run Anthropic, NVIDIA, OpenAI; a failure is logged and skipped;
+exhausting them returns empty text and the route falls through as designed.
+
+Model choice was measured, not guessed. Probed the live NVIDIA catalogue with
+the real tool schemas: `nvidia/llama-3.3-nemotron-super-49b-v1.5` is the only
+free NIM model that both emits well-formed tool calls and acts correctly on a
+tool result across two turns. `meta/llama-3.1-8b-instruct` is 10x faster and
+invents arguments (it sent `capacity: 0`, which would create a dinner with no
+seats, now guarded); `mistralai/mistral-nemotron` answers in prose instead of
+taking the second action; `meta/llama-3.3-70b-instruct` timed out at 90s.
+Verified live in production: `provider: "NVIDIA Nemotron (tools)"`.
+
+**The watchdog had the same hole.** Autofix has run every 15 minutes with
+`WATCHDOG_AUTOFIX=1` since June while only able to ask the unfunded OpenAI
+account, so it has been a silent no-op reporting success. `NVIDIA_API_KEY` is now
+a repository secret and `askForPatch` tries it.
+
+**Event times were server-local at both ends.** On Fly that is UTC, so "Via
+Carota, 7pm" stored 19:00Z, which is 3pm in New York. It read back as "7:00 PM"
+on every page only because the render was also UTC; the reservation and any
+calendar export were four hours early. `src/lib/event-time.ts` parses in the
+city's zone, renders in the city's zone with the abbreviation, and stores UTC,
+using Intl rather than a dependency. 30 cases in `npm run test:launch`. Two more
+defects fell out: the deterministic command path handed the whole phrase to
+`new Date`, which cannot parse "7pm" at all, so the co-pilot's own documented
+example always failed without an LLM; and "upcoming" on /dinners compared
+against server midnight, retiring a San Francisco dinner while the table was
+still sitting.
+
+**`npm run dev` ran against the live roster.** The repo's `.env` points
+`DATABASE_URL` at the production Neon branch, so dev, `db:seed`, and every
+database-backed test hit real members, and there was nowhere safe to click.
+`npm run dev` is now a throwaway Postgres 16 container on 5433 with the real
+migrations, the real seed, and every outbound provider key blanked. Live data is
+`npm run dev:live` on 3019 and has to be asked for by name. Two rails, because
+this fails silently: it refuses any database URL that is not localhost, and it
+stops a running dev server first, since Next 16 keeps one per directory and
+silently reuses it environment and all (that bit while building this). All five
+database-backed suites now pass against it, which previously needed a
+hand-rolled container.
+
+Also `scripts/sandbox-photos.ts`: `seed.ts` creates Photo rows with no bytes, so
+every image route 404s locally and the two surfaces where photos matter could
+not be looked at at all.
+
+**Smaller, all from tonight:**
+
+- **The mutual-yes email hid the surname.** It built its subject from first
+  names, so Jess Wolf and Jessica Wolf were introduced as "Jess + Jessica".
+  First-names-only is right up to the decision point and wrong after it: once
+  both have said yes they are on one thread and about to meet. The operator
+  console had inherited the same truncation with none of the reason.
+- **Photos did not lead the decision.** The invitation page showed one 96px
+  avatar and the email one 88px circle. Photos now open both; the email carries
+  up to three (Gmail clips past ~102KB). The token-scoped photo route was
+  already there and already wired, and was only ever asked for one image.
+- **Match email declared itself a mailing list.** Every send carried
+  `List-Unsubscribe` and `List-Unsubscribe-Post`, including one-to-one
+  introductions and sign-in links, which is how a sender tells Gmail "this is a
+  mailing". Now opt-in per message via `bulk`, which nothing sets, because there
+  is no mailing list. Auth was never the problem: DKIM on the root, SPF on
+  `send.hellomutuals.com`, DMARC `p=none`. Two items left that cannot be fixed
+  in code: check whether Resend has click/open tracking on for this domain (link
+  rewriting is one of the strongest Promotions signals and is invisible from
+  here), and consider sending as a person rather than `Mutuals
+  <hello@hellomutuals.com>`.
+- **Tapping Yes or Pass could do nothing visible.** `decideInvite` returned
+  silently on every refusal, so an expired or already-answered token gave the
+  member the same two buttons back. Every outcome now redirects with a code the
+  page renders as copy, matching the operator-side `?intro=` pattern.
+- **Jess's two edits** (screenshots, 2026-08-02): the thank-you page asks for
+  referrals with a real copyable link instead of pointing at a dinner, and drops
+  the "within a week" promise; the Directory has a Contact column with live
+  mailto/tel links, flags members with a number but no SMS consent, and search
+  matches email and phone.
+
+**Created on the live roster:** Mutuals Dinner at Via Carota (NYC),
+`2026-07-12T23:00:00Z`, which is 7:00 PM EDT, capacity 12. That date is three
+weeks in the past, so it files under Past on /dinners rather than Upcoming.
+
+**Checked and not a defect:** Sentry has nothing on `/i/[token]` or
+`/api/email/inbound` in 14 days. The one operator-facing error last night was
+`createIntroduction` throwing "These two already have an open introduction." five
+times at 23:37, which the 2026-08-02 fix already addressed and which reached
+production in v160. The reply-by-email path is configured correctly
+(`inbound.shiftsupportnetwork.com` MX to SES inbound) and the SMS invite at 23:30
+delivered.
+
 
 ## 2026-08-02: Send introductions crashed the studio, twice over
 
