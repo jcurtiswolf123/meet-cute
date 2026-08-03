@@ -26,8 +26,15 @@ no-registration SMS path, default provider still twilio)
 
 ## 2026-08-03: two friends of the opposite gender accept an applicant, and a photo is required
 
-Joshua's ask, by email this morning. Built, tested end to end on the sandbox,
-**not yet deployed**.
+Joshua's ask, by email this morning. **Shipped and live** (Fly version 179, both
+sjc machines, migration `20260803162243_recommendation_gate` applied to Neon at
+17:54Z).
+
+Smoke-checked against production with Joshua's own plus-addresses and then
+deleted: two request emails accepted by Resend with message ids, the friend's
+page submitted from a browser with no session, the applicant flipped to `active`
+on the second reply, and the welcome email queued. Roster is back to 28 members
+and 12 active, with no leftover rows and no failed delivery jobs.
 
 What an application is now:
 
@@ -65,8 +72,9 @@ Two bugs found and fixed on the way:
   re-render. Every select and checkbox on the apply form is controlled now.
 
 Operator approval still exists and still works. It is no longer what normally
-accepts someone, and the 12 applicants who applied before today have no
-recommendation rows, so they are accepted by hand exactly as they were.
+accepts someone. Nobody is stranded behind the new gate: every member who has
+ever completed an application is already `active`, so there are zero waiting
+applicants with no recommendation rows.
 
 Not done: no reminder job runs on a schedule (the nudge is applicant-triggered
 from `/apply/thanks`), and existing members still have a null gender.
