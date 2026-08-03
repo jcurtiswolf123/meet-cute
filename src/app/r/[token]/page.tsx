@@ -80,8 +80,12 @@ export default async function WriteRecommendation({
         <p className="label mb-3">Sent</p>
         <h1 className="font-display text-4xl font-medium tracking-tight">Thank you, {yourFirst}.</h1>
         <p className="mt-3 max-w-[60ch] text-sm leading-relaxed text-muted">
+          {/* Only the FIRST reply is copied onto Person.recommendation, so the
+              profile carries one friend's words by design. Telling the second
+              friend "your words are on their profile" was untrue, and these are
+              exactly the people whose goodwill the whole gate depends on. */}
           {accepted
-            ? `That was the one ${applicantFirst} needed. They are in, and your words are on their profile.`
+            ? `That was the one ${applicantFirst} needed. They are in, and the two of you are why.`
             : `Your recommendation is on ${applicantFirst}'s profile. They need ${state.remaining === 1 ? "one more friend" : `${state.remaining} more friends`} to write back before they are in.`}
         </p>
         {request.body && (
