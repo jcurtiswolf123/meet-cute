@@ -326,20 +326,35 @@ export function recommendationRequestEmail(args: {
   /** Tell them they can simply reply. Set when the message carries a
    *  token-bearing Reply-To that the inbound webhook can route. */
   replyToVouch?: boolean;
+  /** The applicant is already a member, so "they are not in until you write"
+   *  would be a lie. Nine friends were asked before an operator approved the
+   *  person anyway, and the honest version of that ask is a different email. */
+  applicantAccepted?: boolean;
 }): { subject: string; html: string; text: string } {
   const first = (args.recommenderName || "there").split(" ")[0];
   const applicantFirst = (args.applicantName || "your friend").split(" ")[0];
   const place = args.applicantCity === "SF" ? "San Francisco" : args.applicantCity === "NYC" ? "New York" : null;
-  const subject = args.reminder
-    ? `Still waiting on you: ${applicantFirst}'s recommendation`
-    : `${applicantFirst} asked you to vouch for them`;
+  const subject = args.applicantAccepted
+    ? `${applicantFirst} is in. Your words are the missing piece`
+    : args.reminder
+      ? `Still waiting on you: ${applicantFirst}'s recommendation`
+      : `${applicantFirst} asked you to vouch for them`;
+
+  // What is actually at stake, told straight. Either they are waiting on you,
+  // or they are not and this is about what the person they meet will read.
+  const stakesText = args.applicantAccepted
+    ? `${applicantFirst} is already a member, so nothing is blocked on you. What is still missing is your words: they go on ${applicantFirst}'s profile and they are what the one person we introduce them to actually reads.`
+    : `${applicantFirst} is not accepted until two friends write back, so this genuinely decides it.`;
+  const stakesHtml = args.applicantAccepted
+    ? p(`${esc(applicantFirst)} is already a member, so nothing is blocked on you. What is still missing is your words: they go on ${esc(applicantFirst)}&rsquo;s profile and they are what the one person we introduce them to actually reads.`)
+    : p(`${esc(applicantFirst)} is <strong>not accepted until two friends write back</strong>, so this genuinely decides it.`);
 
   const note = args.applicantNote?.trim();
   const text =
     `Hi ${first},\n\n` +
     `${args.applicantName} applied to Mutuals${place ? ` in ${place}` : ""} - curated matchmaking, where a matchmaker introduces you to one person at a time - and named you as someone who knows them well.\n\n` +
     (note ? `${applicantFirst} says: "${note}"\n\n` : "") +
-    `${applicantFirst} is not accepted until two friends write back, so this genuinely decides it.\n\n` +
+    `${stakesText}\n\n` +
     (args.replyToVouch
       ? `The fastest way: just hit reply and type a few sentences. Whatever you write comes straight back to us and goes on ${applicantFirst}'s profile.\n\n`
       : "") +
@@ -348,12 +363,12 @@ export function recommendationRequestEmail(args: {
     `Thank you,\nMutuals`;
 
   const inner =
-    h1(`${applicantFirst} asked you to vouch for them.`) +
+    h1(args.applicantAccepted ? `${applicantFirst} is in.` : `${applicantFirst} asked you to vouch for them.`) +
     p(`Hi ${esc(first)}, <strong>${esc(args.applicantName)}</strong> applied to Mutuals${place ? ` in ${esc(place)}` : ""} and named you as someone who knows them well.`) +
     (note
       ? `<p style="margin:0 0 16px;padding:12px 16px;border-left:2px solid ${BRAND.oxblood};font-family:${SERIF};font-size:16px;font-style:italic;line-height:1.55;color:${BRAND.ink}">${esc(applicantFirst)} says: &ldquo;${esc(note)}&rdquo;</p>`
       : "") +
-    p(`${esc(applicantFirst)} is <strong>not accepted until two friends write back</strong>, so this genuinely decides it.`) +
+    stakesHtml +
     (args.replyToVouch
       ? p(`The fastest way: <strong>just hit reply</strong> and type a few sentences. Whatever you write comes straight back to us and goes on ${esc(applicantFirst)}&rsquo;s profile.`)
       : "") +
@@ -362,7 +377,12 @@ export function recommendationRequestEmail(args: {
 
   return {
     subject,
-    html: emailShell(inner, `${applicantFirst} is not in until two friends write back.`),
+    html: emailShell(
+      inner,
+      args.applicantAccepted
+        ? `Your words are what ${applicantFirst}'s match will read.`
+        : `${applicantFirst} is not in until two friends write back.`,
+    ),
     text,
   };
 }

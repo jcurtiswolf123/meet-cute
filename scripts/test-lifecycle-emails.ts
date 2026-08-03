@@ -221,6 +221,27 @@ function main() {
   });
   assert.ok(!hostileNote.html.includes("<img"), "request: applicant note rendered live");
 
+  // Nine friends were asked before an operator approved the applicant anyway.
+  // Telling them "they are not in until you write" would be false, and these
+  // are exactly the people whose goodwill the loop depends on.
+  const settled = recommendationRequestEmail({
+    recommenderName: "Ada Lovelace",
+    applicantName: "Maya Rosen",
+    link: "https://hellomutuals.com/r/tok3n",
+    reminder: true,
+    applicantAccepted: true,
+  });
+  assertWellFormed("recommendationRequest(accepted)", settled);
+  assertOnBrand("recommendationRequest(accepted)", settled);
+  assert.doesNotMatch(
+    settled.text,
+    /not accepted until/i,
+    "Never tell someone an applicant is blocked on them when the applicant is already in.",
+  );
+  assert.match(settled.text, /already a member/);
+  assert.match(settled.text, /your words/i);
+  assert.match(request.text, /not accepted until two friends write back/, "The ordinary ask is unchanged.");
+
   const nudge = recommendationRequestEmail({
     recommenderName: "Ada Lovelace",
     applicantName: "Maya Rosen",
