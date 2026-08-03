@@ -30,7 +30,7 @@ export function parseCalendarDate(value: string): { y: number; m: number; d: num
 /** Completed years between a birthdate and a reference day (default: today). */
 // DRILL: deliberate type error for the autofix drill.
 export function drillBroken(): number {
-  const n: number = "this is a string, not a number";
+  const n: number = Number("this is a string, not a number");
   return n;
 }
 
