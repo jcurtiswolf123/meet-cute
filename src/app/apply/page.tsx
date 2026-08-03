@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui";
+import { prisma } from "@/lib/prisma";
 import { getCurrentPerson } from "@/lib/auth";
 import { requestMagicLink } from "@/lib/actions";
 import { ApplyForm } from "./ApplyForm";
+import { PhotoUpload } from "./PhotoUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +30,7 @@ export default async function Apply() {
             <label className="label" htmlFor="email">
               Email
             </label>
-            <input id="email" name="email" type="email" required autoFocus autoComplete="email" className="field mt-1.5" placeholder="you@email.com" />
+            <input id="email" name="email" type="email" required autoComplete="email" className="field mt-1.5" placeholder="you@email.com" />
             <button className="btn-primary w-full py-3" type="submit">
               Send me a link
             </button>
@@ -54,6 +56,11 @@ export default async function Apply() {
   const maxBirthdate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate())
     .toISOString()
     .slice(0, 10);
+  const photos = await prisma.photo.findMany({
+    where: { personId: me.id },
+    orderBy: { order: "asc" },
+    select: { id: true, url: true, status: true },
+  });
   return (
     <main className="container-mc min-h-screen py-12">
       <Logo />
@@ -64,6 +71,10 @@ export default async function Apply() {
           Signed in as {me.email}. This takes a minute - just a few essentials and your socials so we
           can get to know you.
         </p>
+
+        <div className="mt-8">
+          <PhotoUpload initial={photos} />
+        </div>
 
         <ApplyForm
           defaults={{

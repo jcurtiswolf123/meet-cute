@@ -37,6 +37,13 @@ npm run build
 - Venue booking and calendar coordination are manual. Do not claim they are
   automated.
 
+## Design system
+- Read `DESIGN.md` before making any visual or UI decision.
+- Keep public marketing work aligned with its typography, palette, spacing,
+  layout, motion, and copy rules.
+- Do not deviate from the public design direction without explicit approval.
+- In visual QA, flag code that does not match `DESIGN.md`.
+
 ## Context map (read these for state)
 - `docs/STATUS.md` : current state, what's next, blockers
 - `docs/DECISIONS.md` : why things are the way they are

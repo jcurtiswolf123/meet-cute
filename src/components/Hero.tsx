@@ -1,72 +1,48 @@
 import Link from "next/link";
 
-// Text-forward warm hero: no photo. A confident left-aligned headline on the
-// sunlit cream canvas, a soft warm ambient wash for depth, and the roster stats
-// set on a hairline ledger.
-export function Hero({ members, couples, dinners }: { members: number; couples: number; dinners: number }) {
-  const hasStats = [members, couples, dinners].some((n) => n > 0);
-
+// A dark, editorial opener: type and negative space carry it (no hero photo, per
+// DESIGN.md). The ink field + cream serif is the single biggest lever toward the
+// quiet-members-club posture and away from a generic light landing page.
+export function Hero() {
   return (
-    <section className="relative isolate overflow-hidden">
-      {/* warm ambient wash for depth (subtle, headline-led, not a gradient hero) */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          backgroundImage:
-            "radial-gradient(42% 55% at 78% 12%, rgba(231,155,120,0.20), transparent 60%), radial-gradient(46% 55% at 6% 92%, rgba(207,106,113,0.12), transparent 60%)",
-        }}
-      />
-
-      <div className="container-mc pb-20 pt-36 md:pb-28 md:pt-44">
-        <div className="max-w-4xl">
-          <p className="mb-5 font-mono text-[11px] font-medium uppercase tracking-[0.24em] text-ember">
-            Thoughtful matchmaking · NYC &amp; SF
-          </p>
-          <h1 className="font-display text-[2.9rem] font-medium leading-[1.02] tracking-tight text-ink sm:text-6xl md:text-[5.5rem]">
-            <span className="block">
-              We help you <span className="italic text-ember">meet</span>,
-            </span>
-            <span className="block">
-              date, and stay together.
-            </span>
-          </h1>
-          <p className="mt-7 max-w-[52ch] text-lg leading-relaxed text-muted">
-            Matchmaking with a human touch. A real person picks your introductions and helps turn a
-            mutual yes into a real first date. No swiping, no endless texting.
-          </p>
-          <div className="mt-9 flex flex-wrap items-center gap-3">
-            <Link href="/apply" className="btn-primary px-7 py-3">
-              Apply to join
-            </Link>
-            <Link href="/dinners" className="btn-ghost px-7 py-3">
-              Come to a dinner
-            </Link>
+    <section className="relative isolate overflow-hidden bg-ink text-cream">
+      <div className="container-mc flex min-h-[46rem] flex-col justify-end pb-16 pt-40 sm:min-h-[52rem] sm:pb-20 sm:pt-48">
+        <div className="grid gap-10 lg:grid-cols-12 lg:items-end">
+          <div className="lg:col-span-9">
+            <p className="public-label text-cream/55">
+              By application · New York &amp; San Francisco
+            </p>
+            <h1 className="mt-7 max-w-[13ch] font-display text-[3.75rem] font-normal leading-[0.9] tracking-[-0.03em] sm:text-[6rem] lg:text-[7.5rem]">
+              Meet someone worth knowing.
+            </h1>
           </div>
 
-          {hasStats ? (
-            <div className="mt-14 flex flex-wrap gap-x-12 gap-y-5 border-t border-line pt-7 text-sm text-muted">
-              {members > 0 && <Stat n={members} label="members on the roster" />}
-              {couples > 0 && <Stat n={couples} label="couples introduced" />}
-              {dinners > 0 && <Stat n={dinners} label="dinners hosted" />}
-            </div>
-          ) : (
-            <p className="mt-14 border-t border-line pt-7 text-sm text-muted">
-              By introduction only. Currently inviting members in <span className="text-ink">NYC</span> and{" "}
-              <span className="text-ink">San Francisco</span>.
+          <div className="lg:col-span-3 lg:pb-2">
+            <p className="max-w-[34rem] text-lg leading-8 text-cream/70">
+              A real matchmaker makes every introduction. One person at a time. No public profile,
+              no feed, no endless swiping.
             </p>
-          )}
+            <div className="mt-8 flex flex-col items-start gap-5 sm:flex-row sm:items-center">
+              <Link href="/apply" className="btn inline-flex bg-cream px-7 py-3.5 text-ink hover:bg-cream/85">
+                Request membership
+              </Link>
+              <Link
+                href="/dinners"
+                className="inline-flex min-h-11 items-center border-b border-cream/40 text-sm font-semibold text-cream transition-colors hover:border-cream"
+              >
+                Join us for dinner
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-16 grid grid-cols-2 gap-4 border-t border-cream/15 pt-6 text-sm text-cream/60 lg:grid-cols-4">
+          <p>By application</p>
+          <p>Private by default</p>
+          <p>Mutual by design</p>
+          <p className="lg:text-right">Introduced, not swiped</p>
         </div>
       </div>
     </section>
-  );
-}
-
-function Stat({ n, label }: { n: number; label: string }) {
-  return (
-    <div>
-      <div className="font-display text-3xl tabular-nums text-ink">{n.toLocaleString()}</div>
-      <div className="mt-1 text-xs">{label}</div>
-    </div>
   );
 }

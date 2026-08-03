@@ -5,38 +5,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        // "Warm Daylight" palette. Token NAMES are preserved (cream/paper/ink/
-        // line/muted) so the whole token-based component layer re-skins in place;
-        // the VALUES are sunlit and warm: cream/paper are a warm morning canvas +
-        // sand band, ink is a soft espresso brown (never pure black), line is a
-        // warm hairline. The feel is a bright, inviting cafe, not a dim bar.
-        cream: "#fbf5ec", // app canvas (warm morning cream)
-        paper: "#f4e8d7", // raised section band (soft sand)
-        panel: "#fffdf8", // cards / surfaces (warm white)
-        ink: "#382a20", // soft espresso brown (primary text)
-        muted: "#716358", // warm taupe (secondary text)
-        line: "#ecdcc7", // warm hairline / borders
-        // Terracotta: the single dominant accent (warm clay). Primary CTAs use it
-        // with cream text for a friendly, hand-warmed read.
-        ember: { DEFAULT: "#a94529", soft: "#e79b78", deep: "#87351e" },
-        // Warm rose: romantic secondary accent (the heart, hairlines, hovers).
-        claret: { DEFAULT: "#a54752", dark: "#87303d", soft: "#e6989d" },
+        cream: "#f4f1ea",
+        paper: "#e9e4da",
+        panel: "#f8f6f1",
+        ink: "#171714",
+        muted: "#67635d",
+        line: "#d2cdc3",
+        ember: { DEFAULT: "#762d38", soft: "#d8b7bb", deep: "#5c202a" },
+        claret: { DEFAULT: "#762d38", dark: "#5c202a", soft: "#d8b7bb" },
         sage: "#5f6c4b",
-        // Espresso: warm deep brown, used for text-on-light-photo and rich edges.
-        espresso: { DEFAULT: "#2c2019", deep: "#241a13" },
-        champagne: { DEFAULT: "#eec48a", soft: "#f6ddb6" },
-        blush: "#f3d9cf",
+        espresso: { DEFAULT: "#24211d", deep: "#171714" },
+        champagne: { DEFAULT: "#c5a675", soft: "#e4d7bd" },
+        blush: "#eadbdb",
       },
       fontFamily: {
         display: ["var(--font-display)", "Georgia", "serif"],
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
-      borderRadius: { xl2: "1.25rem" },
+      borderRadius: { xl2: "0.75rem" },
       boxShadow: {
-        // Soft, warm-tinted elevation for a light canvas (no harsh black drop).
-        card: "0 1px 0 rgba(255,255,255,0.6) inset, 0 20px 44px -24px rgba(120,74,46,0.28)",
-        glow: "0 0 0 1px rgba(215,106,69,0.16), 0 12px 40px -12px rgba(215,106,69,0.28)",
+        card: "0 1px 2px rgba(23, 23, 20, 0.05)",
+        glow: "0 0 0 1px rgba(118, 45, 56, 0.12)",
       },
       transitionTimingFunction: { soft: "cubic-bezier(0.22, 1, 0.36, 1)" },
       fontSize: {

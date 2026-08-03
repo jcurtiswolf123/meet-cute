@@ -117,6 +117,203 @@ export async function sendEmail({
   }
 }
 
+// --- Brand shell -------------------------------------------------------------
+//
+// One consistent, restrained wrapper for every transactional email so they read
+// like the site (quiet members club) rather than four different templates. Email
+// clients ignore external fonts, so we use a serif stack for display and a sans
+// stack for controls, and the DESIGN.md palette (cream canvas, ink text, oxblood
+// accent). No gradients, no images, one accent.
+const BRAND = {
+  cream: "#f4f1ea",
+  paper: "#ece7dd",
+  ink: "#171714",
+  muted: "#67635d",
+  line: "#d9d3c8",
+  oxblood: "#762d38",
+} as const;
+
+const SERIF = "'Iowan Old Style', Georgia, 'Times New Roman', serif";
+const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
+
+function emailButton(label: string, href: string): string {
+  return `<a href="${encodeURI(href)}" style="display:inline-block;background:${BRAND.ink};color:${BRAND.cream};text-decoration:none;padding:13px 22px;border-radius:999px;font-family:${SANS};font-size:14px;font-weight:600;letter-spacing:.01em">${esc(label)}</a>`;
+}
+
+/** Wrap body HTML in the Meet Cute email shell. `inner` is trusted, pre-escaped
+ *  HTML produced by the caller. `preheader` is the hidden inbox-preview line. */
+function emailShell(inner: string, preheader = ""): string {
+  return `<!doctype html><html><body style="margin:0;padding:0;background:${BRAND.cream}">
+  ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preheader)}</div>` : ""}
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.cream}">
+    <tr><td align="center" style="padding:32px 16px">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:${BRAND.cream}">
+        <tr><td style="padding:4px 4px 20px">
+          <span style="font-family:${SANS};font-size:12px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:${BRAND.ink}">Meet&nbsp;Cute</span>
+        </td></tr>
+        <tr><td style="background:#ffffff;border:1px solid ${BRAND.line};border-radius:14px;padding:32px">
+          ${inner}
+        </td></tr>
+        <tr><td style="padding:20px 4px 0;font-family:${SANS};font-size:12px;line-height:1.6;color:${BRAND.muted}">
+          Private matchmaking in New York and San Francisco.<br/>
+          Reply to this email any time - a person reads it.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table></body></html>`;
+}
+
+function h1(text: string): string {
+  return `<h1 style="margin:0 0 14px;font-family:${SERIF};font-size:28px;font-weight:400;line-height:1.15;letter-spacing:-0.01em;color:${BRAND.ink}">${esc(text)}</h1>`;
+}
+function p(text: string): string {
+  return `<p style="margin:0 0 16px;font-family:${SANS};font-size:15px;line-height:1.65;color:${BRAND.ink}">${text}</p>`;
+}
+function small(text: string): string {
+  return `<p style="margin:16px 0 0;font-family:${SANS};font-size:13px;line-height:1.6;color:${BRAND.muted}">${text}</p>`;
+}
+
+// Sent the moment an application is submitted. Reassures the applicant a real
+// person will read it - no dashboards, no instant "you're in".
+export function applicationReceivedEmail(args: {
+  name: string;
+  city?: string | null;
+}): { subject: string; html: string; text: string } {
+  const first = (args.name || "there").split(" ")[0];
+  const place = args.city === "SF" ? "San Francisco" : args.city === "NYC" ? "New York" : null;
+  const subject = "We have your application";
+  const text =
+    `Hi ${first},\n\n` +
+    `Thank you for applying to Meet Cute${place ? ` in ${place}` : ""}. A matchmaker reads every application by hand, so this takes a little time - that is on purpose.\n\n` +
+    `If it is a fit, we will be in touch to welcome you onto the roster and start making introductions. Either way, you will hear from a person, not a form.\n\n` +
+    `Warmly,\nMeet Cute`;
+  const inner =
+    h1("Thank you for applying.") +
+    p(`Hi ${esc(first)}, we have your application${place ? ` in ${esc(place)}` : ""}. A matchmaker reads every one by hand, so this takes a little time - that is on purpose.`) +
+    p(`If it is a fit, we will be in touch to welcome you and start making introductions. Either way, you will hear from a person, not a form.`) +
+    small("You do not need to do anything else right now.");
+  return { subject, html: emailShell(inner, "A matchmaker reads every application by hand."), text };
+}
+
+// Sent when an operator approves an applicant onto the roster. This is the
+// "welcome, you'll start getting matches" moment.
+export function applicationApprovedEmail(args: {
+  name: string;
+  appUrl: string;
+}): { subject: string; html: string; text: string } {
+  const first = (args.name || "there").split(" ")[0];
+  const subject = "You're in - welcome to Meet Cute";
+  const text =
+    `Hi ${first},\n\n` +
+    `Good news: you have been accepted onto the Meet Cute roster. Welcome.\n\n` +
+    `From here, a matchmaker introduces you to one person at a time - no public profile, no feed, no endless messaging. When we find someone worth meeting, you will get a private introduction by email and decide for yourself.\n\n` +
+    `Take a minute to round out your profile and tell us what you are looking for:\n${args.appUrl}\n\n` +
+    `Warmly,\nMeet Cute`;
+  const inner =
+    h1("Welcome to Meet Cute.") +
+    p(`Hi ${esc(first)}, you have been accepted onto the roster. From here a matchmaker introduces you to <strong>one person at a time</strong> - no public profile, no feed, no endless messaging.`) +
+    p(`When we find someone worth meeting, you will get a private introduction by email and decide for yourself. If you both say yes, we connect you.`) +
+    `<p style="margin:24px 0 0">${emailButton("Round out your profile", args.appUrl)}</p>` +
+    small("The more we know about what you are looking for, the better the introductions.");
+  return { subject, html: emailShell(inner, "You've been accepted onto the roster."), text };
+}
+
+// A gentle nudge sent to one side of a connected match who hasn't taken it
+// offline yet: "reminder to meet".
+export function matchReminderEmail(args: {
+  toName: string;
+  otherName: string;
+  city?: string | null;
+}): { subject: string; html: string; text: string } {
+  const first = (args.toName || "there").split(" ")[0];
+  const otherFirst = (args.otherName || "your match").split(" ")[0];
+  const subject = `A nudge: find a time with ${otherFirst}`;
+  const text =
+    `Hi ${first},\n\n` +
+    `Just a friendly nudge - you and ${otherFirst} both said yes${args.city ? ` in ${args.city}` : ""}, and the best introductions turn into a plan while they are still warm.\n\n` +
+    `Reply to your intro thread with a day and place this week. A short first message goes a long way.\n\n` +
+    `Rooting for you,\nMeet Cute`;
+  const inner =
+    h1("Don't let this one cool off.") +
+    p(`Hi ${esc(first)}, you and <strong>${esc(otherFirst)}</strong> both said yes${args.city ? ` in ${esc(args.city)}` : ""}. The best introductions turn into a plan while they are still warm.`) +
+    p(`Reply to your introduction thread with a day and a place this week - a short first message goes a long way.`) +
+    small("Want us to help pick a spot? Just reply and ask.");
+  return { subject, html: emailShell(inner, `You and ${otherFirst} still haven't set a time.`), text };
+}
+
+// Post-connection check-in: "how was your Meet Cute?" Their reply becomes
+// feedback the matchmaker can act on.
+export function matchFeedbackEmail(args: {
+  toName: string;
+  otherName: string;
+}): { subject: string; html: string; text: string } {
+  const first = (args.toName || "there").split(" ")[0];
+  const otherFirst = (args.otherName || "your match").split(" ")[0];
+  const subject = `How was your Meet Cute with ${otherFirst}?`;
+  const text =
+    `Hi ${first},\n\n` +
+    `How did it go with ${otherFirst}? A sentence is plenty - did you meet, did you click, should we keep going or try someone new?\n\n` +
+    `Just reply to this email. It helps us make your next introduction a better one.\n\n` +
+    `Warmly,\nMeet Cute`;
+  const inner =
+    h1(`How was ${esc(otherFirst)}?`) +
+    p(`Hi ${esc(first)}, how did it go with <strong>${esc(otherFirst)}</strong>? A sentence is plenty - did you meet, did you click, should we keep going or try someone new?`) +
+    p(`Just reply to this email. Whatever you say stays between us and makes your next introduction a better one.`);
+  return { subject, html: emailShell(inner, `Tell us how it went with ${otherFirst}.`), text };
+}
+
+// Sent to the operator inbox when someone requests a dinner seat or coaching
+// from the public site. Keeps intake in one place until a real CRM is wired.
+export function operatorLeadEmail(args: {
+  kind: "dinner" | "coaching";
+  name: string;
+  email: string;
+  detail: string;
+  context?: string | null;
+}): { subject: string; html: string; text: string } {
+  const label = args.kind === "dinner" ? "Dinner seat request" : "Coaching request";
+  const subject = `${label}: ${args.name}`;
+  const lines = [
+    `${label}`,
+    `Name: ${args.name}`,
+    `Email: ${args.email}`,
+    args.context ? `For: ${args.context}` : "",
+    args.detail ? `Note: ${args.detail}` : "",
+  ].filter(Boolean);
+  const text = lines.join("\n");
+  const inner =
+    h1(label) +
+    p(`<strong>${esc(args.name)}</strong> &lt;${esc(args.email)}&gt;`) +
+    (args.context ? p(`For: ${esc(args.context)}`) : "") +
+    (args.detail ? p(esc(args.detail)) : "") +
+    small("Reply directly to reach them.");
+  return { subject, html: emailShell(inner), text };
+}
+
+// Confirmation sent to a member/applicant after they request a dinner seat or
+// coaching, so the public action doesn't feel like a dead end.
+export function requestReceivedEmail(args: {
+  name: string;
+  kind: "dinner" | "coaching";
+  context?: string | null;
+}): { subject: string; html: string; text: string } {
+  const first = (args.name || "there").split(" ")[0];
+  const thing =
+    args.kind === "dinner"
+      ? `a seat at ${args.context ? args.context : "an upcoming Meet Cute dinner"}`
+      : "Meet Cute coaching";
+  const subject = args.kind === "dinner" ? "Your dinner request is in" : "Your coaching request is in";
+  const text =
+    `Hi ${first},\n\n` +
+    `Thanks - we have your request for ${thing}. A matchmaker will follow up personally with next steps.\n\n` +
+    `Warmly,\nMeet Cute`;
+  const inner =
+    h1("We have your request.") +
+    p(`Hi ${esc(first)}, thanks for asking about ${esc(thing)}. A matchmaker will follow up personally with next steps.`) +
+    small("Questions in the meantime? Just reply.");
+  return { subject, html: emailShell(inner), text };
+}
+
 export function eventInviteEmail(args: {
   name: string;
   theme: string;
