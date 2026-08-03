@@ -235,6 +235,73 @@ async function checkDeliveryQueue(): Promise<Check> {
   }
 }
 
+/**
+ * The reply-by-email path depends on one URL that lives only in Resend, and it
+ * was wrong for eleven days without anything noticing.
+ *
+ * The webhook was still pointed at hellomeetcute.com after the rename. The app
+ * 308-redirects that host to the canonical one, and svix does not follow 3xx,
+ * so every `email.received` event was recorded as a failed delivery and no
+ * member's "Y" reply reached the app. There is no app-side error to capture
+ * when a webhook never arrives: Sentry was clean, the health checks were green,
+ * and the only symptom was a match that stayed at mutual_yes.
+ *
+ * So assert it from the outside. A webhook endpoint that does not sit on the
+ * canonical host is a failure, whatever the rest of the system says.
+ */
+async function checkInboundWebhook(): Promise<Check | null> {
+  const key = process.env.RESEND_API_KEY;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || URL;
+  // This module shadows the global `URL` with the site address, so the WHATWG
+  // constructor is not reachable by that name here.
+  const hostOf = (u: string) => new globalThis.URL(u).host;
+  if (!key) return { name: "inbound-webhook", ok: true, detail: "skipped (no RESEND_API_KEY)" };
+
+  try {
+    const res = await fetch("https://api.resend.com/webhooks", {
+      signal: AbortSignal.timeout(15_000),
+      headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+    });
+    if (!res.ok) {
+      return { name: "inbound-webhook", ok: true, detail: `skipped (Resend returned ${res.status})` };
+    }
+    const body = (await res.json()) as { data?: { status?: string; endpoint?: string; events?: string[] }[] };
+    const rows = body.data ?? [];
+
+    // Only our own inbound endpoint. This Resend account is shared with other
+    // projects, whose webhooks point at their own hosts and are none of our
+    // business.
+    const ours = rows.filter((w) => (w.endpoint ?? "").includes("/api/email/inbound"));
+    if (!ours.length) {
+      return { name: "inbound-webhook", ok: false, detail: "no email.received webhook for /api/email/inbound is registered" };
+    }
+
+    const expectedHost = hostOf(appUrl);
+    const wrong = ours.filter((w) => {
+      if (w.status !== "enabled") return false;
+      try {
+        return hostOf(w.endpoint!) !== expectedHost;
+      } catch {
+        return true;
+      }
+    });
+    if (wrong.length) {
+      return {
+        name: "inbound-webhook",
+        ok: false,
+        detail: `points at ${wrong.map((w) => w.endpoint).join(", ")} but the canonical host is ${expectedHost}; a redirect there silently drops every Y/N reply`,
+      };
+    }
+    const enabled = ours.filter((w) => w.status === "enabled");
+    if (!enabled.length) {
+      return { name: "inbound-webhook", ok: false, detail: "the inbound webhook exists but is disabled" };
+    }
+    return { name: "inbound-webhook", ok: true, detail: `enabled at ${enabled[0].endpoint}` };
+  } catch (e) {
+    return { name: "inbound-webhook", ok: true, detail: `skipped (${(e as Error).message})` };
+  }
+}
+
 async function alert(failed: Check[]) {
   const body = failed.map((c) => `- ${c.name}: ${c.detail}`).join("\n");
   log(`ALERT: ${failed.map((c) => c.name).join(", ")} failing`);
@@ -342,6 +409,10 @@ async function cycle(n: number): Promise<boolean> {
   checks.push(await checkReadiness());
   checks.push(await checkDb());
   checks.push(await checkDeliveryQueue());
+  {
+    const webhook = await checkInboundWebhook();
+    if (webhook) checks.push(webhook);
+  }
   const sentry = await checkSentry();
   if (sentry) {
     checks.push(sentry);

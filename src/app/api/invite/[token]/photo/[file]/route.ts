@@ -35,7 +35,12 @@ export async function GET(
     where: { id: invite.matchId },
     select: { personAId: true, personBId: true, stage: true },
   });
-  if (!match || !["invited", "mutual_yes"].includes(match.stage)) {
+  // Same stages the invite page itself renders for. The page allowed
+  // `connecting` and `connected` while this route stopped at `mutual_yes`, so
+  // once two people connected the page kept rendering and every photo on it
+  // 404'd. Harmless while there was one small avatar; obvious now that photos
+  // lead the page.
+  if (!match || !["invited", "mutual_yes", "connecting", "connected"].includes(match.stage)) {
     return new NextResponse("Not found", { status: 404 });
   }
   const otherId = match.personAId === invite.personId ? match.personBId : match.personAId;

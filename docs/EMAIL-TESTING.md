@@ -8,6 +8,37 @@ Run all three before touching anything in `src/lib/reply-parse.ts`,
 `src/lib/introductions.ts`, `src/lib/email.ts`, or
 `src/app/api/email/inbound/route.ts`.
 
+## Layer 0: is the webhook even pointed here?
+
+None of the layers below catch the failure that actually happened. On
+2026-08-03 the reply path had been dead for eleven days and every one of these
+tests passed, because the break was not in the code: the Resend webhook still
+pointed at `hellomeetcute.com/api/email/inbound`, the app 308-redirects that
+host to the canonical one, and svix does not follow redirects. Replies reached
+Resend and were simply never delivered to the app. Nothing errors when a
+webhook does not arrive, so Sentry was clean too.
+
+The watchdog now asserts this every 15 minutes (`checkInboundWebhook` in
+`scripts/watchdog.ts`). To check it by hand:
+
+```bash
+curl -s -H "Authorization: Bearer $RESEND_API_KEY" https://api.resend.com/webhooks \
+  | python3 -m json.tool
+```
+
+The `email.received` webhook whose endpoint contains `/api/email/inbound` must
+be `enabled` and must sit on the **canonical** host in `NEXT_PUBLIC_APP_URL`.
+Any other host is broken, however healthy the app looks. Repoint with:
+
+```bash
+curl -X PATCH https://api.resend.com/webhooks/<id> \
+  -H "Authorization: Bearer $RESEND_API_KEY" -H "content-type: application/json" \
+  -d '{"endpoint":"https://hellomutuals.com/api/email/inbound"}'
+```
+
+The signing secret survives a repoint, so `RESEND_WEBHOOK_SECRET` does not
+change and no deploy is needed.
+
 ## Layer 1: parser corpus (no database, no network, about a second)
 
 ```bash

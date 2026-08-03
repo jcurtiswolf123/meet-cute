@@ -43,6 +43,9 @@ jobs:
           WATCHDOG_URL: ${{ vars.WATCHDOG_URL || 'https://hellomutuals.com' }}
           WATCHDOG_ALERT_EMAIL: ${{ secrets.WATCHDOG_ALERT_EMAIL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          # The inbound-webhook check compares the registered endpoint host
+          # against this, so it has to be the canonical URL.
+          NEXT_PUBLIC_APP_URL: ${{ vars.WATCHDOG_URL || 'https://hellomutuals.com' }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
