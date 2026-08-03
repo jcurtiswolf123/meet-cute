@@ -2,8 +2,10 @@ name: Watchdog
 
 # Always-on monitor (option B): runs on a schedule, checks the live site plus a
 # typecheck regression, and fails the job (GitHub notifies) on any problem.
-# With WATCHDOG_AUTOFIX=1 + OPENAI_API_KEY, a typecheck regression also opens an
+# With WATCHDOG_AUTOFIX=1 and an AI key, a typecheck regression also opens an
 # AI fix PR on a branch (re-verified, never merged automatically, never deploys).
+# NVIDIA_API_KEY is the funded provider; OPENAI_API_KEY is kept as a fallback
+# but its account has no credits, so autofix was a silent no-op without NVIDIA.
 
 on:
   schedule:
@@ -43,6 +45,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: "riiva"
