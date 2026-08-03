@@ -309,9 +309,24 @@ export function ApplyForm({
           );
         })}
 
+        <div>
+          <label className="label" htmlFor="applicantNote">
+            Anything you want us to say to them? <span className="text-muted">(optional)</span>
+          </label>
+          <input
+            id="applicantNote"
+            className="field mt-1.5"
+            name="applicantNote"
+            defaultValue={v.applicantNote ?? ""}
+            maxLength={200}
+            placeholder="One line, in your words. It goes at the top of the email they get."
+          />
+        </div>
+
         <p className="text-xs text-muted">
-          We email them once, and once more if they forget. We do not add them to anything, and we
-          never email them again if they do not write back.
+          We email them, and nudge them twice if they forget. They can reply to that email or tap
+          once to vouch, with no account. We do not add them to anything, and they never hear from
+          us again if they do not answer.
         </p>
       </fieldset>
 

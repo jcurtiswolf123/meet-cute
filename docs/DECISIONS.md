@@ -2,6 +2,32 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-03 : Three doors into one vouch, and a tap is an answer
+
+- Decision: A friend can answer by replying to the email, by tapping once, or by
+  writing on the page. All three go through `recordAnswer`, which is the only
+  place the transition is written.
+- Why three call sites doing it by hand is the risk: one of them quietly stops
+  cancelling the nudges, or stops accepting the applicant, and nothing notices.
+- Decision: A tap sets `endorsed` and counts toward the gate. Words set
+  `submitted` and can upgrade an earlier tap. Words never overwrite words.
+- Decision: Only a row with a body is ever quoted on a profile or in an
+  introduction email. Two taps accept an applicant and leave the quote empty.
+- Why: most people answering are on a phone, and the gap between a tap and a
+  paragraph is the gap between an answer today and no answer at all. But a tap
+  is consent, not prose, and putting words in a friend's mouth would be worse
+  than having none.
+- Decision: The one-tap vouch is a button on the page, never a link in the
+  email. Mail scanners follow links, and a scanner must never be able to vouch.
+- Decision: Recommendation replies are routed in the inbound webhook BEFORE the
+  Y/N decision parser sees them. The message is the answer, not a decision.
+  Under 40 characters is ignored rather than guessed at.
+- Decision: Nudges at two, five, and ten days, withdrawn on any answer.
+- Alternatives rejected: a one-click vouch URL in the email (scanners); letting
+  a tap fill in a generic quote (inventing words nobody said); counting a short
+  reply like "yes!" as a recommendation (it is an endorsement at best, and the
+  page and nudges are still open to them).
+
 ## 2026-08-03 : The recommender loop, and why recommenders do not sign up first
 
 - Decision: A recommender is never asked to create an account before writing.

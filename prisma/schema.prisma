@@ -426,16 +426,25 @@ model Recommendation {
   // Opaque capability token (base64url) carried by the request email.
   token String @unique
 
-  status      String    @default("requested") // requested | submitted | declined
+  // requested -> endorsed (one tap, counts toward the gate) -> submitted (they
+  // also wrote the words). A tap is a real answer: it is what most people will
+  // give on a phone, and refusing to count it means refusing most of them.
+  // Only a row with a body ever supplies the quote on a profile.
+  status      String    @default("requested") // requested | endorsed | submitted | declined
   createdAt   DateTime  @default(now())
   requestedAt DateTime?
   remindedAt  DateTime?
+  endorsedAt  DateTime?
   submittedAt DateTime?
   declinedAt  DateTime?
 
   // The friend's own words. body is what shows on the applicant's profile.
   body         String?
   relationship String?
+
+  // One line from the applicant, carried into the ask. A note from the person
+  // themselves converts better than a system email from a stranger.
+  applicantNote String?
 
   // The growth loop. A recommender is the warmest lead Mutuals ever sees: they
   // know a member personally, they are in the right city, and they just spent

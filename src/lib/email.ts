@@ -320,6 +320,12 @@ export function recommendationRequestEmail(args: {
   link: string;
   /** True when this is the nudge rather than the first ask. */
   reminder?: boolean;
+  /** One line from the applicant themselves, which converts better than any
+   *  system copy because it is the only part of this email they wrote. */
+  applicantNote?: string | null;
+  /** Tell them they can simply reply. Set when the message carries a
+   *  token-bearing Reply-To that the inbound webhook can route. */
+  replyToVouch?: boolean;
 }): { subject: string; html: string; text: string } {
   const first = (args.recommenderName || "there").split(" ")[0];
   const applicantFirst = (args.applicantName || "your friend").split(" ")[0];
@@ -328,22 +334,31 @@ export function recommendationRequestEmail(args: {
     ? `Still waiting on you: ${applicantFirst}'s recommendation`
     : `${applicantFirst} asked you to vouch for them`;
 
+  const note = args.applicantNote?.trim();
   const text =
     `Hi ${first},\n\n` +
     `${args.applicantName} applied to Mutuals${place ? ` in ${place}` : ""} - curated matchmaking, where a matchmaker introduces you to one person at a time - and named you as someone who knows them well.\n\n` +
+    (note ? `${applicantFirst} says: "${note}"\n\n` : "") +
     `${applicantFirst} is not accepted until two friends write back, so this genuinely decides it.\n\n` +
+    (args.replyToVouch
+      ? `The fastest way: just hit reply and type a few sentences. Whatever you write comes straight back to us and goes on ${applicantFirst}'s profile.\n\n`
+      : "") +
+    `Or use the page, where one tap vouches for them and the words are optional:\n${args.link}\n\n` +
     `A few sentences is plenty: what they are like, what makes them worth meeting, and anything you would tell a friend before setting them up.\n\n` +
-    `Write it here (two minutes, no account needed):\n${args.link}\n\n` +
-    `What you write shows on ${applicantFirst}'s profile, so write it the way you would say it to them.\n\n` +
     `Thank you,\nMutuals`;
 
   const inner =
     h1(`${applicantFirst} asked you to vouch for them.`) +
     p(`Hi ${esc(first)}, <strong>${esc(args.applicantName)}</strong> applied to Mutuals${place ? ` in ${esc(place)}` : ""} and named you as someone who knows them well.`) +
+    (note
+      ? `<p style="margin:0 0 16px;padding:12px 16px;border-left:2px solid ${BRAND.oxblood};font-family:${SERIF};font-size:16px;font-style:italic;line-height:1.55;color:${BRAND.ink}">${esc(applicantFirst)} says: &ldquo;${esc(note)}&rdquo;</p>`
+      : "") +
     p(`${esc(applicantFirst)} is <strong>not accepted until two friends write back</strong>, so this genuinely decides it.`) +
-    p(`A few sentences is plenty: what they are like, what makes them worth meeting, and anything you would tell a friend before setting them up.`) +
-    `<p style="margin:24px 0 0">${emailButton(args.reminder ? "Write it now" : `Vouch for ${applicantFirst}`, args.link)}</p>` +
-    small(`Two minutes, no account needed. What you write shows on ${esc(applicantFirst)}'s profile, so write it the way you would say it to them.`);
+    (args.replyToVouch
+      ? p(`The fastest way: <strong>just hit reply</strong> and type a few sentences. Whatever you write comes straight back to us and goes on ${esc(applicantFirst)}&rsquo;s profile.`)
+      : "") +
+    `<p style="margin:24px 0 0">${emailButton(args.reminder ? "Vouch now" : `Vouch for ${applicantFirst}`, args.link)}</p>` +
+    small(`One tap vouches for them; the words are optional but they are what shows on the profile. No account needed.`);
 
   return {
     subject,

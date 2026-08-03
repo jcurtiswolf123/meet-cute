@@ -125,6 +125,29 @@ export async function queueEmailDelivery(args: {
   );
 }
 
+/**
+ * Withdraw scheduled mail that no longer needs to go out.
+ *
+ * The nudges and the recommender follow-up are queued into the future the
+ * moment they become possible, using this outbox's own `availableAt`. That is
+ * why there is no cron: the scheduler already exists. The cost is that they
+ * have to be withdrawn once the thing they were going to ask about has
+ * happened, and a nudge that reaches someone who already answered is the
+ * fastest way to teach recommenders to ignore this mail.
+ */
+export async function cancelScheduledMail(kind: string, recipient: string): Promise<number> {
+  const cancelled = await prisma.deliveryJob.updateMany({
+    where: { kind, recipient, status: "pending" },
+    data: {
+      status: "cancelled",
+      lockedAt: null,
+      leaseToken: null,
+      lastError: "Cancelled because it was no longer needed.",
+    },
+  });
+  return cancelled.count;
+}
+
 export async function queueSmsDelivery(args: {
   kind: string;
   to: string;

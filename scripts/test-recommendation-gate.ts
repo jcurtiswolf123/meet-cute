@@ -15,6 +15,8 @@ import {
   acceptIfRecommended,
   countsTowardGate,
   gateState,
+  hasAnswered,
+  recordAnswer,
   remainingRequired,
   saveRecommenders,
 } from "../src/lib/recommendations";
@@ -62,7 +64,20 @@ function pure() {
     ]),
     REQUIRED_RECOMMENDATIONS,
   );
-  console.log("  pure: opposite-gender rule and remaining count");
+  // A tap answers. Words answer and can be quoted. Nothing else counts.
+  assert.equal(hasAnswered("endorsed"), true);
+  assert.equal(hasAnswered("submitted"), true);
+  assert.equal(hasAnswered("requested"), false);
+  assert.equal(hasAnswered("declined"), false);
+  assert.equal(
+    remainingRequired("man", [
+      { status: "endorsed", gender: "woman" },
+      { status: "submitted", gender: "woman" },
+    ]),
+    0,
+    "A tap and a written recommendation together are two answers.",
+  );
+  console.log("  pure: opposite-gender rule, tap counting, and remaining count");
 }
 
 async function makeApplicant(gender: string) {
@@ -227,8 +242,65 @@ async function main() {
       "A declined applicant stays declined.",
     );
 
+    // --- the three doors: tap, words, and a tap upgraded by words ----------
+    const tapper = await makeApplicant("woman");
+    created.push(tapper.id);
+    const tapRecs = await saveRecommenders(tapper.id, [
+      { name: "Tap One", email: `tap1-${randomUUID()}@example.test`, gender: "man" },
+      { name: "Tap Two", email: `tap2-${randomUUID()}@example.test`, gender: "man" },
+    ]);
+
+    const firstTap = await recordAnswer(tapRecs[0].token, { endorseOnly: true });
+    assert.equal(firstTap.ok, true);
+    assert.equal(firstTap.ok && firstTap.request.status, "endorsed");
+    assert.equal(firstTap.ok && firstTap.alreadyAnswered, false);
+    assert.equal((await acceptIfRecommended(tapper.id)).accepted, false, "One tap is one answer.");
+
+    // The same person coming back with words upgrades their own tap, and the
+    // page has to know they had already answered so nobody is thanked twice.
+    const upgraded = await recordAnswer(tapRecs[0].token, {
+      body: "Tap One eventually wrote the words, which is the whole point of asking twice.",
+    });
+    assert.equal(upgraded.ok, true);
+    assert.equal(upgraded.ok && upgraded.request.status, "submitted");
+    assert.equal(upgraded.ok && upgraded.alreadyAnswered, true, "A second answer is not a first one.");
+
+    const second = await recordAnswer(tapRecs[1].token, { endorseOnly: true });
+    assert.equal(second.ok, true);
+    const tapOutcome = await acceptIfRecommended(tapper.id);
+    assert.equal(tapOutcome.accepted, true, "A tap and words are two answers, and two accepts.");
+    const tapped = await prisma.person.findUniqueOrThrow({ where: { id: tapper.id } });
+    assert.match(
+      tapped.recommendation ?? "",
+      /eventually wrote the words/,
+      "The quote must come from the row with words, never from a bare tap.",
+    );
+    assert.equal(tapped.voucherName, "Tap One");
+
+    // A tap alone never puts words in anyone's mouth.
+    const silent = await makeApplicant("man");
+    created.push(silent.id);
+    const silentRecs = await saveRecommenders(silent.id, [
+      { name: "Silent One", email: `s1-${randomUUID()}@example.test`, gender: "woman" },
+      { name: "Silent Two", email: `s2-${randomUUID()}@example.test`, gender: "woman" },
+    ]);
+    for (const r of silentRecs) await recordAnswer(r.token, { endorseOnly: true });
+    assert.equal((await acceptIfRecommended(silent.id)).accepted, true);
+    const silentPerson = await prisma.person.findUniqueOrThrow({ where: { id: silent.id } });
+    assert.equal(
+      silentPerson.recommendation,
+      null,
+      "Two taps accept an applicant and leave the profile quote empty rather than inventing one.",
+    );
+
+    // An unknown token, and a request whose applicant walked away.
+    assert.equal((await recordAnswer("not-a-real-token", { endorseOnly: true })).ok, false);
+    await prisma.person.update({ where: { id: silent.id }, data: { status: "exited" } });
+    const closed = await recordAnswer(silentRecs[0].token, { body: "x".repeat(50) });
+    assert.equal(closed.ok, false, "A declined applicant's links stop accepting answers.");
+
     console.log(
-      "recommendation gate passed: opposite-gender rule, one-shot acceptance under concurrency, edit-safe requests, and no revival of a declined applicant",
+      "recommendation gate passed: opposite-gender rule, one-tap vouches that count without inventing a quote, words upgrading a tap, one-shot acceptance under concurrency, edit-safe requests, and no revival of a declined applicant",
     );
   } finally {
     await prisma.person.deleteMany({ where: { id: { in: created } } });
