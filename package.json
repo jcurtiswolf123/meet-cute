@@ -20,7 +20,7 @@
     "test:launch:recommendations": "node --env-file-if-exists=.env --import tsx scripts/test-recommendation-gate.ts",
     "test:journey:application": "node --env-file-if-exists=.env --import tsx scripts/test-member-application.ts",
     "test:journey:email": "node --env-file-if-exists=.env --import tsx scripts/test-match-email-journey.ts",
-    "test:launch": "npm run test:launch:pure && npm run test:launch:reply && npm run test:launch:age && npm run test:launch:ideas && npm run test:launch:eventtime && npm run test:launch:prelude && npm run test:prelude:pipeline && npm run test:prelude:webhook && npm run test:journey:email && npm run test:launch:capacity && npm run test:launch:delivery && npm run test:launch:storage && npm run test:launch:roles && npm run test:launch:emails && npm run test:launch:recommendations && npm run test:race",
+    "test:launch": "npm run test:launch:pure && npm run test:launch:reply && npm run test:launch:age && npm run test:launch:ideas && npm run test:launch:eventtime && npm run test:launch:autofix && npm run test:launch:prelude && npm run test:prelude:pipeline && npm run test:prelude:webhook && npm run test:journey:email && npm run test:launch:capacity && npm run test:launch:delivery && npm run test:launch:storage && npm run test:launch:roles && npm run test:launch:emails && npm run test:launch:recommendations && npm run test:race",
     "test:race": "node --env-file-if-exists=.env --import tsx scripts/test-introduction-race.ts",
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
@@ -47,7 +47,8 @@
     "venues:suggest": "node --env-file-if-exists=.env --import tsx scripts/suggest-venues.ts",
     "session:new": "tsx scripts/session.ts new",
     "session:list": "tsx scripts/session.ts list",
-    "session:end": "tsx scripts/session.ts end"
+    "session:end": "tsx scripts/session.ts end",
+    "test:launch:autofix": "node --import tsx scripts/test-autofix-patch.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

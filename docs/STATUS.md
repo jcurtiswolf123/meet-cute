@@ -2,7 +2,9 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-03 (date ideas are ON: four venues verified against their
+Last updated: 2026-08-03 (AI autofix works for the first time, proved by a live
+drill; Sentry no longer captures in-app browser noise; every working copy is
+committed. Before that: date ideas are ON: four venues verified against their
 own websites, /studio/venues for the operator, LLM venue proposals that land
 ineligible by construction, and picks surfaced on the conversation. Before that:
 photos are live on upload and the review queue is
@@ -104,6 +106,70 @@ gate, not the ability to take a photo down.
 
 Terms section 8 already said we "may" review content and are "not obligated to
 monitor" it, so nothing there needed changing.
+
+## 2026-08-03: AI autofix had never worked, and Sentry was 46 events of noise
+
+**Autofix has been enabled in CI every 15 minutes since June and had never
+produced a patch.** Nothing said so: typecheck was green, so the code path never
+ran, and the workflow reported success either way. Drilling it deliberately, by
+breaking typecheck on a throwaway branch, found four faults stacked up:
+
+1. **The gate did not know about NVIDIA.** `askForPatch` learned about it when
+   the co-pilot did; the gate still read `!ANTHROPIC_KEY && !OPENAI_KEY`.
+2. **The transport could not carry code.** It asked for whole source files
+   inside JSON strings. Real code is full of backslashes, quotes and newlines,
+   and the first live drill died on `Bad escaped character in JSON at position
+   875`. That alone made autofix impossible, not unlikely.
+3. **Whole-file replies were unreviewable.** Delimited blocks parsed fine, and
+   the model fixed one assignment while stripping every blank line in the file
+   and mangling two comments. It compiled, so it passed verification.
+4. **The patch model is a REASONING model.** `nemotron-super-49b` emits
+   thousands of tokens of `reasoning_content` before any answer; at 8000 it
+   spent the whole budget thinking and returned empty `content`, which read
+   downstream as "no fix available".
+
+Now search/replace (`<<<EDIT / <<<SEARCH / <<<REPLACE`), so the model can only
+express the lines it wants to change and minimality is structural rather than an
+instruction it can ignore. Search text that is missing, or appears more than
+once, is refused rather than guessed at: editing the wrong occurrence can still
+compile, and a quietly wrong file is the one outcome worth avoiding in code
+nobody asked to be written. A 40-line churn budget backstops it.
+
+Proved end to end on NVIDIA only:
+
+    autofix: 1 edit(s) applied to src/lib/age.ts
+    autofix: patch is 2 changed line(s)
+    autofix: opened PR for watchdog/fix-1785774233550
+
+The fix it chose compiled but was semantically daft, which is the point of
+opening a PR rather than merging: the compiler decides whether it builds, a
+human decides whether it is right.
+
+**The same reasoning-model trap was live in the co-pilot** at `max_tokens: 1200`,
+where an empty reply with no tool calls became `"Done."`. A surface that writes
+to the database saying "Done." having done nothing is its worst failure. It now
+raises and falls through to the next provider.
+
+**Sentry: Seer is not enabled on this org**, so there is no vendor AI autofix.
+The watchdog is the autofix. Sentry ingestion itself is healthy.
+
+**46 events landed on the board today and none were actionable.** 38 were
+`window.webkit.messageHandlers`, the iOS WKWebView bridge probed by the
+Instagram in-app browser, which injects scripts into the page. 8 were
+`Error: No error message` from `instrumentation-client.ts:38`, where
+`new Error(event.message)` turned a cross-origin script error into an issue with
+nothing in it. Last night the real `createIntroduction` crash had to be found on
+that same board, and a lot of this site's traffic arrives through in-app
+browsers, so the noise was going to keep growing. The listener now captures only
+events carrying an error or a real message; `ignoreErrors` covers the bridge
+probe, `Script error.`, and the ResizeObserver warnings. Nothing filters an
+error from our own code.
+
+**Repository state:** master is clean and pushed. The 27 uncommitted files that
+had been sitting in `meet-cute-parallel` for nine days were the abandoned
+Raya-style design direction (still saying "Meet someone worth knowing" and
+"private matchmaking", 113 commits behind). Committed to `design/raya-parallel`
+and pushed so it is recoverable, not because it should ship.
 
 ## 2026-08-03: date ideas are actually on, and the LLM cannot self-approve a venue
 
