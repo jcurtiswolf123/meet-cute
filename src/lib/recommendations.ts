@@ -45,12 +45,17 @@ export function countsTowardGate(applicantGender: string | null, recommenderGend
 }
 
 /** The recommenders still needed, given who has already written back. */
+/** An answer, either kind. A tap is an answer; only a body is a quote. */
+export function hasAnswered(status: string): boolean {
+  return status === "endorsed" || status === "submitted";
+}
+
 export function remainingRequired(
   applicantGender: string | null,
   recommendations: Pick<Recommendation, "status" | "gender">[],
 ): number {
   const qualifying = recommendations.filter(
-    (r) => r.status === "submitted" && countsTowardGate(applicantGender, r.gender),
+    (r) => hasAnswered(r.status) && countsTowardGate(applicantGender, r.gender),
   ).length;
   return Math.max(0, REQUIRED_RECOMMENDATIONS - qualifying);
 }
@@ -60,6 +65,21 @@ export function newRecommendationToken(): string {
 }
 
 /** The absolute URL a recommender opens to write their recommendation. */
+/**
+ * The address a friend can simply reply to, which is the least work this ask
+ * can possibly be: no link, no page, no account, just hit reply and type.
+ *
+ * Same `r+<token>@` shape the match invites already use, so the inbound webhook
+ * and the reply parser that handles 51 real-world client shapes are reused
+ * rather than rebuilt. Null when inbound is not configured, in which case the
+ * page is still the way in.
+ */
+export function recommendationReplyTo(token: string): string | undefined {
+  const domain = process.env.RESEND_INBOUND_DOMAIN?.split(",")[0]?.trim();
+  if (!domain) return undefined;
+  return `Mutuals <r+${token}@${domain}>`;
+}
+
 export function recommendationUrl(token: string): string {
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "");
   return `${base}/r/${token}`;
@@ -84,6 +104,7 @@ export type RecommenderInput = {
 export async function saveRecommenders(
   applicantId: string,
   recommenders: RecommenderInput[],
+  applicantNote?: string | null,
   db: Prisma.TransactionClient | typeof prisma = prisma,
 ): Promise<Recommendation[]> {
   const client = db as typeof prisma;
@@ -106,10 +127,12 @@ export async function saveRecommenders(
           name: person.name.trim(),
           gender: person.gender,
           token: newRecommendationToken(),
+          applicantNote: applicantNote?.trim() || null,
         },
         update: {
           name: person.name.trim(),
           gender: person.gender,
+          ...(applicantNote?.trim() ? { applicantNote: applicantNote.trim() } : {}),
         },
       }),
     );
@@ -124,6 +147,7 @@ export type GateState = {
   /** Submitted AND counting toward the gate (the opposite-gender rule). */
   qualifying: Recommendation[];
   outstanding: Recommendation[];
+  written: Recommendation[];
   remaining: number;
   satisfied: boolean;
 };
@@ -137,7 +161,7 @@ export async function gateState(applicantId: string): Promise<GateState> {
     },
   });
   const recommendations = applicant?.recommendationsReceived ?? [];
-  const submitted = recommendations.filter((r) => r.status === "submitted");
+  const submitted = recommendations.filter((r) => hasAnswered(r.status));
   const qualifying = submitted.filter((r) => countsTowardGate(applicant?.gender ?? null, r.gender));
   const remaining = Math.max(0, REQUIRED_RECOMMENDATIONS - qualifying.length);
   return {
@@ -146,6 +170,8 @@ export async function gateState(applicantId: string): Promise<GateState> {
     submitted,
     qualifying,
     outstanding: recommendations.filter((r) => r.status === "requested"),
+    /** Answered with actual words, which is the only thing that can be quoted. */
+    written: recommendations.filter((r) => r.status === "submitted" && r.body),
     remaining,
     satisfied: remaining === 0,
   };
@@ -163,8 +189,19 @@ export async function gateState(applicantId: string): Promise<GateState> {
 // the applicant they were asked about cannot get in either. The loop has to
 // take the vouch first and make the offer second.
 
-/** How long to wait before nudging a friend who has not written back. */
-export const REMINDER_DELAY_MS = 48 * 60 * 60 * 1000;
+/**
+ * When to nudge a friend who has not answered: two days, five days, ten days.
+ *
+ * All three are queued when the request is, and all three are withdrawn the
+ * moment they answer. One nudge catches the people who meant to reply and
+ * forgot; it does not catch anyone who needed to be asked twice, and reply rate
+ * is one of only two numbers this loop multiplies.
+ */
+export const REMINDER_SCHEDULE_MS = [
+  48 * 60 * 60 * 1000,
+  5 * 24 * 60 * 60 * 1000,
+  10 * 24 * 60 * 60 * 1000,
+];
 /** How long after vouching to ask the friend whether they want this too. */
 export const FOLLOW_UP_DELAY_MS = 36 * 60 * 60 * 1000;
 
@@ -196,7 +233,7 @@ export async function fastTrackFor(
   const address = String(email ?? "").trim().toLowerCase();
   if (!address) return null;
   const written = await prisma.recommendation.findFirst({
-    where: { email: address, status: "submitted" },
+    where: { email: address, status: { in: ["endorsed", "submitted"] } },
     orderBy: { submittedAt: "desc" },
     select: {
       id: true,
@@ -232,7 +269,7 @@ export async function linkRecommenderSignup(person: {
   const address = String(person.email ?? "").trim().toLowerCase();
   if (!address) return 0;
   const written = await prisma.recommendation.findMany({
-    where: { email: address, status: "submitted", convertedPersonId: null },
+    where: { email: address, status: { in: ["endorsed", "submitted"] }, convertedPersonId: null },
     select: { id: true, applicantId: true, body: true },
   });
   if (written.length === 0) return 0;
@@ -250,6 +287,55 @@ export async function linkRecommenderSignup(person: {
     });
   }
   return written.length;
+}
+
+/**
+ * One friend answered. This is the only place that records it, because there
+ * are now three doors into the same act: the button in the page, the one-tap
+ * vouch, and a plain reply to the request email. Three call sites writing the
+ * same transition by hand is how one of them quietly stops cancelling the
+ * nudges, or stops accepting the applicant.
+ *
+ * A tap sets `endorsed`. Words set `submitted` and can upgrade an earlier tap.
+ * Words never overwrite words: the first thing someone wrote is theirs.
+ */
+export async function recordAnswer(
+  token: string,
+  answer: { body?: string | null; relationship?: string | null; endorseOnly?: boolean },
+): Promise<
+  | { ok: false; reason: "unknown" | "closed" }
+  | { ok: true; request: Recommendation; applicant: { id: string; name: string; email: string | null }; alreadyAnswered: boolean }
+> {
+  const request = await prisma.recommendation.findUnique({
+    where: { token },
+    include: { applicant: { select: { id: true, name: true, email: true, status: true } } },
+  });
+  if (!request) return { ok: false, reason: "unknown" };
+  if (request.applicant.status === "exited") return { ok: false, reason: "closed" };
+
+  const body = answer.body?.trim() ? answer.body.trim().slice(0, 1200) : null;
+  const alreadyAnswered = hasAnswered(request.status);
+
+  // Guarded on the statuses this transition is legal from, so two tabs, or a
+  // tap racing a reply, cannot both count as the answer.
+  const from = body ? ["requested", "endorsed"] : ["requested"];
+  const claimed = await prisma.recommendation.updateMany({
+    where: { id: request.id, status: { in: from } },
+    data: body
+      ? {
+          status: "submitted",
+          submittedAt: new Date(),
+          body,
+          ...(answer.relationship?.trim()
+            ? { relationship: answer.relationship.trim().slice(0, 160) }
+            : {}),
+        }
+      : { status: "endorsed", endorsedAt: new Date() },
+  });
+  if (claimed.count !== 1 && !alreadyAnswered) return { ok: false, reason: "closed" };
+
+  const fresh = await prisma.recommendation.findUniqueOrThrow({ where: { id: request.id } });
+  return { ok: true, request: fresh, applicant: request.applicant, alreadyAnswered };
 }
 
 export type AcceptanceResult = {
@@ -273,7 +359,9 @@ export async function acceptIfRecommended(applicantId: string): Promise<Acceptan
   const state = await gateState(applicantId);
   if (!state.satisfied) return { accepted: false, justAccepted: false, remaining: state.remaining };
 
-  const lead = state.qualifying[0];
+  // Only a row with words can supply the quote a profile and an introduction
+  // email render. A tap accepts someone; it does not put words in their mouth.
+  const lead = state.qualifying.find((r) => r.body?.trim()) ?? null;
   const applicant = await prisma.person.findUnique({
     where: { id: applicantId },
     select: { status: true, recommendation: true, voucherName: true },
@@ -291,8 +379,8 @@ export async function acceptIfRecommended(applicantId: string): Promise<Acceptan
       // Copy the lead recommendation onto the single-line fields every existing
       // surface already reads. Never overwrite something an operator or the
       // member has since edited by hand.
-      ...(applicant.recommendation?.trim() ? {} : { recommendation: lead?.body ?? null }),
-      ...(applicant.voucherName?.trim() ? {} : { voucherName: lead?.name ?? null }),
+      ...(applicant.recommendation?.trim() || !lead ? {} : { recommendation: lead.body }),
+      ...(applicant.voucherName?.trim() || !lead ? {} : { voucherName: lead.name }),
     },
   });
   return { accepted: changed.count === 1, justAccepted: changed.count === 1, remaining: 0 };

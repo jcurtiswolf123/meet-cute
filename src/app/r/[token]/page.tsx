@@ -45,10 +45,10 @@ export default async function WriteRecommendation({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ done?: string }>;
+  searchParams: Promise<{ done?: string; vouched?: string }>;
 }) {
   const { token } = await params;
-  const { done } = await searchParams;
+  const { done, vouched } = await searchParams;
 
   const request = await prisma.recommendation.findUnique({
     where: { token },
@@ -69,6 +69,27 @@ export default async function WriteRecommendation({
   if (request.applicant.status === "exited") {
     return (
       <Unavailable reason={`${applicantFirst} is no longer applying to Mutuals, so there is nothing to write here. Thank you for being willing.`} />
+    );
+  }
+
+  // A tap is an answer, not the end of the conversation: it counts toward the
+  // gate, and the page immediately asks for the words, which is when most of
+  // them actually arrive.
+  if (request.status === "endorsed" && !done) {
+    return (
+      <Shell>
+        <p className="label mb-3">Vouched</p>
+        <h1 className="font-display text-4xl font-medium tracking-tight">
+          Thank you, {yourFirst}.
+        </h1>
+        <p className="mt-3 max-w-[60ch] text-sm leading-relaxed text-muted">
+          {vouched === "1" ? "That is recorded. " : ""}
+          {applicantFirst} is vouched for by you. One thing still missing: your words. They are what
+          shows on {applicantFirst}&rsquo;s profile and what the person we introduce them to
+          actually reads.
+        </p>
+        <RecommendationForm token={token} applicantFirst={applicantFirst} endorsed />
+      </Shell>
     );
   }
 

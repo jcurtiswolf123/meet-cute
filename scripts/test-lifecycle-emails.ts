@@ -195,6 +195,32 @@ function main() {
   assert.match(request.html, /hellomutuals\.com\/r\/tok3n/);
   assert.match(request.text, /not accepted until two friends write back/);
   assert.match(request.html, /New York/);
+  // The applicant's own line, and the "just reply" affordance, are the two
+  // things in this email that raise the reply rate. Both are conditional, so
+  // both can silently stop rendering.
+  const withNote = recommendationRequestEmail({
+    recommenderName: "Ada Lovelace",
+    applicantName: "Maya Rosen",
+    link: "https://hellomutuals.com/r/tok3n",
+    applicantNote: "Ada, this is the thing I mentioned on Sunday.",
+    replyToVouch: true,
+  });
+  assertWellFormed("recommendationRequest(note)", withNote);
+  assert.match(withNote.html, /this is the thing I mentioned on Sunday/);
+  assert.match(withNote.text, /just hit reply/i, "The cheapest way to answer has to be named.");
+  assert.doesNotMatch(
+    request.text,
+    /just hit reply/i,
+    "And only when the message actually carries a reply-to that can route it.",
+  );
+  const hostileNote = recommendationRequestEmail({
+    recommenderName: "Ada",
+    applicantName: "Maya",
+    link: "https://hellomutuals.com/r/tok3n",
+    applicantNote: '<img src=x onerror="alert(1)">',
+  });
+  assert.ok(!hostileNote.html.includes("<img"), "request: applicant note rendered live");
+
   const nudge = recommendationRequestEmail({
     recommenderName: "Ada Lovelace",
     applicantName: "Maya Rosen",

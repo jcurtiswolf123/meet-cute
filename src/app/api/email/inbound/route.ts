@@ -2,6 +2,10 @@ import { NextRequest } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import * as Sentry from "@sentry/nextjs";
 import { recordInviteDecision } from "@/lib/introductions";
+import { prisma } from "@/lib/prisma";
+import { recordAnswer } from "@/lib/recommendations";
+import { afterRecommendationAnswer } from "@/lib/actions";
+import { htmlToReplyText, stripQuotedHistory } from "@/lib/reply-parse";
 import { decisionFromReply } from "@/lib/reply-parse";
 
 export const runtime = "nodejs";
@@ -160,6 +164,34 @@ export async function POST(req: NextRequest) {
     if (!bodyText.trim() && !bodyHtml.trim()) {
       const emailId = String(data.email_id ?? data.id ?? "");
       ({ text: bodyText, html: bodyHtml } = await fetchReceivedBody(emailId));
+    }
+
+    // The same `r+<token>@` address now carries two different conversations. A
+    // recommendation reply is not a Y/N decision: the whole message IS the
+    // answer, so it is routed before the decision parser ever sees it.
+    //
+    // This is the least work a vouch can be. No link, no page, no account: hit
+    // reply, type, done. It reuses the webhook, the signature check, and the
+    // quoted-history stripping that the match invites already proved against 51
+    // real client shapes, rather than rebuilding any of it.
+    const recommendation = await prisma.recommendation.findUnique({
+      where: { token },
+      select: { id: true, status: true },
+    });
+    if (recommendation) {
+      if (recommendation.status !== "requested" && recommendation.status !== "endorsed") {
+        return new Response("already answered", { status: 200 });
+      }
+      const prose = stripQuotedHistory(
+        bodyText.trim() ? bodyText : htmlToReplyText(bodyHtml),
+      ).trim();
+      // Too short to be a recommendation is not a reason to guess. The page and
+      // the one-tap vouch are both still open, and the nudges still run.
+      if (prose.length < 40) return new Response("too short", { status: 200 });
+      const answer = await recordAnswer(token, { body: prose });
+      if (!answer.ok) return new Response("closed", { status: 200 });
+      await afterRecommendationAnswer(token, answer);
+      return new Response("ok", { status: 200 });
     }
 
     // Anything ambiguous, automated, or empty comes back null and is ignored:

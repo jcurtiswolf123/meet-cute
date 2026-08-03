@@ -33,7 +33,7 @@ import {
 } from "./email";
 import {
   FOLLOW_UP_DELAY_MS,
-  REMINDER_DELAY_MS,
+  REMINDER_SCHEDULE_MS,
   REQUIRED_RECOMMENDATIONS,
   acceptIfRecommended,
   fastTrackFor,
@@ -41,6 +41,8 @@ import {
   isGender,
   linkRecommenderSignup,
   newRecommendationToken,
+  recordAnswer,
+  recommendationReplyTo,
   recommendationUrl,
   requiredNewRecommenders,
   saveRecommenders,
@@ -67,6 +69,7 @@ import {
 } from "./events";
 import { allowMemberDemoLogin, allowOperatorDemoLogin } from "./demo-login";
 import {
+  cancelScheduledMail,
   makeDeliveryKey,
   queueConversationDelivery,
   queueEmailDelivery,
@@ -484,6 +487,10 @@ export async function completeApplication(
   // and it is also the field the matchmaker filters on. It was never collected
   // here: every one of the 25 people on the roster had a null gender.
   const gender = String(formData.get("gender") || "").trim();
+  // One line from the applicant, carried into the ask. A note from the person
+  // themselves converts better than any system copy, because it is the only
+  // part of that email they wrote.
+  const applicantNote = String(formData.get("applicantNote") || "").trim().slice(0, 200);
   // Someone who has already vouched for a member needs one new friend, not two:
   // the member they vouched for counts as the other. That credit is what makes
   // a recommender worth converting, and it is checked on the server rather than
@@ -510,6 +517,7 @@ export async function completeApplication(
     linkedin: linkedinRaw,
     instagram: instagramRaw,
     birthdate: birthdateRaw,
+    applicantNote,
   };
   recommenders.forEach((r, i) => {
     values[`rec${i + 1}Name`] = r.name;
@@ -617,11 +625,11 @@ export async function completeApplication(
   // write the member-to-member Vouch, and stop the follow-up that was going to
   // ask them to do the thing they have now done.
   const convertedFrom = await linkRecommenderSignup({ id: me!.id, email });
-  if (convertedFrom > 0) await cancelPendingMail("recommender_follow_up", email);
+  if (convertedFrom > 0) await cancelScheduledMail("recommender_follow_up", email);
 
   // Ask the friends. Queued, like every other send, so a provider hiccup
   // retries rather than stranding an application nobody can complete.
-  const saved = await saveRecommenders(me!.id, recommenders as RecommenderInput[]);
+  const saved = await saveRecommenders(me!.id, recommenders as RecommenderInput[], applicantNote);
   await queueRecommendationRequests(saved, name, city);
 
   // The credited half: the member they vouched for is asked to vouch back. It
@@ -697,28 +705,6 @@ function appBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "");
 }
 
-/**
- * Cancel a scheduled message that no longer needs to be sent.
- *
- * The reminder and the follow-up are both queued into the future the moment
- * they become possible, using the outbox's own `availableAt`. That is why there
- * is no cron: the job that already exists is the schedule. The cost is that
- * both have to be withdrawn when the thing they were going to ask about has
- * happened, which is what this does.
- */
-async function cancelPendingMail(kind: string, recipient: string): Promise<number> {
-  const cancelled = await prisma.deliveryJob.updateMany({
-    where: { kind, recipient, status: "pending" },
-    data: {
-      status: "cancelled",
-      lockedAt: null,
-      leaseToken: null,
-      lastError: "Cancelled because it was no longer needed.",
-    },
-  });
-  return cancelled.count;
-}
-
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) && value.length <= 254;
 }
@@ -734,7 +720,14 @@ function isValidEmail(value: string): boolean {
  * (new token) is a new job.
  */
 async function queueRecommendationRequests(
-  requests: { id: string; token: string; name: string; email: string; status: string }[],
+  requests: {
+    id: string;
+    token: string;
+    name: string;
+    email: string;
+    status: string;
+    applicantNote?: string | null;
+  }[],
   applicantName: string,
   applicantCity: string | null,
   options: { reminder?: boolean } = {},
@@ -749,6 +742,8 @@ async function queueRecommendationRequests(
         applicantCity,
         link: recommendationUrl(request.token),
         reminder: options.reminder,
+        applicantNote: request.applicantNote,
+        replyToVouch: true,
       });
       await queueEmailDelivery({
         kind: options.reminder ? "recommendation_reminder" : "recommendation_request",
@@ -756,6 +751,7 @@ async function queueRecommendationRequests(
         subject: msg.subject,
         html: msg.html,
         text: msg.text,
+        replyTo: recommendationReplyTo(request.token),
         idempotencyKey: makeDeliveryKey(
           options.reminder ? "recommendation_reminder" : "recommendation_request",
           request.token,
@@ -774,22 +770,31 @@ async function queueRecommendationRequests(
       // of the two people who applied through the gate on the day it shipped,
       // one pressed it and one did not.
       if (!options.reminder) {
-        const nudge = recommendationRequestEmail({
-          recommenderName: request.name,
-          applicantName,
-          applicantCity,
-          link: recommendationUrl(request.token),
-          reminder: true,
-        });
-        await queueEmailDelivery({
-          kind: "recommendation_reminder",
-          to: request.email,
-          subject: nudge.subject,
-          html: nudge.html,
-          text: nudge.text,
-          idempotencyKey: makeDeliveryKey("recommendation_reminder", request.token, "auto"),
-          availableAt: new Date(Date.now() + REMINDER_DELAY_MS),
-        });
+        // Three, not one. Reply rate is one of only two numbers this loop
+        // multiplies, and a single nudge at two days catches the people who
+        // meant to answer and forgot but nobody else. All three are withdrawn
+        // the moment they answer, by kind, in one call.
+        for (const [index, delay] of REMINDER_SCHEDULE_MS.entries()) {
+          const nudge = recommendationRequestEmail({
+            recommenderName: request.name,
+            applicantName,
+            applicantCity,
+            link: recommendationUrl(request.token),
+            reminder: true,
+            applicantNote: request.applicantNote,
+            replyToVouch: true,
+          });
+          await queueEmailDelivery({
+            kind: "recommendation_reminder",
+            to: request.email,
+            subject: nudge.subject,
+            html: nudge.html,
+            text: nudge.text,
+            replyTo: recommendationReplyTo(request.token),
+            idempotencyKey: makeDeliveryKey("recommendation_reminder", request.token, `auto${index}`),
+            availableAt: new Date(Date.now() + delay),
+          });
+        }
       }
       queued += 1;
     } catch (error) {
@@ -833,34 +838,53 @@ export async function submitRecommendation(
   if (!token) return { error: "This link is not valid any more.", values };
   if (body.length < 40) {
     return {
-      error: "A couple of sentences, please. This is the whole application - it decides whether they get in.",
+      error: "A couple of sentences, please. Or use the one-tap vouch above if you would rather not write.",
       values,
     };
   }
 
-  const request = await prisma.recommendation.findUnique({
-    where: { token },
-    include: { applicant: { select: { id: true, name: true, email: true, city: true } } },
-  });
-  if (!request) return { error: "This link is not valid any more.", values };
-  if (request.status === "submitted") redirect(`/r/${token}?done=1`);
+  const answer = await recordAnswer(token, { body, relationship });
+  if (!answer.ok) {
+    if (answer.reason === "unknown") return { error: "This link is not valid any more.", values };
+    redirect(`/r/${token}?done=1`);
+  }
+  await afterRecommendationAnswer(token, answer);
+  redirect(`/r/${token}?done=1`);
+}
 
-  // Guarded on the current status so two tabs cannot both count as the reply.
-  const claimed = await prisma.recommendation.updateMany({
-    where: { id: request.id, status: "requested" },
-    data: { status: "submitted", submittedAt: new Date(), body, relationship: relationship || null },
-  });
-  if (claimed.count !== 1) redirect(`/r/${token}?done=1`);
+/**
+ * The one-tap vouch.
+ *
+ * Most people answering this are on a phone, and the difference between a tap
+ * and a paragraph is the difference between an answer today and an answer
+ * never. A tap counts toward the gate; it does not put words in anyone's mouth,
+ * so only a written recommendation is ever quoted on a profile. The page then
+ * asks for the words anyway, which is when most of them arrive.
+ */
+export async function endorseRecommendation(formData: FormData): Promise<void> {
+  const token = String(formData.get("token") || "");
+  if (!token) return;
+  const answer = await recordAnswer(token, { endorseOnly: true });
+  if (!answer.ok) redirect(`/r/${token}?done=1`);
+  await afterRecommendationAnswer(token, answer);
+  redirect(`/r/${token}?vouched=1`);
+}
 
-  // They wrote back, so the nudge scheduled for two days from the ask is
-  // withdrawn before it can go out and ask them again.
-  await cancelPendingMail("recommendation_reminder", request.email);
+/**
+ * Everything that happens once a friend has answered, whichever door they came
+ * through: the page, the tap, or a plain reply to the email.
+ */
+export async function afterRecommendationAnswer(
+  token: string,
+  answer: Extract<Awaited<ReturnType<typeof recordAnswer>>, { ok: true }>,
+): Promise<void> {
+  const { request, applicant, alreadyAnswered } = answer;
 
-  // Second qualifying recommendation accepts the applicant. Exactly one caller
-  // wins the transition, so the welcome email goes out once.
+  // Every queued nudge for this friend, withdrawn in one call.
+  await cancelScheduledMail("recommendation_reminder", request.email);
+
   const outcome = await acceptIfRecommended(request.applicantId);
 
-  const applicant = request.applicant;
   try {
     if (outcome.justAccepted && applicant.email) {
       const msg = applicationApprovedEmail({ name: applicant.name, appUrl: `${appBaseUrl()}/app/profile` });
@@ -891,55 +915,55 @@ export async function submitRecommendation(
       });
     }
 
-    const thanks = recommendationThanksEmail({
-      recommenderName: request.name,
-      applicantName: applicant.name,
-      accepted: outcome.accepted,
-      applyUrl: `${appBaseUrl()}/apply`,
-    });
-    await queueEmailDelivery({
-      kind: "recommendation_thanks",
-      to: request.email,
-      subject: thanks.subject,
-      html: thanks.html,
-      text: thanks.text,
-      idempotencyKey: makeDeliveryKey("recommendation_thanks", request.id),
-    });
-
-    // The loop. One message, a day and a half later, reporting what came of
-    // what they wrote and making the offer once. Withdrawn the moment they
-    // apply, and never repeated: this is the only mail Mutuals sends to
-    // someone who did not ask to hear from it, and it stays that way.
-    const alreadyMember = await prisma.person.findUnique({
-      where: { email: request.email },
-      select: { appliedAt: true },
-    });
-    if (!alreadyMember?.appliedAt) {
-      const followUp = recommenderFollowUpEmail({
+    // Thanking someone twice for the same favour reads as a broken system, so
+    // the thanks and the follow-up are keyed to the request and skipped when a
+    // tap has already been answered for.
+    if (!alreadyAnswered) {
+      const thanks = recommendationThanksEmail({
         recommenderName: request.name,
         applicantName: applicant.name,
         accepted: outcome.accepted,
-        applyUrl: `${appBaseUrl()}/apply?from=${encodeURIComponent(token)}`,
+        applyUrl: `${appBaseUrl()}/apply`,
       });
       await queueEmailDelivery({
-        kind: "recommender_follow_up",
+        kind: "recommendation_thanks",
         to: request.email,
-        subject: followUp.subject,
-        html: followUp.html,
-        text: followUp.text,
-        idempotencyKey: makeDeliveryKey("recommender_follow_up", request.id),
-        availableAt: new Date(Date.now() + FOLLOW_UP_DELAY_MS),
+        subject: thanks.subject,
+        html: thanks.html,
+        text: thanks.text,
+        idempotencyKey: makeDeliveryKey("recommendation_thanks", request.id),
       });
+
+      const alreadyMember = await prisma.person.findUnique({
+        where: { email: request.email },
+        select: { appliedAt: true },
+      });
+      if (!alreadyMember?.appliedAt) {
+        const followUp = recommenderFollowUpEmail({
+          recommenderName: request.name,
+          applicantName: applicant.name,
+          accepted: outcome.accepted,
+          applyUrl: `${appBaseUrl()}/apply?from=${encodeURIComponent(token)}`,
+        });
+        await queueEmailDelivery({
+          kind: "recommender_follow_up",
+          to: request.email,
+          subject: followUp.subject,
+          html: followUp.html,
+          text: followUp.text,
+          idempotencyKey: makeDeliveryKey("recommender_follow_up", request.id),
+          availableAt: new Date(Date.now() + FOLLOW_UP_DELAY_MS),
+        });
+      }
     }
   } catch (error) {
-    // The recommendation is committed. Mail is a courtesy on top of it and must
-    // never cost the friend the thing they just took two minutes to write.
+    // The answer is committed. Mail is a courtesy on top of it and must never
+    // cost the friend the thing they just took the trouble to give.
     console.error(`[recommendations] could not queue follow-up: ${(error as Error).message}`);
   }
 
   revalidatePath("/apply/thanks");
   revalidatePath(`/studio/person/${request.applicantId}`);
-  redirect(`/r/${token}?done=1`);
 }
 
 /** Permanently delete the signed-in member and all of their data. */

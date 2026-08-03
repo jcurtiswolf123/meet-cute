@@ -185,7 +185,10 @@ async function main() {
     assert.ok(requests.every((r) => r.requestedAt), "Both requests must be sent, not just recorded.");
     await memberContext.close();
 
-    // --- the friends write back, with no account and no session -------------
+    // --- the friends answer, with no account and no session -----------------
+    // The first one taps, which is what most people on a phone will do. The
+    // page then asks for the words, and she gives them. The second writes
+    // straight out. Both are answers; only the written ones can be quoted.
     for (const [index, request] of requests.entries()) {
       const friendContext = await browser.newContext();
       const friendPage = await friendContext.newPage();
@@ -193,10 +196,25 @@ async function main() {
       await friendPage
         .getByRole("heading", { name: "Journey asked you to vouch for them." })
         .waitFor();
-      await friendPage
-        .getByLabel("What would you say about Journey?")
-        .fill(`Recommendation ${index + 1}: Journey is the person everyone calls first, and has been for years.`);
-      await friendPage.getByRole("button", { name: "Send my recommendation" }).click();
+
+      if (index === 0) {
+        await friendPage.getByRole("button", { name: /Yes, I vouch for Journey/ }).click();
+        await friendPage.getByText(/is vouched for by you/).waitFor();
+        assert.equal(
+          (await prisma.recommendation.findUniqueOrThrow({ where: { id: request.id } })).status,
+          "endorsed",
+          "A tap is recorded on its own, before any words exist.",
+        );
+        await friendPage
+          .getByLabel("What would you say about Journey?")
+          .fill("Recommendation 1: Journey is the person everyone calls first, and has been for years.");
+        await friendPage.getByRole("button", { name: "Add my words" }).click();
+      } else {
+        await friendPage
+          .getByLabel("What would you say about Journey?")
+          .fill(`Recommendation ${index + 1}: Journey is the person everyone calls first, and has been for years.`);
+        await friendPage.getByRole("button", { name: "Send my recommendation" }).click();
+      }
       await friendPage.getByRole("heading", { name: /Thank you,/ }).waitFor();
       await friendContext.close();
     }

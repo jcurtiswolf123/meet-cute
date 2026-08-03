@@ -24,6 +24,31 @@ sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
 
+## 2026-08-03: three ways to vouch, and nudges that do not need chasing
+
+The friend step was the whole bottleneck: open a page, write forty characters,
+or nothing happens. Now there are three doors into the same act, and one place
+in the code that records it.
+
+- **Reply to the email.** The request now carries `r+<token>@` in its Reply-To,
+  so a friend can hit reply and type. The inbound webhook, the signature check,
+  and the quoted-history stripping already proved against 51 real client shapes
+  are reused rather than rebuilt. No link, no page, no account.
+- **One tap.** The page leads with "Yes, I vouch for X", which counts toward the
+  gate on its own and then asks for the words, which is when most of them
+  arrive. A tap never invents a quote: only a written recommendation is ever
+  copied onto a profile, so two taps accept someone and leave the quote empty
+  rather than making something up.
+- **Write it, as before.** Words can also upgrade an earlier tap, and the second
+  answer from the same person does not thank them twice.
+- **Three nudges, not one**: two days, five days, ten days, all queued when the
+  ask is and all withdrawn in one call the moment they answer.
+- **The applicant writes one line** that goes at the top of the ask. A note from
+  the person themselves beats system copy from a stranger.
+
+The tap link is deliberately not a one-click URL in the email. Mail scanners
+follow links, and a scanner must never be able to vouch for somebody.
+
 ## 2026-08-03: the recommender loop
 
 Built, tested end to end on the sandbox. The recommender is the warmest lead
