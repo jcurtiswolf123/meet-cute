@@ -16,7 +16,7 @@
 // NVIDIA_API_KEY, WATCHDOG_AUTOFIX.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, appendFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { sendEmail } from "../src/lib/email";
@@ -32,6 +32,16 @@ const BUILD_EVERY = Number(process.env.WATCHDOG_BUILD_EVERY) || 12; // ~hourly a
 const SKIP_BUILD = process.env.WATCHDOG_SKIP_BUILD === "1";
 const ALERT_EMAIL = process.env.WATCHDOG_ALERT_EMAIL || process.env.RESEND_REPLY_TO || "";
 const AUTOFIX = process.env.WATCHDOG_AUTOFIX === "1";
+/** Changed lines an auto-fix may touch before it is thrown away as unreviewable.
+ *  A compile error is usually one or two lines; anything much larger means the
+ *  model rewrote the file rather than fixing it. */
+const MAX_AUTOFIX_CHURN = Number(process.env.WATCHDOG_AUTOFIX_MAX_LINES) || 40;
+/** The default patch model is a REASONING model: it emits thousands of tokens
+ *  of `reasoning_content` before any answer. At 8000 it spent the whole budget
+ *  thinking and returned an empty `content`, which read downstream as "the
+ *  model had no fix". A patch is a batch job with no latency pressure, so give
+ *  it room. */
+const PATCH_MAX_TOKENS = Number(process.env.WATCHDOG_PATCH_MAX_TOKENS) || 16_000;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
@@ -51,7 +61,7 @@ async function askForPatch(prompt: string): Promise<string> {
         const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY });
         const res = await anthropic.messages.create({
           model: process.env.COPILOT_TOOLS_MODEL || "claude-sonnet-4-6",
-          max_tokens: 8000,
+          max_tokens: PATCH_MAX_TOKENS,
           messages: [{ role: "user", content: prompt }],
         });
         return res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("\n");
@@ -73,7 +83,7 @@ async function askForPatch(prompt: string): Promise<string> {
         });
         const res = await nvidia.chat.completions.create({
           model: process.env.WATCHDOG_NVIDIA_MODEL || "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-          max_tokens: 8000,
+          max_tokens: PATCH_MAX_TOKENS,
           messages: [{ role: "user", content: prompt }],
         });
         return res.choices[0]?.message?.content ?? "";
@@ -88,7 +98,7 @@ async function askForPatch(prompt: string): Promise<string> {
         const openai = new OpenAI({ apiKey: OPENAI_KEY });
         const res = await openai.chat.completions.create({
           model: process.env.COPILOT_OPENAI_MODEL || "gpt-4o-mini",
-          max_tokens: 8000,
+          max_tokens: PATCH_MAX_TOKENS,
           messages: [{ role: "user", content: prompt }],
         });
         return res.choices[0]?.message?.content ?? "";
@@ -375,8 +385,80 @@ function filesFromTsc(out: string): string[] {
   return [...set].slice(0, 4);
 }
 
+/** One exact-text replacement inside one file. */
+export type AutofixEdit = { path: string; search: string; replace: string };
+
+/** Pull search/replace edits out of a model reply.
+ *
+ *  Two earlier transports failed here. JSON with whole files inside strings
+ *  never parsed once, because real code breaks the escaping. Whole files in
+ *  delimited blocks parsed fine but the model reformatted everything around the
+ *  fix, and a patch that also strips every blank line in a file is unreviewable
+ *  however correct the one line is.
+ *
+ *  Search/replace makes minimality structural rather than something the prompt
+ *  has to ask for: the model can only express the lines it wants to change, so
+ *  it cannot touch the rest even if it wants to.
+ *
+ *  Exported so it can be tested without a live model. */
+export function parseEdits(raw: string, allowed: string[]): AutofixEdit[] {
+  const edits: AutofixEdit[] = [];
+  // The separator after each marker is a newline OR a space: models put short
+  // search text on the marker line itself about half the time, and refusing
+  // that threw away otherwise perfect patches.
+  const re =
+    /<<<EDIT[ \t]+(\S+)[ \t]*\r?\n<<<SEARCH[ \t]*\r?\n?([\s\S]*?)\r?\n?<<<REPLACE[ \t]*\r?\n?([\s\S]*?)\r?\n?>>>END/g;
+  for (const m of raw.matchAll(re)) {
+    const path = m[1].trim();
+    if (!allowed.includes(path)) continue;
+    const search = m[2];
+    if (!search.trim()) continue; // an empty search would match anywhere
+    edits.push({ path, search, replace: m[3] });
+  }
+  return edits;
+}
+
+/** Apply edits to file contents, or explain why not.
+ *
+ *  An edit whose search text is absent, or appears more than once, is refused
+ *  rather than guessed at: applying to the wrong occurrence produces a file that
+ *  may still compile and is quietly wrong, which is the one outcome worth
+ *  avoiding in code nobody asked to be written. */
+export function applyEdits(
+  files: Map<string, string>,
+  edits: AutofixEdit[],
+): { applied: Map<string, string>; problems: string[] } {
+  const applied = new Map(files);
+  const problems: string[] = [];
+  for (const edit of edits) {
+    const before = applied.get(edit.path);
+    if (before === undefined) {
+      problems.push(`${edit.path}: not offered`);
+      continue;
+    }
+    const occurrences = before.split(edit.search).length - 1;
+    if (occurrences === 0) {
+      problems.push(`${edit.path}: search text not found`);
+      continue;
+    }
+    if (occurrences > 1) {
+      problems.push(`${edit.path}: search text appears ${occurrences} times, too ambiguous to apply`);
+      continue;
+    }
+    applied.set(edit.path, before.replace(edit.search, edit.replace));
+  }
+  return { applied, problems };
+}
+
 async function attemptAutofix(tscOut: string): Promise<void> {
-  if (!AUTOFIX || (!ANTHROPIC_KEY && !OPENAI_KEY)) return;
+  // NVIDIA belongs here too. `askForPatch` learned about it when the co-pilot
+  // did, and this gate did not, so on a box with only a NVIDIA key autofix would
+  // have skipped without ever saying why.
+  if (!AUTOFIX) return;
+  if (!ANTHROPIC_KEY && !NVIDIA_KEY && !OPENAI_KEY) {
+    log("autofix: enabled but no AI provider key is set; skipping");
+    return;
+  }
   const files = filesFromTsc(tscOut);
   if (!files.length) {
     log("autofix: could not identify offending files; skipping");
@@ -395,36 +477,69 @@ async function attemptAutofix(tscOut: string): Promise<void> {
   }
   if (!current.length) return;
 
+  // Search/replace, not whole files. See parseEdits for the two transports that
+  // came before this and why each failed.
   const prompt = [
     "You are fixing TypeScript compile errors in a Next.js + Prisma project.",
-    "Make the MINIMAL change needed to fix the errors. Do not refactor or change behavior.",
-    "Return ONLY a JSON object: { \"files\": [ { \"path\": string, \"content\": string } ] } with the FULL new content of each file you change.",
+    "Make the MINIMAL change needed. Do not refactor, reformat, or change behaviour.",
+    "",
+    "Reply with one or more edits, in exactly this form and nothing else:",
+    "",
+    "<<<EDIT path/to/file.ts",
+    "<<<SEARCH",
+    "the exact existing lines to replace, copied character for character",
+    "<<<REPLACE",
+    "the new lines",
+    ">>>END",
+    "",
+    "The SEARCH text must appear EXACTLY ONCE in the file, copied verbatim including indentation.",
+    "Include a line or two of surrounding context if that is what makes it unique.",
+    "Change nothing the compiler did not complain about.",
     "",
     "=== tsc errors ===",
     tscOut.slice(-3000),
     "",
-    ...current.map((f) => `=== FILE: ${f.path} ===\n${f.content}`),
+    ...current.map((f) => `=== FILE ${f.path} ===\n${f.content}`),
   ].join("\n");
 
-  let proposed: { path: string; content: string }[] = [];
+  let edits: AutofixEdit[] = [];
   try {
-    const text = await askForPatch(prompt);
-    const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
-    proposed = (JSON.parse(json).files ?? []).filter(
-      (f: { path: string }) => files.includes(f.path), // only files we offered
-    );
+    edits = parseEdits(await askForPatch(prompt), files);
   } catch (e) {
-    log(`autofix: model/parse error: ${(e as Error).message}`);
+    log(`autofix: model error: ${(e as Error).message}`);
     return;
   }
+  if (!edits.length) {
+    log("autofix: model returned no usable edits");
+    return;
+  }
+
+  const originals = new Map(current.map((f) => [f.path, f.content]));
+  const { applied, problems } = applyEdits(originals, edits);
+  for (const problem of problems) log(`autofix: skipped an edit, ${problem}`);
+  const proposed = [...applied]
+    .filter(([path, content]) => content !== originals.get(path))
+    .map(([path, content]) => ({ path, content }));
   if (!proposed.length) {
-    log("autofix: model returned no usable patch");
+    log("autofix: no edit applied cleanly");
     return;
   }
+  log(`autofix: ${edits.length - problems.length} edit(s) applied to ${proposed.map((f) => f.path).join(", ")}`);
 
   // Work on a throwaway branch so master/working branch is never touched.
   const branch = `watchdog/fix-${Date.now()}`;
   const baseRef = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]).out || "HEAD";
+  // `gh pr create --base` needs a branch that exists on the remote. In CI the
+  // watchdog runs on master so this is the same thing; locally, or on any
+  // branch that was never pushed, fall back to the repository default so the
+  // PR step does not fail on an unknown revision.
+  const remoteHasBase = run("git", ["rev-parse", "--verify", `origin/${baseRef}`]).ok;
+  const prBase = remoteHasBase ? baseRef : "master";
+  const discard = () => {
+    run("git", ["checkout", "--", "."]);
+    run("git", ["checkout", baseRef]);
+    run("git", ["branch", "-D", branch]);
+  };
   if (!run("git", ["checkout", "-b", branch]).ok) {
     log("autofix: could not create branch; aborting");
     return;
@@ -434,16 +549,33 @@ async function attemptAutofix(tscOut: string): Promise<void> {
     const verify = checkTypecheck();
     if (!verify.ok) {
       log("autofix: patch did not resolve typecheck; discarding");
-      run("git", ["checkout", "--", "."]);
-      run("git", ["checkout", baseRef]);
-      run("git", ["branch", "-D", branch]);
+      discard();
       return;
     }
+
+    // A patch that also reformats the file is worse than no patch: it compiles,
+    // so it passes the check above, and then a human has to read every line to
+    // find the one that mattered. The first live drill fixed one assignment and
+    // stripped every blank line in the file while it was there. Trust the
+    // compiler for correctness and the diff size for reviewability.
+    const churn = run("git", ["diff", "--numstat"]).out
+      .split("\n")
+      .filter(Boolean)
+      .reduce((sum, line) => {
+        const [added, removed] = line.split(/\s+/);
+        return sum + (Number(added) || 0) + (Number(removed) || 0);
+      }, 0);
+    if (churn > MAX_AUTOFIX_CHURN) {
+      log(`autofix: patch touched ${churn} lines for ${files.length} file(s), over the ${MAX_AUTOFIX_CHURN} line budget; discarding as unreviewable`);
+      discard();
+      return;
+    }
+    log(`autofix: patch is ${churn} changed line(s)`);
     run("git", ["add", ...proposed.map((f) => f.path)]);
     run("git", ["commit", "-m", `fix(watchdog): auto-fix typecheck regression in ${proposed.map((f) => f.path).join(", ")}`]);
     const pushed = run("git", ["push", "-u", "origin", branch]);
     if (pushed.ok) {
-      const pr = run("gh", ["pr", "create", "--fill", "--head", branch, "--base", baseRef]);
+      const pr = run("gh", ["pr", "create", "--fill", "--head", branch, "--base", prBase]);
       log(pr.ok ? `autofix: opened PR for ${branch}` : `autofix: pushed ${branch} (open a PR manually: ${pr.out.slice(-200)})`);
     } else {
       log(`autofix: committed to ${branch} locally (push failed: ${pushed.out.slice(-200)})`);
@@ -495,7 +627,13 @@ async function cycle(n: number): Promise<boolean> {
   return failed.length === 0;
 }
 
-(async () => {
+// Only run the worker when this file IS the program. `parsePatch` is exported
+// for tests, and importing it used to start the watchdog: the test process sat
+// in the 5-minute polling loop instead of asserting anything.
+const isEntry = process.argv[1] ? resolve(process.argv[1]).includes("watchdog") : false;
+
+void (async () => {
+  if (!isEntry) return;
   log(`starting. url=${URL} interval=${INTERVAL_MS}ms autofix=${AUTOFIX} once=${process.env.WATCHDOG_ONCE === "1"}`);
   let n = 0;
   if (process.env.WATCHDOG_ONCE === "1") {

@@ -38,6 +38,15 @@ const OPENAI_MODEL = process.env.COPILOT_OPENAI_MODEL || "gpt-4o-mini";
 // cannot pin a request open.
 const NVIDIA_TIMEOUT_MS = Number(process.env.COPILOT_NVIDIA_TIMEOUT_MS) || 45_000;
 
+// The NVIDIA default is a REASONING model: it emits `reasoning_content` before
+// any answer, and that spends the same budget. At 1200 a long request can use
+// the whole allowance thinking and return an empty `content` with no tool
+// calls, which read downstream as a successful, contentless reply. Proved on
+// the watchdog's patch path, which returned nothing at 8000 tokens for exactly
+// this reason. Headroom is cheap; a co-pilot that says "Done." having done
+// nothing is not.
+const MAX_REPLY_TOKENS = Number(process.env.COPILOT_MAX_TOKENS) || 8_000;
+
 const anthropic = ANTHROPIC_KEY ? new Anthropic({ apiKey: ANTHROPIC_KEY }) : null;
 const nvidia = NVIDIA_KEY
   ? new OpenAI({
@@ -392,7 +401,7 @@ async function anthropicTools(operatorId: string, history: ChatMsg[]): Promise<C
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const res = await anthropic!.messages.create({
       model: ANTHROPIC_MODEL,
-      max_tokens: 1200,
+      max_tokens: MAX_REPLY_TOKENS,
       system: SYSTEM,
       tools: TOOLS,
       messages,
@@ -447,7 +456,7 @@ async function compatibleTools(
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const res = await client.chat.completions.create({
       model,
-      max_tokens: 1200,
+      max_tokens: MAX_REPLY_TOKENS,
       temperature: 0.2,
       tools: OPENAI_TOOLS,
       messages,
@@ -478,7 +487,12 @@ async function compatibleTools(
       continue;
     }
 
-    return { text: (msg.content ?? "Done.").trim() || "Done.", live: true, provider };
+    // An empty reply with no tool calls is a provider fault, not an answer.
+    // Saying "Done." when nothing was done is the worst possible failure for a
+    // surface that writes to the database.
+    const text = (msg.content ?? "").trim();
+    if (!text) throw new ProviderFailure(`${provider} returned an empty reply`);
+    return { text, live: true, provider };
   }
   return { text: "That needed too many steps. Try breaking it into smaller commands.", live: true, provider };
 }
