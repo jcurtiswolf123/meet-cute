@@ -16,7 +16,7 @@
 // NVIDIA_API_KEY, WATCHDOG_AUTOFIX.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, appendFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { sendEmail } from "../src/lib/email";
@@ -375,8 +375,37 @@ function filesFromTsc(out: string): string[] {
   return [...set].slice(0, 4);
 }
 
+/** Pull `<<<FILE path` / `>>>END` blocks out of a model reply.
+ *
+ *  Exported so it can be tested without a live model. Only paths in `allowed`
+ *  survive, so a model cannot rewrite a file it was never shown, and the last
+ *  block wins if a path repeats. */
+export function parsePatch(raw: string, allowed: string[]): { path: string; content: string }[] {
+  const out = new Map<string, string>();
+  // Non-greedy body, and the terminator must start its own line so a string
+  // containing ">>>END" inside the file cannot end the block early.
+  const re = /<<<FILE[ \t]+(\S+)[ \t]*\r?\n([\s\S]*?)\r?\n>>>END/g;
+  for (const m of raw.matchAll(re)) {
+    const path = m[1].trim();
+    if (!allowed.includes(path)) continue;
+    // Models sometimes wrap the body in a fence despite being told not to.
+    let body = m[2];
+    const fence = body.match(/^```[a-z]*\r?\n([\s\S]*)\r?\n```$/);
+    if (fence) body = fence[1];
+    if (body.trim()) out.set(path, body.endsWith("\n") ? body : `${body}\n`);
+  }
+  return [...out].map(([path, content]) => ({ path, content }));
+}
+
 async function attemptAutofix(tscOut: string): Promise<void> {
-  if (!AUTOFIX || (!ANTHROPIC_KEY && !OPENAI_KEY)) return;
+  // NVIDIA belongs here too. `askForPatch` learned about it when the co-pilot
+  // did, and this gate did not, so on a box with only a NVIDIA key autofix would
+  // have skipped without ever saying why.
+  if (!AUTOFIX) return;
+  if (!ANTHROPIC_KEY && !NVIDIA_KEY && !OPENAI_KEY) {
+    log("autofix: enabled but no AI provider key is set; skipping");
+    return;
+  }
   const files = filesFromTsc(tscOut);
   if (!files.length) {
     log("autofix: could not identify offending files; skipping");
@@ -395,32 +424,45 @@ async function attemptAutofix(tscOut: string): Promise<void> {
   }
   if (!current.length) return;
 
+  // Deliberately NOT JSON. The first version asked for
+  // {"files":[{"path","content"}]} with whole source files inside JSON strings,
+  // and it never once succeeded: real code is full of backslashes, quotes and
+  // newlines, and models get the escaping wrong. The first live drill died on
+  // "Bad escaped character in JSON at position 875".
+  //
+  // Delimited blocks need no escaping at all, so the content round-trips
+  // verbatim and parsing is a string split rather than a parser that can reject
+  // an otherwise good patch.
   const prompt = [
     "You are fixing TypeScript compile errors in a Next.js + Prisma project.",
-    "Make the MINIMAL change needed to fix the errors. Do not refactor or change behavior.",
-    "Return ONLY a JSON object: { \"files\": [ { \"path\": string, \"content\": string } ] } with the FULL new content of each file you change.",
+    "Make the MINIMAL change needed to fix the errors. Do not refactor and do not change behaviour.",
+    "",
+    "Reply with the FULL new content of each file you change, in exactly this form:",
+    "",
+    "<<<FILE path/to/file.ts",
+    "...the entire file...",
+    ">>>END",
+    "",
+    "No prose, no markdown fences, no commentary. Only files listed below may appear.",
     "",
     "=== tsc errors ===",
     tscOut.slice(-3000),
     "",
-    ...current.map((f) => `=== FILE: ${f.path} ===\n${f.content}`),
+    ...current.map((f) => `<<<FILE ${f.path}\n${f.content}\n>>>END`),
   ].join("\n");
 
   let proposed: { path: string; content: string }[] = [];
   try {
-    const text = await askForPatch(prompt);
-    const json = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
-    proposed = (JSON.parse(json).files ?? []).filter(
-      (f: { path: string }) => files.includes(f.path), // only files we offered
-    );
+    proposed = parsePatch(await askForPatch(prompt), files);
   } catch (e) {
-    log(`autofix: model/parse error: ${(e as Error).message}`);
+    log(`autofix: model error: ${(e as Error).message}`);
     return;
   }
   if (!proposed.length) {
     log("autofix: model returned no usable patch");
     return;
   }
+  log(`autofix: model proposed changes to ${proposed.map((f) => f.path).join(", ")}`);
 
   // Work on a throwaway branch so master/working branch is never touched.
   const branch = `watchdog/fix-${Date.now()}`;
@@ -495,7 +537,13 @@ async function cycle(n: number): Promise<boolean> {
   return failed.length === 0;
 }
 
-(async () => {
+// Only run the worker when this file IS the program. `parsePatch` is exported
+// for tests, and importing it used to start the watchdog: the test process sat
+// in the 5-minute polling loop instead of asserting anything.
+const isEntry = process.argv[1] ? resolve(process.argv[1]).includes("watchdog") : false;
+
+void (async () => {
+  if (!isEntry) return;
   log(`starting. url=${URL} interval=${INTERVAL_MS}ms autofix=${AUTOFIX} once=${process.env.WATCHDOG_ONCE === "1"}`);
   let n = 0;
   if (process.env.WATCHDOG_ONCE === "1") {
