@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { prisma } from "../src/lib/prisma";
 
 const baseUrl = process.env.ROLE_E2E_BASE_URL || "http://127.0.0.1:3009";
@@ -30,6 +30,15 @@ async function createSession(personId: string): Promise<string> {
     },
   });
   return token;
+}
+
+
+// The city control is a listbox we draw, not a native select, so there is no
+// selectOption to call: open it and press the option, which is what an operator
+// does. See src/components/select.tsx.
+async function chooseCity(page: Page, label: string) {
+  await page.getByRole("button", { name: "City" }).click();
+  await page.getByRole("listbox", { name: "City" }).getByRole("option", { name: label }).click();
 }
 
 async function main() {
@@ -203,7 +212,7 @@ async function main() {
     const newOperatorEmail = fixtureEmail("new-operator");
     await superPage.getByLabel("Full name").fill("Role E2E New Operator");
     await superPage.getByLabel("Operator email").fill(newOperatorEmail);
-    await superPage.getByLabel("City").selectOption("San Francisco");
+    await chooseCity(superPage, "SF");
     await superPage.getByRole("button", { name: "Add & invite" }).click();
     // Provisioning is a server action plus a redirect that carries the outcome
     // in the query string, and the flash only renders once that lands. A cold
@@ -223,7 +232,7 @@ async function main() {
 
     await superPage.getByLabel("Full name").fill(pausedMember.name);
     await superPage.getByLabel("Operator email").fill(pausedMember.email!);
-    await superPage.getByLabel("City").selectOption("San Francisco");
+    await chooseCity(superPage, "SF");
     await superPage.getByRole("button", { name: "Add & invite" }).click();
     await superPage.waitForURL(
       (url) => url.searchParams.get("operator") === pausedMember.name,
