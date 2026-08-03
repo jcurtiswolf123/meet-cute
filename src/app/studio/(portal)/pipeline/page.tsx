@@ -160,14 +160,14 @@ export default async function Pipeline() {
                           href={`/studio/person/${m.personA.id}`}
                           className="font-medium text-ink hover:underline"
                         >
-                          {m.personA.name.split(" ")[0]}
+                          {m.personA.name}
                         </Link>
                         <span className="text-muted">+</span>
                         <Link
                           href={`/studio/person/${m.personB.id}`}
                           className="font-medium text-ink hover:underline"
                         >
-                          {m.personB.name.split(" ")[0]}
+                          {m.personB.name}
                         </Link>
                       </span>
                     </div>

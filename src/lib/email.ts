@@ -611,25 +611,34 @@ export function matchThreadEmail(args: {
   ideas?: DateIdeas;
   pickUrlFor?: PickUrlFor;
 }): { subject: string; html: string; text: string } {
-  const aFirst = (args.aName || "there").split(" ")[0];
-  const bFirst = (args.bName || "there").split(" ")[0];
-  const subject = `${aFirst} + ${bFirst}: you both said yes`;
+  // Full names here, unlike every earlier email. Before this point the product
+  // withholds the surname on purpose: someone deciding whether to meet you
+  // should not be able to look you up first. Once both have said yes they are
+  // on one thread and about to meet, so the surname is what makes the
+  // introduction usable, and withholding it made two members of the same
+  // family read as "Jess + Jessica" with no way to tell who was who.
+  const aFull = (args.aName || "there").trim();
+  const bFull = (args.bName || "there").trim();
+  const aFirst = aFull.split(" ")[0];
+  const bFirst = bFull.split(" ")[0];
+  const subject = `${aFull} + ${bFull}: you both said yes`;
   const block = dateIdeasBlock(args.ideas, args.pickUrlFor);
 
   const text =
     `Hi ${aFirst} and ${bFirst},\n\n` +
     `You both said yes to an introduction, so here you are on one thread.\n\n` +
+    `${aFull} and ${bFull}, meet each other.\n\n` +
     `Just hit reply-all to say hello and find a time this week. A short first message goes a long way.\n\n` +
     (block.text ? `${block.text}\n\n` : "") +
     `Warmly,\nMutuals`;
 
   const inner =
     h1("You both said yes.") +
-    p(`Hi <strong>${esc(aFirst)}</strong> and <strong>${esc(bFirst)}</strong> - you both said yes to an introduction, so here you are on one thread.`) +
+    p(`Hi <strong>${esc(aFull)}</strong> and <strong>${esc(bFull)}</strong> - you both said yes to an introduction, so here you are on one thread.`) +
     p(`Just hit <strong>reply-all</strong> to say hello and find a time this week. A short first message goes a long way.`) +
     block.html +
     small("Reply any time if you would like a hand.");
-  return { subject, html: emailShell(inner, `${aFirst} and ${bFirst}, meet each other.`), text };
+  return { subject, html: emailShell(inner, `${aFull} and ${bFull}, meet each other.`), text };
 }
 
 export function magicLinkEmail(link: string): { subject: string; html: string; text: string } {

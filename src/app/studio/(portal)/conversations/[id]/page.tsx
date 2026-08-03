@@ -8,8 +8,12 @@ import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
-function firstName(name: string) {
-  return name.trim().split(/\s+/)[0] || name;
+// The operator console shows whole names. Truncating to a first name is a
+// member-facing privacy rule (someone deciding whether to meet you should not
+// be able to look you up first), and it has no business here: two members can
+// share a first name, and "Jess + Jessica" told the operator nothing.
+function displayName(name: string) {
+  return name.trim() || name;
 }
 
 // Full transcript of one introduction, plus an operator "jump in" box. The
@@ -59,7 +63,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">
-            {firstName(match.personA.name)} + {firstName(match.personB.name)}
+            {displayName(match.personA.name)} + {displayName(match.personB.name)}
           </h1>
           <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${toneClass(health.tone)}`}>
             {health.label}
@@ -70,11 +74,11 @@ export default async function ConversationDetail({ params }: { params: Promise<{
       {/* opt-in state */}
       <div className="card grid grid-cols-2 gap-4 p-4 text-sm">
         <div>
-          <p className="label">{firstName(match.personA.name)}</p>
+          <p className="label">{displayName(match.personA.name)}</p>
           <p className="mt-0.5 text-ink">{decisionLabel(match.aDecision)}</p>
         </div>
         <div>
-          <p className="label">{firstName(match.personB.name)}</p>
+          <p className="label">{displayName(match.personB.name)}</p>
           <p className="mt-0.5 text-ink">{decisionLabel(match.bDecision)}</p>
         </div>
         <div className="col-span-2 border-t border-line pt-3 text-xs text-muted">
@@ -126,7 +130,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
               <li key={n.id} className="rounded-xl border border-champagne/40 bg-champagne/10 p-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-medium uppercase tracking-wide text-muted">
-                    {firstName(n.subject.name)}
+                    {displayName(n.subject.name)}
                   </span>
                   <span className="text-[11px] text-muted" title={n.createdAt.toLocaleString()}>
                     {relativeAge(n.createdAt)}
