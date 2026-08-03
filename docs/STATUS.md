@@ -2,7 +2,10 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-03 (photos are live on upload and the review queue is
+Last updated: 2026-08-03 (date ideas are ON: four venues verified against their
+own websites, /studio/venues for the operator, LLM venue proposals that land
+ineligible by construction, and picks surfaced on the conversation. Before that:
+photos are live on upload and the review queue is
 gone: 38 of 43 member photos had been stranded pending. Before that:
 reply-by-email was dead for eleven days: the Resend
 webhook pointed at a host the app 308-redirects, so no member's "Y" ever
@@ -54,6 +57,71 @@ gate, not the ability to take a photo down.
 
 Terms section 8 already said we "may" review content and are "not obligated to
 monitor" it, so nothing there needed changing.
+
+## 2026-08-03: date ideas are actually on, and the LLM cannot self-approve a venue
+
+Shipped and live (Fly v172). The ideas block was built the night before and
+shipped inert; this is what it took to make it real.
+
+**Why it was off.** A venue is eligible only while active and verified inside
+`VENUE_FRESH_DAYS` (120). All four seed rows were NEVER verified, with no
+address and no booking link, so 0 qualified and every connection email omitted
+the block. The only way to change that was `scripts/verify-venues.ts` against
+the production database, which a matchmaker cannot run, so it stayed off.
+
+**The four seed venues are verified against primary sources.** Each read off its
+own website on 2026-08-03, not recalled by a model, with the evidence recorded
+in `notes` so the next person knows what the stamp rested on: Via Carota (51
+Grove Street, Resy link loaded from here and returns 200), The Long Island Bar
+(110 Atlantic Avenue, offers no reservations so the email can only name and map
+it), Zuni Cafe (1658 Market Street, closed Mondays), Bar Crenn (3131 Fillmore
+Street, walk-ins, lounge needs no reservation). The two OpenTable links are the
+ones those restaurants publish; OpenTable blocks automated requests so they
+could not be loaded from here, and the note says so rather than implying a check
+that did not happen. Prices are unset because the sites do not state them. NYC
+and SF now have 2 eligible venues each.
+
+**`/studio/venues`** is the CLI with a page around it: add, edit, verify,
+retire, with the eligibility state and the reason on every row, so "why is
+nothing being suggested" is answerable at a glance. Saving details deliberately
+does not re-verify, because someone fixing a typo is not someone who rang the
+restaurant.
+
+**`npm run venues:suggest NYC SF` is the LLM half, and deliberately the weaker
+half.** Every proposal is written `active: false, lastVerifiedAt: null`, which
+`eligibleVenues` excludes by construction, and lands in the review queue
+labelled as co-pilot-suggested. A model may never make a venue eligible: that
+would reintroduce the exact hallucination the ideas design removes, one step
+upstream, where it looks authoritative because it is now in the database.
+
+That guard earned itself on the first run. Of five NYC candidates the model
+proposed, **The NoMad has been permanently closed since March 2021** (the space
+is the Ned NoMad now). In SF it proposed The Slanted Door with "stunning views
+of the Bay Bridge", and put Quince in SoMa. Auto-verifying model output would
+have sent a couple to a locked door on the one night that matters.
+
+**Picks are read, not just written.** DatePick rows had been recorded from the
+"we're going here" link and displayed nowhere, so an operator could not know a
+pair had chosen a place. They show on the conversation with the "nothing is
+reserved" caveat repeated, because the studio is exactly where someone might
+assume a table exists.
+
+**`checkVenueFreshness`** fails the watchdog when a city has no eligible venue
+and reports anything expiring within a fortnight. Without it the block vanishes
+the day the last stamp expires, with the email still sending and nothing
+erroring.
+
+**One bug found while rendering a sample:** `datePickUrl` interpolated an empty
+token straight into the path, producing `/d//<venueId>`, a link that renders and
+404s. Production never sent one because delivery.ts guards on the empty token,
+but a helper that can emit a broken link relies on every caller remembering
+that. It returns null now, covered by tests.
+
+**Concurrency note for whoever reads this next.** Three sessions were writing to
+this repo at once today. One swept an in-flight nav edit into an unrelated
+commit, shipping a sidebar link to a page that did not exist yet; it was removed
+and then restored when the page landed. Nothing was lost, but staging whole
+files is not safe here right now.
 
 ## 2026-08-03: the connection email suggests where to go
 
