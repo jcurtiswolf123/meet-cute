@@ -8,8 +8,12 @@ import { SubmitButton } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
-function firstName(name: string) {
-  return name.trim().split(/\s+/)[0] || name;
+// The operator console shows whole names. Truncating to a first name is a
+// member-facing privacy rule (someone deciding whether to meet you should not
+// be able to look you up first), and it has no business here: two members can
+// share a first name, and "Jess + Jessica" told the operator nothing.
+function displayName(name: string) {
+  return name.trim() || name;
 }
 
 // Operator console: visibility into every active introduction conversation.
@@ -130,7 +134,7 @@ export default async function Conversations({
               {rows.map(({ m, health, lastMessageAt, lastBody }) => (
                 <tr key={m.id} className="border-b border-line/70 hover:bg-studio-canvas/60">
                   <td className="px-4 py-3 font-medium text-ink">
-                    {firstName(m.personA.name)} + {firstName(m.personB.name)}
+                    {displayName(m.personA.name)} + {displayName(m.personB.name)}
                     {m.conversationSid && (
                       <span className="ml-2 inline-flex items-center rounded-full border border-ink/25 bg-studio-canvas px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink">
                         group

@@ -284,7 +284,7 @@ export default async function PersonPage({
 
           <section className="border-b border-studio-line p-4">
             <p className="label">Knows ({connections.length})</p>
-            <p className="mt-2 text-sm text-muted">{connections.map((c) => c.name.split(" ")[0]).join(", ") || "No connections mapped."}</p>
+            <p className="mt-2 text-sm text-muted">{connections.map((c) => c.name).join(", ") || "No connections mapped."}</p>
             {p.referredBy && <p className="mt-2 text-xs text-muted">Referred by {p.referredBy.name}</p>}
           </section>
 

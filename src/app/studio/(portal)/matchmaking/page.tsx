@@ -14,8 +14,12 @@ import { ConfirmActionForm } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
 
-function firstName(name: string) {
-  return name.trim().split(/\s+/)[0] || name;
+// The operator console shows whole names. Truncating to a first name is a
+// member-facing privacy rule (someone deciding whether to meet you should not
+// be able to look you up first), and it has no business here: two members can
+// share a first name, and "Jess + Jessica" told the operator nothing.
+function displayName(name: string) {
+  return name.trim() || name;
 }
 
 type Decision = "pending" | "yes" | "pass";
@@ -25,11 +29,11 @@ function statusFor(m: { stage: string; aDecision: string; bDecision: string; per
   const b = m.bDecision as Decision;
   if (m.stage === "connected") return { label: "Connected", tone: "bg-studio-canvas text-ink border-ink/25" };
   if (m.stage === "exit") {
-    const passer = a === "pass" ? firstName(m.personA.name) : b === "pass" ? firstName(m.personB.name) : null;
+    const passer = a === "pass" ? displayName(m.personA.name) : b === "pass" ? displayName(m.personB.name) : null;
     return { label: passer ? `${passer} passed` : "Closed", tone: "bg-studio-subtle text-muted border-line" };
   }
-  if (a === "yes" && b === "pending") return { label: `${firstName(m.personA.name)} said yes`, tone: "bg-studio-subtle text-ink border-studio-line" };
-  if (b === "yes" && a === "pending") return { label: `${firstName(m.personB.name)} said yes`, tone: "bg-studio-subtle text-ink border-studio-line" };
+  if (a === "yes" && b === "pending") return { label: `${displayName(m.personA.name)} said yes`, tone: "bg-studio-subtle text-ink border-studio-line" };
+  if (b === "yes" && a === "pending") return { label: `${displayName(m.personB.name)} said yes`, tone: "bg-studio-subtle text-ink border-studio-line" };
   return { label: "Awaiting both", tone: "bg-champagne/20 text-ink border-champagne/40" };
 }
 
@@ -179,7 +183,7 @@ export default async function Matchmaking({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-ink">
-                        {firstName(m.personA.name)} + {firstName(m.personB.name)}
+                        {displayName(m.personA.name)} + {displayName(m.personB.name)}
                       </span>
                       <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${s.tone}`}>
                         {s.label}

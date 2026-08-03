@@ -2,9 +2,10 @@
 //
 // Every cycle it checks the things that actually break a deploy or the live
 // site, records status, and alerts on failure. When WATCHDOG_AUTOFIX=1 and an AI
-// key is present (OPENAI_API_KEY or ANTHROPIC_API_KEY), a typecheck regression
-// triggers an AI fix attempt that is committed to a NEW branch and (if `gh` is
-// available) opened as a PR. It NEVER edits the working branch or touches prod.
+// key is present (ANTHROPIC_API_KEY, NVIDIA_API_KEY or OPENAI_API_KEY), a
+// typecheck regression triggers an AI fix attempt that is committed to a NEW
+// branch and (if `gh` is available) opened as a PR. It NEVER edits the working
+// branch or touches prod.
 //
 //   npm run watchdog                 # run forever (default 5 min interval)
 //   WATCHDOG_ONCE=1 npm run watchdog # single pass (CI / cron)
@@ -12,7 +13,7 @@
 //
 // Tunables: WATCHDOG_INTERVAL_MS, WATCHDOG_URL, WATCHDOG_BUILD_EVERY,
 // WATCHDOG_SKIP_BUILD, WATCHDOG_ALERT_EMAIL, ANTHROPIC_API_KEY,
-// WATCHDOG_AUTOFIX.
+// NVIDIA_API_KEY, WATCHDOG_AUTOFIX.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
@@ -32,29 +33,79 @@ const SKIP_BUILD = process.env.WATCHDOG_SKIP_BUILD === "1";
 const ALERT_EMAIL = process.env.WATCHDOG_ALERT_EMAIL || process.env.RESEND_REPLY_TO || "";
 const AUTOFIX = process.env.WATCHDOG_AUTOFIX === "1";
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
-// Ask whichever AI provider is configured for a minimal patch. Returns the raw
-// model text (expected to contain the JSON patch object).
+// Ask whichever AI providers are configured for a minimal patch, in order,
+// falling through on failure. Returns the raw model text (expected to contain
+// the JSON patch object). NVIDIA sits ahead of OpenAI because it is the funded
+// provider; before this, an unfunded OpenAI key silently made autofix a no-op
+// while the workflow still reported success.
 async function askForPatch(prompt: string): Promise<string> {
+  const attempts: { label: string; run: () => Promise<string> }[] = [];
+
   if (ANTHROPIC_KEY) {
-    const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY });
-    const res = await anthropic.messages.create({
-      model: process.env.COPILOT_TOOLS_MODEL || "claude-sonnet-4-6",
-      max_tokens: 8000,
-      messages: [{ role: "user", content: prompt }],
+    attempts.push({
+      label: "Anthropic",
+      run: async () => {
+        const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY });
+        const res = await anthropic.messages.create({
+          model: process.env.COPILOT_TOOLS_MODEL || "claude-sonnet-4-6",
+          max_tokens: 8000,
+          messages: [{ role: "user", content: prompt }],
+        });
+        return res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("\n");
+      },
     });
-    return res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("\n");
   }
+
+  // A patch is a reasoning task with no latency pressure, so this uses the big
+  // free NIM model rather than the co-pilot's interactive one.
+  if (NVIDIA_KEY) {
+    attempts.push({
+      label: "NVIDIA",
+      run: async () => {
+        const nvidia = new OpenAI({
+          apiKey: NVIDIA_KEY,
+          baseURL: "https://integrate.api.nvidia.com/v1",
+          timeout: 180_000,
+          maxRetries: 1,
+        });
+        const res = await nvidia.chat.completions.create({
+          model: process.env.WATCHDOG_NVIDIA_MODEL || "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+          max_tokens: 8000,
+          messages: [{ role: "user", content: prompt }],
+        });
+        return res.choices[0]?.message?.content ?? "";
+      },
+    });
+  }
+
   if (OPENAI_KEY) {
-    const openai = new OpenAI({ apiKey: OPENAI_KEY });
-    const res = await openai.chat.completions.create({
-      model: process.env.COPILOT_OPENAI_MODEL || "gpt-4o-mini",
-      max_tokens: 8000,
-      messages: [{ role: "user", content: prompt }],
+    attempts.push({
+      label: "OpenAI",
+      run: async () => {
+        const openai = new OpenAI({ apiKey: OPENAI_KEY });
+        const res = await openai.chat.completions.create({
+          model: process.env.COPILOT_OPENAI_MODEL || "gpt-4o-mini",
+          max_tokens: 8000,
+          messages: [{ role: "user", content: prompt }],
+        });
+        return res.choices[0]?.message?.content ?? "";
+      },
     });
-    return res.choices[0]?.message?.content ?? "";
   }
+
+  for (const attempt of attempts) {
+    try {
+      const out = await attempt.run();
+      if (out.trim()) return out;
+      log(`autofix: ${attempt.label} returned nothing, trying the next provider`);
+    } catch (e) {
+      log(`autofix: ${attempt.label} failed (${(e as Error).message}), trying the next provider`);
+    }
+  }
+  if (!attempts.length) log("autofix: no AI provider key configured, skipping");
   return "";
 }
 

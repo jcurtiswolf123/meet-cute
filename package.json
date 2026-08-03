@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3009",
+    "dev": "tsx scripts/sandbox.ts dev",
     "build": "prisma generate && next build",
     "start": "next start -p 3009",
     "lint": "eslint . --max-warnings=0",
@@ -19,7 +19,7 @@
     "test:launch:roles:e2e": "node --env-file-if-exists=.env --import tsx scripts/test-operator-portal.ts",
     "test:journey:application": "node --env-file-if-exists=.env --import tsx scripts/test-member-application.ts",
     "test:journey:email": "node --env-file-if-exists=.env --import tsx scripts/test-match-email-journey.ts",
-    "test:launch": "npm run test:launch:pure && npm run test:launch:reply && npm run test:launch:age && npm run test:launch:ideas && npm run test:launch:prelude && npm run test:prelude:pipeline && npm run test:prelude:webhook && npm run test:journey:email && npm run test:launch:capacity && npm run test:launch:delivery && npm run test:launch:storage && npm run test:launch:roles && npm run test:launch:emails && npm run test:race",
+    "test:launch": "npm run test:launch:pure && npm run test:launch:reply && npm run test:launch:age && npm run test:launch:ideas && npm run test:launch:eventtime && npm run test:launch:prelude && npm run test:prelude:pipeline && npm run test:prelude:webhook && npm run test:journey:email && npm run test:launch:capacity && npm run test:launch:delivery && npm run test:launch:storage && npm run test:launch:roles && npm run test:launch:emails && npm run test:race",
     "test:race": "node --env-file-if-exists=.env --import tsx scripts/test-introduction-race.ts",
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
@@ -35,7 +35,14 @@
     "test:prelude:pipeline": "node --env-file-if-exists=.env --import tsx scripts/test-prelude-pipeline.ts",
     "test:prelude:webhook": "node --env-file-if-exists=.env --import tsx scripts/test-prelude-webhook.ts",
     "test:launch:ideas": "node --import tsx scripts/test-date-ideas.ts",
-    "venues:verify": "node --env-file-if-exists=.env --import tsx scripts/verify-venues.ts"
+    "venues:verify": "node --env-file-if-exists=.env --import tsx scripts/verify-venues.ts",
+    "test:launch:eventtime": "node --import tsx scripts/test-event-time.ts",
+    "sandbox": "tsx scripts/sandbox.ts dev",
+    "sandbox:up": "tsx scripts/sandbox.ts up",
+    "sandbox:reset": "tsx scripts/sandbox.ts reset",
+    "sandbox:down": "tsx scripts/sandbox.ts down",
+    "sandbox:psql": "tsx scripts/sandbox.ts psql",
+    "dev:live": "next dev -p 3019"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

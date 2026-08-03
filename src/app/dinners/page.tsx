@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SubmitButton } from "@/components/forms";
 import { LabelledField } from "@/components/LabelledField";
+import { formatEventDay, isPastEvent } from "@/lib/event-time";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Dinners" };
@@ -30,9 +31,10 @@ export default async function Dinners({
   // meant any dinner an operator forgot to mark "done" stayed under Upcoming
   // forever, still taking seat requests for a date that had passed. Compare on
   // the calendar day so a dinner is not dropped partway through its own evening.
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const isPast = (d: (typeof dinners)[number]) => d.status === "done" || d.date < startOfToday;
+  // "Today" is today in the dinner's own city, not on the server, which runs
+  // UTC in production and so retired a West Coast dinner while it was still
+  // that afternoon there.
+  const isPast = (d: (typeof dinners)[number]) => d.status === "done" || isPastEvent(d.date, d.city);
   const upcoming = dinners.filter((d) => !isPast(d));
   // Soonest first for upcoming, most recent first for the archive.
   const past = dinners.filter(isPast).reverse();
@@ -81,7 +83,7 @@ export default async function Dinners({
                 </div>
                 <h3 className="mt-4 font-display text-2xl font-medium">{d.theme}</h3>
                 <p className="mt-1 text-sm text-muted">
-                  {d.date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} · {d.venue}
+                  {formatEventDay(d.date, d.city, { weekday: "long", month: "long", day: "numeric" })} · {d.venue}
                 </p>
 
                 <details className="group mt-5">
@@ -185,7 +187,7 @@ export default async function Dinners({
               {past.map((d) => (
                 <li key={d.id} className="flex items-center justify-between py-3">
                   <span>{d.theme} · {d.city}</span>
-                  <span>{d.date.toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
+                  <span>{formatEventDay(d.date, d.city, { month: "short", year: "numeric" })}</span>
                 </li>
               ))}
             </ul>

@@ -11,6 +11,10 @@ export default defineConfig([
     "build/**",
     "next-env.d.ts",
     ".gstack/**",
+    // Agent scratch space. A sibling session put a git worktree in here, and
+    // eslint walked into it and reported 49,000 problems in a second copy of
+    // the repo plus its node_modules.
+    ".claude/**",
     "public/demo/**",
   ]),
 ]);

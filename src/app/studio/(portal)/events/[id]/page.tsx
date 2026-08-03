@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { addEventInvitees, removeAttendee, setAttendeeStatus, setEventStatus } from "@/lib/actions";
 import { Avatar } from "@/components/ui";
+import { formatEventWhen } from "@/lib/event-time";
 import { ConfirmActionForm } from "@/components/forms";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +50,7 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
             <h1 className="font-sans tracking-[-0.012em] text-3xl font-medium">{event.theme}</h1>
             <p className="mt-1 text-sm text-muted">
               <span className="pill mr-2">{event.city}</span>
-              {event.date.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}
+              {formatEventWhen(event.date, event.city)}
               {" · "}{event.venue}
             </p>
             {event.notes && <p className="mt-2 max-w-prose text-sm text-ink/80">{event.notes}</p>}

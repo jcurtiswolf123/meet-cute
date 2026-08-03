@@ -46,8 +46,29 @@ function InviteUnavailable({ reason }: { reason: string }) {
   );
 }
 
-export default async function InvitePage({ params }: { params: Promise<{ token: string }> }) {
+// What the member is told after tapping Yes or Pass. Keyed by the short code
+// decideInvite puts in `?d=`. Mirrors the operator-side `?intro=` codes: the
+// action never throws and never returns silently, it always comes back here
+// with something to read.
+const DECISION_NOTICE: Record<string, string> = {
+  yes: "You said yes. We will let you know as soon as they answer.",
+  pass: "Passed. Nothing happens from here, and they are not told.",
+  mutual: "You both said yes. Check your inbox for the introduction.",
+  connected: "You are connected. Check your inbox and say hello.",
+  stale:
+    "We could not record that. This introduction has already been answered or closed, so there is nothing left to decide.",
+  "bad-request": "Something about that request did not come through. Try the buttons again.",
+};
+
+export default async function InvitePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ d?: string }>;
+}) {
   const { token } = await params;
+  const notice = DECISION_NOTICE[(await searchParams).d ?? ""];
 
   const invite = await prisma.matchInvite.findUnique({ where: { token } });
   if (!invite) {
@@ -92,9 +113,10 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
   // Serve the other person's approved photos through the token-gated proxy (the
   // normal /api/photos route requires a session, which this page does not have).
-  const photoUrl = other.photos[0]
-    ? `/api/invite/${token}/photo/${other.photos[0].id}.${STORED_EXT}`
-    : null;
+  // All of them, not just the first: this is the page where someone decides
+  // whether to meet a stranger, and one 96px avatar is not enough to decide on.
+  const photoUrls = other.photos.map((p) => `/api/invite/${token}/photo/${p.id}.${STORED_EXT}`);
+  const photoUrl = photoUrls[0] ?? null;
 
   const connected = match.stage === "connected";
 
@@ -103,8 +125,47 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       <p className="font-display text-2xl font-medium text-ember">Mutuals</p>
       <p className="mt-1 text-sm text-muted">An introduction, just for you.</p>
 
-      <div className="mt-8 flex items-start gap-5">
-        <Avatar url={photoUrl} name={otherName} size={96} />
+      {notice && (
+        <p
+          role="status"
+          className="mt-6 rounded-xl border border-line bg-panel px-5 py-4 text-sm leading-relaxed text-ink"
+        >
+          {notice}
+        </p>
+      )}
+
+      {/* Photos lead. You are being asked whether you want to meet this person,
+          so their face is the first thing on the page rather than a thumbnail
+          beside their name. The first photo is large; the rest follow in a row
+          you can scroll on a phone. Everything is served through the
+          token-scoped proxy and is approved-only. */}
+      {photoUrls.length > 0 ? (
+        <div className="mt-8">
+          {/* eslint-disable-next-line @next/next/no-img-element -- token-proxied,
+              not a static asset, and next/image cannot cache a capability URL */}
+          <img
+            src={photoUrls[0]}
+            alt={`${otherFirst}, photo 1 of ${photoUrls.length}`}
+            className="aspect-[4/5] w-full max-w-sm rounded-xl border border-line object-cover"
+          />
+          {photoUrls.length > 1 && (
+            <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+              {photoUrls.slice(1).map((url, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={url}
+                  src={url}
+                  alt={`${otherFirst}, photo ${i + 2} of ${photoUrls.length}`}
+                  className="h-32 w-[6.4rem] flex-none rounded-lg border border-line object-cover"
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+
+      <div className={`flex items-start gap-5 ${photoUrls.length ? "mt-6" : "mt-8"}`}>
+        {photoUrls.length === 0 && <Avatar url={photoUrl} name={otherName} size={96} />}
         <div className="flex-1">
           <h1 className="font-display text-4xl font-medium">{otherFirst}</h1>
           <p className="mt-1 text-lg text-muted">
