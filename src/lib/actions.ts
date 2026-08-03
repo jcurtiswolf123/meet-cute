@@ -1152,9 +1152,30 @@ export async function resendIntro(formData: FormData) {
 export async function decideInvite(formData: FormData) {
   const token = String(formData.get("token") || "");
   const raw = String(formData.get("decision") || "");
-  if (!token || (raw !== "yes" && raw !== "pass")) return;
-  await recordInviteDecision(token, raw as "yes" | "pass");
+  if (!token || (raw !== "yes" && raw !== "pass")) {
+    redirect(`/i/${encodeURIComponent(token)}?d=bad-request`);
+  }
+
+  const outcome = await recordInviteDecision(token, raw as "yes" | "pass");
   revalidatePath(`/i/${token}`);
+
+  // Say what happened. This used to return silently on every refusal, so a
+  // member whose token had expired, whose introduction had since closed, or who
+  // had already answered from the email tapped Yes and watched the page come
+  // back with the same two buttons. Nothing errored and nothing was recorded,
+  // which reads as the button being broken. Same reasoning as the `?intro=`
+  // codes on the operator side: a refusal has to explain itself where it
+  // happened.
+  const code = outcome.ok
+    ? outcome.connected
+      ? "connected"
+      : outcome.nowMutual
+        ? "mutual"
+        : raw === "yes"
+          ? "yes"
+          : "pass"
+    : "stale";
+  redirect(`/i/${encodeURIComponent(token)}?d=${code}`);
 }
 
 // Operator: close an introduction (either side passed, or it fizzled).
