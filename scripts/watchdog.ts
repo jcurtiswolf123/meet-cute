@@ -379,26 +379,66 @@ function filesFromTsc(out: string): string[] {
   return [...set].slice(0, 4);
 }
 
-/** Pull `<<<FILE path` / `>>>END` blocks out of a model reply.
+/** One exact-text replacement inside one file. */
+export type AutofixEdit = { path: string; search: string; replace: string };
+
+/** Pull search/replace edits out of a model reply.
  *
- *  Exported so it can be tested without a live model. Only paths in `allowed`
- *  survive, so a model cannot rewrite a file it was never shown, and the last
- *  block wins if a path repeats. */
-export function parsePatch(raw: string, allowed: string[]): { path: string; content: string }[] {
-  const out = new Map<string, string>();
-  // Non-greedy body, and the terminator must start its own line so a string
-  // containing ">>>END" inside the file cannot end the block early.
-  const re = /<<<FILE[ \t]+(\S+)[ \t]*\r?\n([\s\S]*?)\r?\n>>>END/g;
+ *  Two earlier transports failed here. JSON with whole files inside strings
+ *  never parsed once, because real code breaks the escaping. Whole files in
+ *  delimited blocks parsed fine but the model reformatted everything around the
+ *  fix, and a patch that also strips every blank line in a file is unreviewable
+ *  however correct the one line is.
+ *
+ *  Search/replace makes minimality structural rather than something the prompt
+ *  has to ask for: the model can only express the lines it wants to change, so
+ *  it cannot touch the rest even if it wants to.
+ *
+ *  Exported so it can be tested without a live model. */
+export function parseEdits(raw: string, allowed: string[]): AutofixEdit[] {
+  const edits: AutofixEdit[] = [];
+  const re =
+    /<<<EDIT[ \t]+(\S+)[ \t]*\r?\n<<<SEARCH\r?\n([\s\S]*?)\r?\n<<<REPLACE\r?\n([\s\S]*?)\r?\n>>>END/g;
   for (const m of raw.matchAll(re)) {
     const path = m[1].trim();
     if (!allowed.includes(path)) continue;
-    // Models sometimes wrap the body in a fence despite being told not to.
-    let body = m[2];
-    const fence = body.match(/^```[a-z]*\r?\n([\s\S]*)\r?\n```$/);
-    if (fence) body = fence[1];
-    if (body.trim()) out.set(path, body.endsWith("\n") ? body : `${body}\n`);
+    const search = m[2];
+    if (!search.trim()) continue; // an empty search would match anywhere
+    edits.push({ path, search, replace: m[3] });
   }
-  return [...out].map(([path, content]) => ({ path, content }));
+  return edits;
+}
+
+/** Apply edits to file contents, or explain why not.
+ *
+ *  An edit whose search text is absent, or appears more than once, is refused
+ *  rather than guessed at: applying to the wrong occurrence produces a file that
+ *  may still compile and is quietly wrong, which is the one outcome worth
+ *  avoiding in code nobody asked to be written. */
+export function applyEdits(
+  files: Map<string, string>,
+  edits: AutofixEdit[],
+): { applied: Map<string, string>; problems: string[] } {
+  const applied = new Map(files);
+  const problems: string[] = [];
+  for (const edit of edits) {
+    const before = applied.get(edit.path);
+    if (before === undefined) {
+      problems.push(`${edit.path}: not offered`);
+      continue;
+    }
+    const occurrences = before.split(edit.search).length - 1;
+    if (occurrences === 0) {
+      problems.push(`${edit.path}: search text not found`);
+      continue;
+    }
+    if (occurrences > 1) {
+      problems.push(`${edit.path}: search text appears ${occurrences} times, too ambiguous to apply`);
+      continue;
+    }
+    applied.set(edit.path, before.replace(edit.search, edit.replace));
+  }
+  return { applied, problems };
 }
 
 async function attemptAutofix(tscOut: string): Promise<void> {
@@ -428,47 +468,54 @@ async function attemptAutofix(tscOut: string): Promise<void> {
   }
   if (!current.length) return;
 
-  // Deliberately NOT JSON. The first version asked for
-  // {"files":[{"path","content"}]} with whole source files inside JSON strings,
-  // and it never once succeeded: real code is full of backslashes, quotes and
-  // newlines, and models get the escaping wrong. The first live drill died on
-  // "Bad escaped character in JSON at position 875".
-  //
-  // Delimited blocks need no escaping at all, so the content round-trips
-  // verbatim and parsing is a string split rather than a parser that can reject
-  // an otherwise good patch.
+  // Search/replace, not whole files. See parseEdits for the two transports that
+  // came before this and why each failed.
   const prompt = [
     "You are fixing TypeScript compile errors in a Next.js + Prisma project.",
-    "Make the MINIMAL change needed to fix the errors. Do not refactor and do not change behaviour.",
-    "Reproduce every other line of the file EXACTLY as given, including blank lines, comments and formatting.",
-    "Changing lines the compiler did not complain about makes the patch unreviewable and it will be discarded.",
+    "Make the MINIMAL change needed. Do not refactor, reformat, or change behaviour.",
     "",
-    "Reply with the FULL new content of each file you change, in exactly this form:",
+    "Reply with one or more edits, in exactly this form and nothing else:",
     "",
-    "<<<FILE path/to/file.ts",
-    "...the entire file...",
+    "<<<EDIT path/to/file.ts",
+    "<<<SEARCH",
+    "the exact existing lines to replace, copied character for character",
+    "<<<REPLACE",
+    "the new lines",
     ">>>END",
     "",
-    "No prose, no markdown fences, no commentary. Only files listed below may appear.",
+    "The SEARCH text must appear EXACTLY ONCE in the file, copied verbatim including indentation.",
+    "Include a line or two of surrounding context if that is what makes it unique.",
+    "Change nothing the compiler did not complain about.",
     "",
     "=== tsc errors ===",
     tscOut.slice(-3000),
     "",
-    ...current.map((f) => `<<<FILE ${f.path}\n${f.content}\n>>>END`),
+    ...current.map((f) => `=== FILE ${f.path} ===\n${f.content}`),
   ].join("\n");
 
-  let proposed: { path: string; content: string }[] = [];
+  let edits: AutofixEdit[] = [];
   try {
-    proposed = parsePatch(await askForPatch(prompt), files);
+    edits = parseEdits(await askForPatch(prompt), files);
   } catch (e) {
     log(`autofix: model error: ${(e as Error).message}`);
     return;
   }
-  if (!proposed.length) {
-    log("autofix: model returned no usable patch");
+  if (!edits.length) {
+    log("autofix: model returned no usable edits");
     return;
   }
-  log(`autofix: model proposed changes to ${proposed.map((f) => f.path).join(", ")}`);
+
+  const originals = new Map(current.map((f) => [f.path, f.content]));
+  const { applied, problems } = applyEdits(originals, edits);
+  for (const problem of problems) log(`autofix: skipped an edit, ${problem}`);
+  const proposed = [...applied]
+    .filter(([path, content]) => content !== originals.get(path))
+    .map(([path, content]) => ({ path, content }));
+  if (!proposed.length) {
+    log("autofix: no edit applied cleanly");
+    return;
+  }
+  log(`autofix: ${edits.length - problems.length} edit(s) applied to ${proposed.map((f) => f.path).join(", ")}`);
 
   // Work on a throwaway branch so master/working branch is never touched.
   const branch = `watchdog/fix-${Date.now()}`;

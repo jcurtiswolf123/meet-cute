@@ -1,91 +1,131 @@
 // Regression test for the watchdog autofix patch format.
 //
-// The first version asked the model for
-// {"files":[{"path":..., "content":...}]} with whole source files inside JSON
-// strings. It never succeeded once: real code is full of backslashes, quotes,
-// newlines and template literals, and the first live drill died on "Bad escaped
-// character in JSON at position 875". Autofix had been enabled in CI every 15
-// minutes for weeks and could not have worked.
+// Three transports were tried against a live model before this one stuck, and
+// the failures are the reason these cases exist:
 //
-// Delimited blocks need no escaping, so these cases pin the parser instead.
+//   1. JSON, {"files":[{"path","content"}]}, whole files inside JSON strings.
+//      Never succeeded once. Real code is full of backslashes, quotes and
+//      newlines; the first live drill died on "Bad escaped character in JSON at
+//      position 875". Autofix had been enabled in CI every 15 minutes for weeks
+//      and could not have worked.
+//   2. Whole files in delimited blocks. Parsed perfectly, and the model fixed
+//      one assignment while stripping every blank line in the file and mangling
+//      two comments. Correct, and unreviewable.
+//   3. Search/replace edits, below. The model can only express the lines it
+//      wants to change, so minimality is structural rather than a request the
+//      prompt has to make and the model can ignore.
 import assert from "node:assert/strict";
-import { parsePatch } from "./watchdog";
+import { parseEdits, applyEdits } from "./watchdog";
 
 const ALLOWED = ["src/lib/age.ts", "src/lib/email.ts"];
+const edit = (path: string, search: string, replace: string) =>
+  `<<<EDIT ${path}\n<<<SEARCH\n${search}\n<<<REPLACE\n${replace}\n>>>END`;
 
-// The happy path.
+// --- parsing ---------------------------------------------------------------
+
 {
-  const reply = `<<<FILE src/lib/age.ts
-export const x = 1;
->>>END`;
-  const out = parsePatch(reply, ALLOWED);
+  const out = parseEdits(edit("src/lib/age.ts", "const n = 1;", "const n = 2;"), ALLOWED);
   assert.equal(out.length, 1);
-  assert.equal(out[0].path, "src/lib/age.ts");
-  assert.equal(out[0].content, "export const x = 1;\n");
+  assert.deepEqual(out[0], { path: "src/lib/age.ts", search: "const n = 1;", replace: "const n = 2;" });
 }
 
-// The exact content that broke JSON: backslashes, quotes, template literals,
-// regexes and newlines all round-trip verbatim.
+// The content that broke the JSON transport must survive byte for byte.
 {
   const nasty = [
-    'const re = /^[a-z]+\\\\.[0-9]{2}$/g;',
+    'const re = /^[a-z]+\\.[0-9]{2}$/g;',
     'const s = "she said \\"hello\\" and left";',
     "const t = `line ${a}\\n\\ttabbed`;",
-    "const path = 'C:\\\\Users\\\\x';",
+    "const p = 'C:\\\\Users\\\\x';",
   ].join("\n");
-  const out = parsePatch(`<<<FILE src/lib/email.ts\n${nasty}\n>>>END`, ALLOWED);
+  const out = parseEdits(edit("src/lib/email.ts", nasty, "const fixed = true;"), ALLOWED);
   assert.equal(out.length, 1);
-  assert.equal(out[0].content, `${nasty}\n`, "content must survive byte for byte");
+  assert.equal(out[0].search, nasty, "search text survives verbatim");
 }
 
-// A model may not rewrite a file it was never shown.
+// A model may not edit a file it was never shown.
+assert.deepEqual(parseEdits(edit("src/lib/secrets.ts", "a", "b"), ALLOWED), []);
+
+// An empty search would match anywhere, so it is refused at parse time.
+assert.deepEqual(parseEdits(edit("src/lib/age.ts", "   ", "b"), ALLOWED), []);
+
+// Prose around the edits is ignored rather than corrupting them.
 {
-  const reply = `<<<FILE src/lib/secrets.ts
-export const stolen = true;
->>>END`;
-  assert.deepEqual(parsePatch(reply, ALLOWED), [], "unoffered paths are dropped");
+  const reply = `Here is the fix:\n\n${edit("src/lib/age.ts", "a", "b")}\n\nHope that helps.`;
+  assert.equal(parseEdits(reply, ALLOWED).length, 1);
 }
 
-// Several files in one reply.
+// Several edits in one reply, including two files.
 {
-  const reply = `<<<FILE src/lib/age.ts\nA\n>>>END\n<<<FILE src/lib/email.ts\nB\n>>>END`;
-  const out = parsePatch(reply, ALLOWED);
-  assert.equal(out.length, 2);
-  assert.deepEqual(out.map((f) => f.path).sort(), ["src/lib/age.ts", "src/lib/email.ts"]);
+  const reply = `${edit("src/lib/age.ts", "a", "b")}\n${edit("src/lib/email.ts", "c", "d")}`;
+  assert.equal(parseEdits(reply, ALLOWED).length, 2);
 }
 
-// Prose around the blocks is ignored rather than corrupting them.
+// Nothing usable is an empty list, not a throw: the caller logs and moves on.
+assert.deepEqual(parseEdits("I could not work out the fix, sorry.", ALLOWED), []);
+assert.deepEqual(parseEdits("", ALLOWED), []);
+
+// --- applying --------------------------------------------------------------
+
+const FILE = 'const a = 1;\nconst n: number = "wrong";\nconst b = 2;\n';
+
+// The happy path changes exactly what was asked and nothing else.
 {
-  const reply = `Sure, here is the fix:\n\n<<<FILE src/lib/age.ts\nfixed\n>>>END\n\nLet me know if you need anything else.`;
-  const out = parsePatch(reply, ALLOWED);
-  assert.equal(out.length, 1);
-  assert.equal(out[0].content, "fixed\n");
+  const files = new Map([["src/lib/age.ts", FILE]]);
+  const { applied, problems } = applyEdits(files, [
+    { path: "src/lib/age.ts", search: 'const n: number = "wrong";', replace: "const n: number = 42;" },
+  ]);
+  assert.deepEqual(problems, []);
+  assert.equal(applied.get("src/lib/age.ts"), 'const a = 1;\nconst n: number = 42;\nconst b = 2;\n');
 }
 
-// Models fence code despite being told not to.
+// Search text that is not there is refused, and the file is left alone.
 {
-  const reply = "<<<FILE src/lib/age.ts\n```ts\nconst fenced = 1;\n```\n>>>END";
-  assert.equal(parsePatch(reply, ALLOWED)[0].content, "const fenced = 1;\n");
+  const files = new Map([["src/lib/age.ts", FILE]]);
+  const { applied, problems } = applyEdits(files, [
+    { path: "src/lib/age.ts", search: "const missing = 0;", replace: "x" },
+  ]);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /not found/);
+  assert.equal(applied.get("src/lib/age.ts"), FILE, "the file is untouched");
 }
 
-// A file whose own text contains the terminator must not end the block early.
+// Ambiguous search text is refused rather than applied to a guess. Editing the
+// wrong occurrence can still compile, and a quietly wrong file is the one
+// outcome worth avoiding in code nobody asked to be written.
 {
-  const body = 'const doc = "write >>>END to finish";\nconst after = 2;';
-  const out = parsePatch(`<<<FILE src/lib/age.ts\n${body}\n>>>END`, ALLOWED);
-  assert.equal(out.length, 1);
-  assert.ok(out[0].content.includes("const after = 2;"), "the whole body survives");
+  const dup = "const x = 1;\nconst y = 2;\nconst x = 1;\n";
+  const { applied, problems } = applyEdits(new Map([["src/lib/age.ts", dup]]), [
+    { path: "src/lib/age.ts", search: "const x = 1;", replace: "const x = 9;" },
+  ]);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /appears 2 times/);
+  assert.equal(applied.get("src/lib/age.ts"), dup, "the file is untouched");
 }
 
-// Nothing usable is empty, not a throw: the caller logs and moves on.
-assert.deepEqual(parsePatch("I could not work out the fix, sorry.", ALLOWED), []);
-assert.deepEqual(parsePatch("", ALLOWED), []);
-
-// A repeated path takes the last block rather than writing twice.
+// One bad edit does not discard a good one alongside it.
 {
-  const reply = `<<<FILE src/lib/age.ts\nfirst\n>>>END\n<<<FILE src/lib/age.ts\nsecond\n>>>END`;
-  const out = parsePatch(reply, ALLOWED);
-  assert.equal(out.length, 1);
-  assert.equal(out[0].content, "second\n");
+  const files = new Map([
+    ["src/lib/age.ts", FILE],
+    ["src/lib/email.ts", "const keep = true;\n"],
+  ]);
+  const { applied, problems } = applyEdits(files, [
+    { path: "src/lib/age.ts", search: 'const n: number = "wrong";', replace: "const n: number = 42;" },
+    { path: "src/lib/email.ts", search: "not present", replace: "x" },
+  ]);
+  assert.equal(problems.length, 1);
+  assert.ok(applied.get("src/lib/age.ts")!.includes("= 42;"), "the good edit applied");
+  assert.equal(applied.get("src/lib/email.ts"), "const keep = true;\n", "the bad one did not");
 }
 
-console.log("autofix patch parsing passed: verbatim code, unoffered paths refused, prose and fences tolerated");
+// A file that was never offered cannot be created.
+{
+  const { applied, problems } = applyEdits(new Map(), [
+    { path: "src/lib/age.ts", search: "a", replace: "b" },
+  ]);
+  assert.equal(applied.size, 0);
+  assert.match(problems[0], /not offered/);
+}
+
+console.log(
+  "autofix patch parsing passed: verbatim code, unoffered paths refused, ambiguous and missing search text refused",
+);
