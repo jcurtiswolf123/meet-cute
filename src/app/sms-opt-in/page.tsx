@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { Checkbox } from "@/components/fields";
 
 export const metadata = {
   // The root layout template already appends " · Mutuals".
@@ -77,33 +78,27 @@ export default function SmsOptIn() {
             </div>
 
             <div className="mt-6">
-              <label className="flex items-start gap-3 text-sm">
-                <input type="checkbox" className="mt-1" disabled />
-                <span className="text-muted">
-                  I am 18 or older and I agree to the{" "}
-                  <Link href="/terms" className="text-claret underline" target="_blank">
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="/privacy" className="text-claret underline" target="_blank">
-                    Privacy Policy
-                  </Link>
-                  .
-                </span>
-              </label>
+              <Checkbox disabled>
+                I am 18 or older and I agree to the{" "}
+                <Link href="/terms" className="text-claret underline" target="_blank">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="text-claret underline" target="_blank">
+                  Privacy Policy
+                </Link>
+                .
+              </Checkbox>
             </div>
 
             <div className="mt-4 rounded-xl border border-line bg-paper/40 p-4">
-              <label className="flex items-start gap-3 text-sm">
-                <input type="checkbox" className="mt-1" disabled />
-                <span className="text-muted">
+              <Checkbox disabled>
                   <span className="font-medium text-ink">Text me my introductions (optional).</span>{" "}
                   I agree to receive recurring text messages (SMS) from Mutuals about my
                   matchmaking introductions at the mobile number above. Message and data rates may
                   apply; message frequency varies. Consent is not a condition of joining. Reply STOP
                   to cancel, HELP for help.
-                </span>
-              </label>
+              </Checkbox>
               <p className="mt-2 pl-8 text-xs text-muted">
                 Prefer not to? Leave this unchecked. You will still be introduced to your matches by
                 email.

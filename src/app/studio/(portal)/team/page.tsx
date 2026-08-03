@@ -3,6 +3,7 @@ import { requireOperatorPage } from "@/lib/page-auth";
 import { addOperator, removeOperator } from "@/lib/actions";
 import { ConfirmActionForm } from "@/components/forms";
 import { Avatar } from "@/components/ui";
+import { Select } from "@/components/select";
 
 export const dynamic = "force-dynamic";
 
@@ -93,13 +94,16 @@ export default async function Team({
                   placeholder="name@email.com"
                 />
               </label>
-              <label className="block">
-                <span className="label">City</span>
-                <select name="city" className="field mt-1.5" defaultValue="NYC">
-                  <option value="NYC">NYC</option>
-                  <option value="San Francisco">SF</option>
-                </select>
-              </label>
+              <Select
+                name="city"
+                label="City"
+                showLabel
+                defaultValue="NYC"
+                options={[
+                  { value: "NYC", label: "NYC" },
+                  { value: "San Francisco", label: "SF" },
+                ]}
+              />
             </div>
             <button type="submit" className="btn-primary w-fit whitespace-nowrap">
               Add &amp; invite

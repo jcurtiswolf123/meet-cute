@@ -94,21 +94,31 @@ async function main() {
     await memberPage.waitForURL(/\/apply$/);
     await memberPage.getByLabel("First name").fill("Journey");
     await memberPage.getByLabel("Last name").fill("Member");
-    await memberPage.getByLabel("You are").selectOption("man");
+    // Pills backed by real radios now, not a native select: click the choice.
+    await memberPage.getByRole("group", { name: "You are" }).getByText("Man", { exact: true }).click();
     await memberPage.getByLabel("Date of birth").fill("1990-01-01");
     await memberPage.getByLabel("Instagram").fill("@journey-member");
     await memberPage
       .getByLabel("What you're looking for")
       .fill("A thoughtful relationship with someone curious and kind.");
     await memberPage.getByLabel("Their name").first().fill("Ada Recommender");
-    await memberPage.getByLabel("They are").first().selectOption("woman");
+    await memberPage.getByRole("group", { name: "They are" }).first().getByText("Woman", { exact: true }).click();
     await memberPage.getByLabel("Their email").first().fill(firstRecommenderEmail);
     await memberPage.getByLabel("Their name").nth(1).fill("Grace Recommender");
-    await memberPage.getByLabel("They are").nth(1).selectOption("woman");
+    await memberPage.getByRole("group", { name: "They are" }).nth(1).getByText("Woman", { exact: true }).click();
     await memberPage.getByLabel("Their email").nth(1).fill(secondRecommenderEmail);
+    // The real checkbox is visually hidden behind the mark we draw, so this
+    // presses the mark, which is what a member presses. Not the sentence: it
+    // carries the Terms and Privacy links, and a click in the middle of it
+    // would open one of those rather than toggle consent.
     await memberPage
-      .getByLabel(/I am 18 or older and I agree to the Terms of Service/)
-      .check();
+      .locator('label:has(input[name="agree"])')
+      .click({ position: { x: 10, y: 12 } });
+    assert.equal(
+      await memberPage.getByRole("checkbox", { name: /I am 18 or older/ }).isChecked(),
+      true,
+      "Pressing the consent label must actually check the underlying box.",
+    );
 
     // A photo is required now, and the uploader posts on its own rather than
     // through the form, so the server rejects a submit with none. Submit once
@@ -127,14 +137,14 @@ async function main() {
     // setting files on the hidden input, so this covers the path a member takes.
     const [chooser] = await Promise.all([
       memberPage.waitForEvent("filechooser"),
-      memberPage.getByRole("button", { name: "Upload photos" }).click(),
+      memberPage.getByRole("button", { name: /Add a photo/ }).click(),
     ]);
     await chooser.setFiles({
       name: "journey.jpg",
       mimeType: "image/jpeg",
       buffer: await testPhotoBytes(),
     });
-    await memberPage.getByRole("button", { name: "Add another photo" }).waitFor();
+    await memberPage.getByRole("button", { name: /Add another/ }).waitFor();
 
     await memberPage.getByRole("button", { name: "Submit application" }).click();
     await memberPage.waitForURL(/\/apply\/thanks$/);

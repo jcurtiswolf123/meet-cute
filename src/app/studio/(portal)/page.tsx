@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { Avatar } from "@/components/ui";
+import { Select as FieldSelect } from "@/components/select";
 import { retryDeliveryJob, setMemberStatus } from "@/lib/actions";
 import { IntroComposer } from "./matchmaking/IntroComposer";
 import { introNotice } from "./matchmaking/intro-notice";
@@ -328,12 +329,19 @@ function maskRecipient(recipient: string): string {
   return digits.length >= 4 ? `ending ${digits.slice(-4)}` : "recipient";
 }
 
+// Thin wrapper over the shared listbox: the filter bar was written against a
+// [value, label] tuple list, and the shared control takes objects. Applying on
+// change removes the "now press Filter" step, which the search box still needs
+// because a text field has no moment where the operator is obviously done.
 function Select({ label, name, value, options }: { label: string; name: string; value?: string; options: [string, string][] }) {
   return (
-    <select aria-label={label} name={name} defaultValue={value} className="field max-w-[10rem]">
-      {options.map(([v, l]) => (
-        <option key={v} value={v}>{l}</option>
-      ))}
-    </select>
+    <FieldSelect
+      label={label}
+      name={name}
+      defaultValue={value ?? options[0][0]}
+      options={options.map(([optionValue, optionLabel]) => ({ value: optionValue, label: optionLabel }))}
+      submitOnChange
+      className="w-[10rem]"
+    />
   );
 }

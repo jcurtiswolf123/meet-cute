@@ -11,6 +11,8 @@ import {
 import { IntroComposer } from "./IntroComposer";
 import { introNotice } from "./intro-notice";
 import { ConfirmActionForm } from "@/components/forms";
+import { Select } from "@/components/select";
+import { Checkbox } from "@/components/fields";
 
 export const dynamic = "force-dynamic";
 
@@ -125,13 +127,16 @@ export default async function Matchmaking({
             <span className="label">Mobile number (optional)</span>
             <input name="phone" type="tel" placeholder="(555) 123-4567" className="field mt-1.5" />
           </label>
-          <label className="block">
-            <span className="label">City</span>
-            <select name="city" defaultValue="NYC" className="field mt-1.5">
-              <option value="NYC">NYC</option>
-              <option value="SF">SF</option>
-            </select>
-          </label>
+          <Select
+            name="city"
+            label="City"
+            showLabel
+            defaultValue="NYC"
+            options={[
+              { value: "NYC", label: "NYC" },
+              { value: "SF", label: "SF" },
+            ]}
+          />
           <label className="block">
             <span className="label">Email (optional)</span>
             <input name="email" type="email" placeholder="optional" className="field mt-1.5" />
@@ -148,18 +153,12 @@ export default async function Matchmaking({
             <span className="label">Notes about them (optional)</span>
             <input name="blurb" placeholder="Founder, loves trail running, wants something serious." className="field mt-1.5" />
           </label>
-          <label className="flex items-start gap-3 text-sm sm:col-span-2">
-            <input type="checkbox" name="matchingConsent" required className="mt-1" />
-            <span className="text-muted">
-              I confirm this person asked to be added to Mutuals and is ready to receive matchmaking introductions.
-            </span>
-          </label>
-          <label className="flex items-start gap-3 text-sm sm:col-span-2">
-            <input type="checkbox" name="smsConsent" className="mt-1" />
-            <span className="text-muted">
-              I confirm this person separately agreed to receive Mutuals text messages at the mobile number above. Message and data rates may apply. Reply STOP to cancel.
-            </span>
-          </label>
+          <Checkbox name="matchingConsent" required className="sm:col-span-2">
+            I confirm this person asked to be added to Mutuals and is ready to receive matchmaking introductions.
+          </Checkbox>
+          <Checkbox name="smsConsent" className="sm:col-span-2">
+            I confirm this person separately agreed to receive Mutuals text messages at the mobile number above. Message and data rates may apply. Reply STOP to cancel.
+          </Checkbox>
           <div className="sm:col-span-2">
             <button type="submit" className="btn-primary">Add person</button>
           </div>

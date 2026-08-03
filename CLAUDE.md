@@ -71,6 +71,9 @@ If you are the only session, the main checkout is fine and nothing changes.
   exception. A photo is required to apply.
 - Every select and checkbox on a form driven by `useActionState` must be
   controlled. Uncontrolled ones reset on the re-render after a failed submit.
+- No native `<select>` anywhere: its popup is OS chrome. Two to five options use
+  `ChoiceGroup`, longer lists use `Select`, checkboxes use `Checkbox`, all in
+  `src/components/`. See the Form controls section of `DESIGN.md`.
 - Email magic links are shared authentication. `isOperator` grants studio
   access, while `isSuperAdmin` grants only operator-account management.
 - Introduction delivery uses a database outbox with fenced workers, retries,
