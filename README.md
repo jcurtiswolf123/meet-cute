@@ -7,6 +7,8 @@ Launch status: LIVE as of 2026-07-23. The release evidence and
 remaining external review item are in
 [`docs/LAUNCH-QA-2026-07-23.md`](docs/LAUNCH-QA-2026-07-23.md).
 
+New engineer? Start with [`docs/ENGINEERING.md`](docs/ENGINEERING.md).
+
 ## Product surfaces
 
 | Surface | Route | Purpose |

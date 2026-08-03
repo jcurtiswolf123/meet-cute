@@ -96,5 +96,6 @@ If you are the only session, the main checkout is fine and nothing changes.
 - `docs/BRAND-RENAME.md` : the Meet-Cute to Mutuals rename, which deployment
   identifiers still carry the old name, and the cutover order
 - `docs/SESSIONS.md` : running several Claude sessions on this repo at once
+- `docs/ENGINEERING.md` : onboarding for a new engineer, and the traps
 
 _Created 2026-06-24._
