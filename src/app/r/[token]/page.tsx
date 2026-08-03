@@ -98,11 +98,18 @@ export default async function WriteRecommendation({
             Want introductions of your own? A matchmaker introduces you to one person at a time, by
             email, and you decide for yourself.
           </p>
+          {/* Carries the token, so the application already knows their name and
+              address and can tell them the member they just vouched for counts
+              as one of their two. */}
           <div className="mt-4">
-            <Link href="/apply" className="btn-primary px-7 py-3">
+            <Link href={`/apply?from=${token}`} className="btn-primary px-7 py-3">
               Apply to join
             </Link>
           </div>
+          <p className="mt-3 text-xs text-muted">
+            {applicantFirst} counts as one of the two recommendations you would need, so you would
+            only have to ask one friend.
+          </p>
         </div>
       </Shell>
     );

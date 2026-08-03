@@ -151,6 +151,107 @@ export async function gateState(applicantId: string): Promise<GateState> {
   };
 }
 
+// --- the growth loop ---------------------------------------------------------
+//
+// A recommender is the warmest lead this product will ever see. They know a
+// member personally, they are in the right city and age band, and they just
+// spent two minutes writing carefully about someone's dating life. Before this,
+// all of that ended on a thank-you page.
+//
+// What is deliberately NOT done: making them sign up before they can vouch.
+// Gate the vouch behind an account and most of them never write it, and then
+// the applicant they were asked about cannot get in either. The loop has to
+// take the vouch first and make the offer second.
+
+/** How long to wait before nudging a friend who has not written back. */
+export const REMINDER_DELAY_MS = 48 * 60 * 60 * 1000;
+/** How long after vouching to ask the friend whether they want this too. */
+export const FOLLOW_UP_DELAY_MS = 36 * 60 * 60 * 1000;
+
+export type FastTrack = {
+  /** The recommendation this person wrote, which is what earns the credit. */
+  recommendationId: string;
+  /** The member they vouched for, who now counts as one of their two. */
+  member: { id: string; name: string; email: string | null; gender: string | null };
+};
+
+/**
+ * Someone applying who has already vouched for a member needs one new friend,
+ * not two: the member they vouched for counts as the other.
+ *
+ * This is the incentive that makes the loop turn, and it is not a discount
+ * invented to be generous. Someone a member's own circle already vouched for is
+ * exactly who this network wants, and the vouch they wrote is real evidence
+ * that already exists. Halving the work is what raises the one number the loop
+ * depends on: how many recommenders become members.
+ *
+ * The opposite-gender rule still applies to the credit. A man who vouched for a
+ * man has not satisfied half of "two women", so he gets no credit and is asked
+ * for two, the same as anyone else.
+ */
+export async function fastTrackFor(
+  email: string | null | undefined,
+  applicantGender: string | null,
+): Promise<FastTrack | null> {
+  const address = String(email ?? "").trim().toLowerCase();
+  if (!address) return null;
+  const written = await prisma.recommendation.findFirst({
+    where: { email: address, status: "submitted" },
+    orderBy: { submittedAt: "desc" },
+    select: {
+      id: true,
+      applicant: { select: { id: true, name: true, email: true, gender: true, status: true } },
+    },
+  });
+  if (!written) return null;
+  // Only a member counts. Vouching for someone who was declined, or who never
+  // got in, is not a credential.
+  if (written.applicant.status !== "active") return null;
+  if (!countsTowardGate(applicantGender, written.applicant.gender ?? "")) return null;
+  return { recommendationId: written.id, member: written.applicant };
+}
+
+/** How many friends this applicant has to name on the form. */
+export function requiredNewRecommenders(fastTrack: FastTrack | null): number {
+  return fastTrack ? REQUIRED_RECOMMENDATIONS - 1 : REQUIRED_RECOMMENDATIONS;
+}
+
+/**
+ * Record that a recommender became an applicant.
+ *
+ * Two things happen, and they are different: the Recommendation rows they wrote
+ * are stamped with the person they became (which is the only way the funnel can
+ * ever be measured), and a Vouch row is written for each member they vouched
+ * for (which is the durable member-to-member relation the studio already reads
+ * for social proof).
+ */
+export async function linkRecommenderSignup(person: {
+  id: string;
+  email: string | null;
+}): Promise<number> {
+  const address = String(person.email ?? "").trim().toLowerCase();
+  if (!address) return 0;
+  const written = await prisma.recommendation.findMany({
+    where: { email: address, status: "submitted", convertedPersonId: null },
+    select: { id: true, applicantId: true, body: true },
+  });
+  if (written.length === 0) return 0;
+
+  await prisma.recommendation.updateMany({
+    where: { id: { in: written.map((r) => r.id) } },
+    data: { convertedPersonId: person.id, convertedAt: new Date() },
+  });
+  for (const row of written) {
+    if (row.applicantId === person.id) continue;
+    await prisma.vouch.upsert({
+      where: { voucherId_subjectId: { voucherId: person.id, subjectId: row.applicantId } },
+      create: { voucherId: person.id, subjectId: row.applicantId, note: row.body },
+      update: {},
+    });
+  }
+  return written.length;
+}
+
 export type AcceptanceResult = {
   accepted: boolean;
   /** True only on the transition, so the welcome email is sent exactly once. */

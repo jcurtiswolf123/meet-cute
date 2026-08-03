@@ -95,6 +95,9 @@ export async function queueEmailDelivery(args: {
   personId?: string | null;
   inviteId?: string | null;
   inviteToken?: string | null;
+  /** Send no earlier than this. Used by the scheduled nudge and follow-up,
+   *  which ride the outbox rather than a cron. */
+  availableAt?: Date;
   db?: Prisma.TransactionClient;
 }): Promise<DeliveryJob> {
   const to = Array.isArray(args.to) ? args.to : [args.to];
@@ -116,6 +119,7 @@ export async function queueEmailDelivery(args: {
       matchId: args.matchId,
       personId: args.personId,
       inviteId: args.inviteId,
+      ...(args.availableAt ? { availableAt: args.availableAt } : {}),
     },
     args.db,
   );

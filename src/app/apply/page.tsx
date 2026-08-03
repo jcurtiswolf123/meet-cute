@@ -6,6 +6,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import { requestMagicLink } from "@/lib/actions";
 import { magicLinkErrorMessage } from "@/lib/magic-link-status";
 import { maxBirthdateForAge } from "@/lib/age";
+import { fastTrackFor } from "@/lib/recommendations";
 import { ApplySection } from "./ApplySection";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export const metadata = { title: "Apply" };
 export default async function Apply({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; error?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string; from?: string }>;
 }) {
   const me = await getCurrentPerson();
   const sp = await searchParams;
@@ -23,16 +24,28 @@ export default async function Apply({
   if (!me) {
     const sent = sp.sent === "1";
     const errorMessage = magicLinkErrorMessage(sp.error);
+    // Arriving from the follow-up email a recommender got. They already gave us
+    // a name and an address when someone named them, so asking for the address
+    // again is friction we put there ourselves.
+    const invited = sp.from
+      ? await prisma.recommendation.findUnique({
+          where: { token: sp.from },
+          select: { name: true, email: true, applicant: { select: { name: true } } },
+        })
+      : null;
     return (
       <>
       <main id="main-content" className="container-mc min-h-screen py-12">
         <Logo />
         <div className="mt-10 max-w-xl">
           <p className="label mb-3">Application</p>
-          <h1 className="font-display text-4xl font-medium tracking-tight">Start your application.</h1>
+          <h1 className="font-display text-4xl font-medium tracking-tight">
+            {invited ? `Welcome, ${invited.name.split(" ")[0]}.` : "Start your application."}
+          </h1>
           <p className="mt-3 text-sm leading-relaxed text-muted">
-            Enter your email and we will send a one-time link to begin. A real person reads every
-            application, and you will hear back either way.
+            {invited
+              ? `You vouched for ${invited.applicant.name.split(" ")[0]}, so they already count as one of the two recommendations you need. Confirm your email and we will send a one-time link to begin.`
+              : "Enter your email and we will send a one-time link to begin. A real person reads every application, and you will hear back either way."}
           </p>
 
           {/* This page used to redirect back to itself after a request and render
@@ -58,7 +71,16 @@ export default async function Apply({
             <label className="label" htmlFor="email">
               Email
             </label>
-            <input id="email" name="email" type="email" required autoComplete="email" className="field mt-1.5" placeholder="you@email.com" />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              className="field mt-1.5"
+              placeholder="you@email.com"
+              defaultValue={invited?.email ?? ""}
+            />
             <button className="btn-primary w-full py-3" type="submit">
               Send me a link
             </button>
@@ -103,6 +125,7 @@ export default async function Apply({
   // Prefill the friends they already named, so a returning applicant who is
   // fixing one field does not have to retype both recommenders. A friend who
   // has already written back is never re-mailed (see saveRecommenders).
+  const fastTrack = await fastTrackFor(me.email, me.gender);
   const recommenders = await prisma.recommendation.findMany({
     where: { applicantId: me.id },
     orderBy: { createdAt: "asc" },
@@ -138,6 +161,9 @@ export default async function Apply({
             lookingFor: me.lookingFor ?? "",
             maxBirthdate,
             recommenders,
+            fastTrack: fastTrack
+              ? { memberName: fastTrack.member.name, memberGender: fastTrack.member.gender }
+              : null,
           }}
         />
       </div>
