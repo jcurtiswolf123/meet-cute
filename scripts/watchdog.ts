@@ -36,6 +36,12 @@ const AUTOFIX = process.env.WATCHDOG_AUTOFIX === "1";
  *  A compile error is usually one or two lines; anything much larger means the
  *  model rewrote the file rather than fixing it. */
 const MAX_AUTOFIX_CHURN = Number(process.env.WATCHDOG_AUTOFIX_MAX_LINES) || 40;
+/** The default patch model is a REASONING model: it emits thousands of tokens
+ *  of `reasoning_content` before any answer. At 8000 it spent the whole budget
+ *  thinking and returned an empty `content`, which read downstream as "the
+ *  model had no fix". A patch is a batch job with no latency pressure, so give
+ *  it room. */
+const PATCH_MAX_TOKENS = Number(process.env.WATCHDOG_PATCH_MAX_TOKENS) || 16_000;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
@@ -55,7 +61,7 @@ async function askForPatch(prompt: string): Promise<string> {
         const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY });
         const res = await anthropic.messages.create({
           model: process.env.COPILOT_TOOLS_MODEL || "claude-sonnet-4-6",
-          max_tokens: 8000,
+          max_tokens: PATCH_MAX_TOKENS,
           messages: [{ role: "user", content: prompt }],
         });
         return res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("\n");
@@ -77,7 +83,7 @@ async function askForPatch(prompt: string): Promise<string> {
         });
         const res = await nvidia.chat.completions.create({
           model: process.env.WATCHDOG_NVIDIA_MODEL || "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-          max_tokens: 8000,
+          max_tokens: PATCH_MAX_TOKENS,
           messages: [{ role: "user", content: prompt }],
         });
         return res.choices[0]?.message?.content ?? "";
@@ -92,7 +98,7 @@ async function askForPatch(prompt: string): Promise<string> {
         const openai = new OpenAI({ apiKey: OPENAI_KEY });
         const res = await openai.chat.completions.create({
           model: process.env.COPILOT_OPENAI_MODEL || "gpt-4o-mini",
-          max_tokens: 8000,
+          max_tokens: PATCH_MAX_TOKENS,
           messages: [{ role: "user", content: prompt }],
         });
         return res.choices[0]?.message?.content ?? "";
@@ -397,8 +403,11 @@ export type AutofixEdit = { path: string; search: string; replace: string };
  *  Exported so it can be tested without a live model. */
 export function parseEdits(raw: string, allowed: string[]): AutofixEdit[] {
   const edits: AutofixEdit[] = [];
+  // The separator after each marker is a newline OR a space: models put short
+  // search text on the marker line itself about half the time, and refusing
+  // that threw away otherwise perfect patches.
   const re =
-    /<<<EDIT[ \t]+(\S+)[ \t]*\r?\n<<<SEARCH\r?\n([\s\S]*?)\r?\n<<<REPLACE\r?\n([\s\S]*?)\r?\n>>>END/g;
+    /<<<EDIT[ \t]+(\S+)[ \t]*\r?\n<<<SEARCH[ \t]*\r?\n?([\s\S]*?)\r?\n?<<<REPLACE[ \t]*\r?\n?([\s\S]*?)\r?\n?>>>END/g;
   for (const m of raw.matchAll(re)) {
     const path = m[1].trim();
     if (!allowed.includes(path)) continue;

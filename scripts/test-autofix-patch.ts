@@ -64,6 +64,30 @@ assert.deepEqual(parseEdits(edit("src/lib/age.ts", "   ", "b"), ALLOWED), []);
 assert.deepEqual(parseEdits("I could not work out the fix, sorry.", ALLOWED), []);
 assert.deepEqual(parseEdits("", ALLOWED), []);
 
+
+// Models put short search text on the marker line about half the time. The
+// first strict regex refused those, throwing away perfect patches.
+{
+  const reply = [
+    "<<<EDIT src/lib/age.ts",
+    '<<<SEARCH const n: number = "wrong";',
+    "<<<REPLACE const n: number = 0;",
+    ">>>END",
+  ].join("\n");
+  const out = parseEdits(reply, ALLOWED);
+  assert.equal(out.length, 1, "marker-line form must parse");
+  assert.equal(out[0].search, 'const n: number = "wrong";');
+  assert.equal(out[0].replace, "const n: number = 0;");
+}
+
+// Multi-line bodies still work alongside it.
+{
+  const out = parseEdits(edit("src/lib/age.ts", "line one\nline two", "fixed one\nfixed two"), ALLOWED);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].search, "line one\nline two");
+  assert.equal(out[0].replace, "fixed one\nfixed two");
+}
+
 // --- applying --------------------------------------------------------------
 
 const FILE = 'const a = 1;\nconst n: number = "wrong";\nconst b = 2;\n';
