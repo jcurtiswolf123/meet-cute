@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
-import { addNote, createSuggestion } from "@/lib/actions";
+import { addNote, createSuggestion, hidePhoto } from "@/lib/actions";
 import { candidatesFor } from "@/lib/copilot";
 import { connectionsOf, vouchesFor } from "@/lib/social";
 import { Avatar, StageBadge } from "@/components/ui";
-import { SubmitButton } from "@/components/forms";
+import { SubmitButton, ConfirmActionForm } from "@/components/forms";
 import { IntroComposer } from "../../matchmaking/IntroComposer";
 import { introNotice } from "../../matchmaking/intro-notice";
 
@@ -140,6 +140,47 @@ export default async function PersonPage({
             )}
           </div>
         </div>
+
+        {/* Photos are live the moment a member uploads them, so this is not a
+            review queue. It is the one place an operator can take a photo down
+            after the fact: a report, or plainly not the person. Hiding writes
+            "rejected", and every surface that renders a photo filters on
+            "approved", so it disappears everywhere at once. */}
+        {p.photos.length > 0 && (
+          <div className="mt-5">
+            <p className="label text-muted">Photos</p>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {p.photos
+                .filter((photo) => photo.status !== "rejected")
+                .map((photo) => (
+                  <figure key={photo.id} className="w-24">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.url}
+                      alt={`${p.name}, photo ${photo.order + 1}`}
+                      className="h-24 w-24 rounded-lg border border-line object-cover"
+                    />
+                    <ConfirmActionForm
+                      action={hidePhoto}
+                      confirmMessage="Hide this photo everywhere?"
+                      triggerLabel="Hide"
+                      triggerAriaLabel={`Hide photo ${photo.order + 1} for ${p.name}`}
+                      confirmLabel="Hide it"
+                      pendingText="Hiding..."
+                      buttonClassName="mt-1 text-xs text-muted underline underline-offset-2 hover:text-ink"
+                    >
+                      <input type="hidden" name="photoId" value={photo.id} />
+                    </ConfirmActionForm>
+                  </figure>
+                ))}
+            </div>
+            {p.photos.some((photo) => photo.status === "rejected") && (
+              <p className="mt-2 text-xs text-muted">
+                {p.photos.filter((photo) => photo.status === "rejected").length} hidden by an operator.
+              </p>
+            )}
+          </div>
+        )}
 
         {p.bio && <p className="mt-5 text-sm leading-relaxed">{p.bio}</p>}
 

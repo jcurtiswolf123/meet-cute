@@ -88,7 +88,13 @@ export async function POST(req: Request) {
           url,
           storageUrl: storage.storageUrl,
           order: count,
-          status: "pending",
+          // Live on upload. There is no pre-publication review: photos used to
+          // land as "pending" behind a queue almost nobody worked, so 38 of 43
+          // real member photos were invisible and introductions went out with
+          // initials instead of a face. The status column stays because an
+          // operator can still hide a photo after the fact (see hidePhoto), but
+          // nothing gates a member's own upload any more.
+          status: "approved",
           ...(storage.databaseBytes
             ? { asset: { create: { bytes: Uint8Array.from(storage.databaseBytes) } } }
             : {}),
@@ -106,5 +112,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "The upload could not be saved." }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, id, url, status: "pending" });
+  return NextResponse.json({ ok: true, id, url, status: "approved" });
 }

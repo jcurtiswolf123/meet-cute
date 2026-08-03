@@ -8,7 +8,7 @@ type Item = { id: string; url: string; status: string };
 const MAX = 6;
 
 // Applicant photo uploader. Posts each file straight to /api/photos (which
-// normalizes, strips EXIF, and stores it as `pending` for operator moderation),
+// normalizes, strips EXIF, and stores it live: there is no review queue),
 // so a photo is saved the moment it is chosen - independent of the main
 // application form submit. New members almost always convert better with a face
 // on file, so we make this prominent but not a hard blocker.
@@ -41,7 +41,7 @@ export function PhotoUpload({ initial }: { initial: Item[] }) {
           setError(data.error || "That photo could not be uploaded.");
           continue;
         }
-        setItems((prev) => [...prev, { id: data.id!, url: data.url!, status: data.status || "pending" }]);
+        setItems((prev) => [...prev, { id: data.id!, url: data.url!, status: data.status || "approved" }]);
       } catch {
         setError("Upload failed. Check your connection and try again.");
       }

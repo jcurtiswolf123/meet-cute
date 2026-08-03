@@ -157,7 +157,12 @@ model Photo {
   storageUrl String? // external object-store URL (Vercel Blob) when not on local disk
   asset      PhotoAsset?
   order      Int         @default(0)
-  status     String      @default("approved") // pending | approved | rejected (moderation)
+  // approved | rejected. There is no pre-publication review: an upload is live
+  // immediately. "rejected" is an operator takedown after the fact, and every
+  // surface that renders a photo filters on "approved", which is what makes the
+  // takedown effective everywhere at once. "pending" is retired; the
+  // 20260803120000 migration released the backlog.
+  status     String      @default("approved")
 }
 
 // Shared database fallback for normalized image bytes. This keeps production

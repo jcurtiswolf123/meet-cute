@@ -18,9 +18,9 @@ const STUDIO_SECTIONS: SidebarSection[] = [
   {
     label: "Manage",
     items: [
-      { href: "/studio/moderation", label: "Photos", icon: "user" },
       { href: "/studio/delivery", label: "Delivery", icon: "mail" },
       { href: "/studio/events", label: "Events", icon: "calendar" },
+      { href: "/studio/venues", label: "Venues", icon: "home" },
       { href: "/studio/copilot", label: "Co-pilot", icon: "wand" },
       { href: "/studio/team", label: "Team", icon: "userCog" },
     ],

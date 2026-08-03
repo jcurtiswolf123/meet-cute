@@ -2,10 +2,11 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-03 (reply-by-email was dead for eleven days: the Resend
+Last updated: 2026-08-03 (photos are live on upload and the review queue is
+gone: 38 of 43 member photos had been stranded pending. Before that:
+reply-by-email was dead for eleven days: the Resend
 webhook pointed at a host the app 308-redirects, so no member's "Y" ever
-arrived. Repointed, backfilled, and the watchdog now asserts it. Photo
-moderation queue built, because nothing was ever approved. Before that: the
+arrived. Repointed, backfilled, and the watchdog now asserts it. Before that: the
 co-pilot runs on NVIDIA and no longer surfaces
 provider errors as answers; `npm run dev` is now a throwaway local database
 instead of production; event times are read and rendered in the dinner's own
@@ -17,6 +18,42 @@ a suggested pair can be introduced; the database is healthy, the latency cost is
 sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
+
+## 2026-08-03: photos go live on upload, the review queue is gone
+
+Reversal of the queue built earlier today, at Joshua's call. Shipped and live.
+
+The queue was the right fix for the symptom and the wrong shape for the
+product. Uploads landed as `pending` and every read filters on `approved`, so a
+photo was invisible until an operator approved it. Nobody worked the queue:
+**38 of 43 real member photos were pending**, which is why introductions kept
+going out with initials instead of a face. Building the queue made that visible;
+removing the gate makes it stop happening.
+
+What changed:
+
+- **`/api/photos` writes `approved`.** A member's upload is live the moment it
+  finishes. The column default follows, so a row inserted by any other path is
+  visible too rather than silently disappearing.
+- **`/studio/moderation` is deleted**, along with the Photos nav item, the
+  "Photos waiting" blocker card on Directory, `approvePhoto`, and the co-pilot's
+  "approve photos for X" intent and its "photos to moderate" line.
+- **The 20260803120000 migration releases the backlog.** Every `pending` row
+  becomes `approved`. Rows an operator explicitly **rejected stay rejected**:
+  that was a real decision and the backfill must not undo it. Verified against a
+  disposable database, including that the new column default is `approved`.
+- **Takedown survives, because removing the queue removed the only place an
+  operator could act on a photo at all.** `hidePhoto` writes `rejected` and every
+  surface filters on `approved`, so it disappears everywhere at once. It is
+  reachable from a photo strip on the studio person profile, and from the
+  co-pilot as "hide photos for <name>". The row is kept, not deleted, so it is
+  reversible from the database.
+
+The `status` column and the `approved` filters all stay. What is gone is the
+gate, not the ability to take a photo down.
+
+Terms section 8 already said we "may" review content and are "not obligated to
+monitor" it, so nothing there needed changing.
 
 ## 2026-08-03: the connection email suggests where to go
 

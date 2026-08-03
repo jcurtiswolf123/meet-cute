@@ -613,21 +613,24 @@ export async function deleteAccount() {
   redirect("/?deleted=1");
 }
 
-// Operator: moderate a pending photo.
-export async function approvePhoto(formData: FormData) {
+// Operator: take a photo down after the fact.
+//
+// There is no pre-publication review any more: a member's upload is live
+// immediately, so nothing needs approving. This is the reverse operation, and
+// it is the only remaining moderation control: if a photo is reported, or is
+// obviously not the member, an operator hides it and every surface stops
+// showing it because they all filter on "approved". The member's row is left in
+// place rather than deleted so the action is reversible from the database.
+export async function hidePhoto(formData: FormData) {
   const op = await requireOperator();
   if (!op) throw new Error("operators only");
   const id = String(formData.get("photoId") || "");
-  await prisma.photo.update({ where: { id }, data: { status: "approved" } });
-  revalidatePath("/studio/moderation");
-}
-
-export async function rejectPhoto(formData: FormData) {
-  const op = await requireOperator();
-  if (!op) throw new Error("operators only");
-  const id = String(formData.get("photoId") || "");
-  await prisma.photo.update({ where: { id }, data: { status: "rejected" } });
-  revalidatePath("/studio/moderation");
+  const photo = await prisma.photo.update({
+    where: { id },
+    data: { status: "rejected" },
+    select: { personId: true },
+  });
+  revalidatePath(`/studio/person/${photo.personId}`);
 }
 
 // Operator: resolve a safety report.
@@ -640,7 +643,7 @@ export async function resolveReport(formData: FormData) {
     where: { id },
     data: { status: ["reviewed", "actioned", "dismissed"].includes(status) ? status : "reviewed" },
   });
-  revalidatePath("/studio/moderation");
+  revalidatePath("/studio");
 }
 
 // Member: remove one of their own photos.

@@ -73,15 +73,16 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
   const wantsCreateEvent = /\b(create|add|schedule|set ?up|plan|host)\b.*\b(dinner|event|gathering|party)\b/.test(lc);
   const wantsMatch = /\b(match|suggest|introduce|pair|set up)\b/.test(lc) && /\b(and|with|to)\b/.test(lc) && !wantsInvite;
   const wantsNote = /\b(add )?note\b.*:/.test(lc) || /^note /.test(lc);
-  const wantsApprovePhotos = /\bapprove\b.*\bphoto/.test(lc);
+  // Photos are live on upload, so there is nothing to approve. The reverse
+  // still exists: hiding one that should not be up.
+  const wantsHidePhotos = /\b(hide|remove|take down|takedown)\b.*\bphoto/.test(lc);
   const wantsCloseMatch = /\b(close|end|exit|cancel|pass on)\b.*\bmatch\b/.test(lc);
   const wantsAttention = /\b(what|anything).*(need|attention|do next|priorit|to do|on my plate)\b/.test(lc)
     || /\bwhat should i (do|work on)\b/.test(lc);
 
   // --- operator dashboard in chat: what needs attention -----------------
   if (wantsAttention) {
-    const [pendingPhotos, openReports, mutualReady] = await Promise.all([
-      prisma.photo.count({ where: { status: "pending" } }),
+    const [openReports, mutualReady] = await Promise.all([
       prisma.report.count({ where: { status: "open" } }),
       prisma.match.count({ where: { stage: "mutual_yes" } }),
     ]);
@@ -102,7 +103,6 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
       handled: true,
       text: [
         "Here is what needs you:",
-        `- ${pendingPhotos} photo${pendingPhotos === 1 ? "" : "s"} to moderate`,
         `- ${openReports} open report${openReports === 1 ? "" : "s"}`,
         `- ${mutualReady} mutual-yes match${mutualReady === 1 ? "" : "es"} ready for operator coordination`,
         `- ${stale} of ${actives} active singles have no suggestion in 60+ days`,
@@ -208,17 +208,21 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
     };
   }
 
-  // --- approve a member's pending photos ---------------------------------
-  if (wantsApprovePhotos) {
+  // --- take a member's photos down ---------------------------------------
+  // The only moderation control left. Uploads are live immediately, so this is
+  // for a reported or plainly wrong photo, not a review queue.
+  if (wantsHidePhotos) {
     const people = await peopleInText(q, 1);
-    if (!people[0]) return { handled: true, text: "Whose photos should I approve? Name the member." };
+    if (!people[0]) return { handled: true, text: "Whose photos should I hide? Name the member." };
     const r = await prisma.photo.updateMany({
-      where: { personId: people[0].id, status: "pending" },
-      data: { status: "approved" },
+      where: { personId: people[0].id, status: { not: "rejected" } },
+      data: { status: "rejected" },
     });
     return {
       handled: true,
-      text: r.count ? `Approved ${r.count} photo${r.count === 1 ? "" : "s"} for ${people[0].name}.` : `${people[0].name} has no pending photos.`,
+      text: r.count
+        ? `Hid ${r.count} photo${r.count === 1 ? "" : "s"} for ${people[0].name}. They no longer appear anywhere.`
+        : `${people[0].name} has no visible photos.`,
     };
   }
 

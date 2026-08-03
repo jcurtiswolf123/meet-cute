@@ -99,7 +99,6 @@ export default async function Roster({
     include: { photos: true },
     orderBy: { appliedAt: "desc" },
   });
-  const pendingPhotoCount = await prisma.photo.count({ where: { status: "pending" } });
   const [failedDeliveryCount, failedDeliveries] = await Promise.all([
     prisma.deliveryJob.count({ where: { status: "failed" } }),
     prisma.deliveryJob.findMany({
@@ -165,24 +164,6 @@ export default async function Roster({
             ))}
           </ul>
         </section>
-      )}
-      {/* A pending photo is invisible work: the member has uploaded a face, and
-          every introduction still goes out with their initials until someone
-          approves it. There was no queue at all until 2026-08-03, so this is
-          the only place an operator finds out. */}
-      {pendingPhotoCount > 0 && (
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl2 border border-studio-line border-l-2 border-l-ink bg-studio-subtle p-5">
-          <div>
-            <p className="label !text-ink">Photos waiting ({pendingPhotoCount})</p>
-            <p className="mt-1 text-sm text-muted">
-              Introductions for these members go out with initials instead of a face until you
-              approve them.
-            </p>
-          </div>
-          <Link href="/studio/moderation" className="btn-ghost">
-            Review photos
-          </Link>
-        </div>
       )}
       {pendingApplicants.length > 0 && (
         <div className="mt-6 rounded-xl2 border border-studio-line border-l-2 border-l-ink bg-studio-subtle p-5">
