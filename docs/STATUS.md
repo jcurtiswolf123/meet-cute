@@ -2,7 +2,11 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-03 (the co-pilot runs on NVIDIA and no longer surfaces
+Last updated: 2026-08-03 (reply-by-email was dead for eleven days: the Resend
+webhook pointed at a host the app 308-redirects, so no member's "Y" ever
+arrived. Repointed, backfilled, and the watchdog now asserts it. Photo
+moderation queue built, because nothing was ever approved. Before that: the
+co-pilot runs on NVIDIA and no longer surfaces
 provider errors as answers; `npm run dev` is now a throwaway local database
 instead of production; event times are read and rendered in the dinner's own
 city; photos lead the invitation; whole names once two people match; match email
@@ -103,6 +107,92 @@ introduction race, and Prelude SMS all pass, on top of pure, reply-parse and
 age-gate. Three suites (`test:journey:email`, `test:prelude:pipeline`,
 `test:prelude:webhook`) hard-require a `127.0.0.1` or `localhost` hostname by
 design and were not run. That guard is correct and was left alone.
+
+## 2026-08-03: the Y/N reply path had been dead since the rename
+
+Shipped and verified live (Fly v167). PR #20. Found by a parallel investigation
+after #19 had already merged, and it corrects what #19 said about this.
+
+**The webhook pointed at a host that 308s.** The Resend inbound webhook was
+still registered against `https://hellomeetcute.com/api/email/inbound`, the
+pre-rename host. `next.config.mjs` blanket-redirects that host to the canonical
+one, and svix does not follow 3xx, so every `email.received` event was recorded
+as a failed delivery and no member's "Y" reply ever reached the app. Broken
+since the domain move on 2026-07-22; replies from 2026-07-29 hit the same dead
+endpoint.
+
+The live proof: Michelle Killoran replied `Y` at 23:32 on 8/2. The mail reached
+Resend fine (receiving id `769a92d1-...`, body a clean `Y`, and
+`decisionFromReply` reads it as yes), and her match sat at `mutual_yes` with her
+side `pending` while the other side had said yes two minutes earlier.
+
+**Why nothing caught it.** A webhook that never arrives raises no app-side
+error. Sentry was clean, both health checks were green, and all three layers of
+`docs/EMAIL-TESTING.md` passed. The `/i/[token]` buttons kept working throughout
+because they post first-party on the canonical host and never touch the webhook,
+which is why the failure looked intermittent rather than total: every decision
+made by clicking landed, and only replying by email was dead.
+
+Fixed by repointing the webhook. The signing secret survives a repoint, so
+`RESEND_WEBHOOK_SECRET` is unchanged and no deploy was needed. Verified with a
+correctly-signed synthetic `email.received` POST carrying a token that does not
+exist: the canonical host answers 200 and runs the handler, the legacy host
+still answers 308. Michelle's lost yes was then backfilled through
+`recordInviteDecision`, the same call the webhook would have made; that match is
+`connected` and both deliveries sent.
+
+**The lasting fix is `checkInboundWebhook`.** Every 15 minutes the watchdog
+asserts the enabled `/api/email/inbound` webhook sits on the host in
+`NEXT_PUBLIC_APP_URL`. Proved both ways against the live Resend account: green
+as configured, `ALERT: inbound-webhook failing` when pointed anywhere else. The
+URL lives only in Resend, so nothing in the repo can drift with it and it has to
+be asserted from outside. `docs/EMAIL-TESTING.md` gains a Layer 0 for the same
+reason.
+
+Deliberately **not** adding an `/api/*` carve-out to the legacy-host redirects.
+The 308 is the correct HTTP answer; making dead domains permanently
+load-bearing for API traffic trades one silent failure for a worse one.
+
+**Audited the rest of the account:** only the one Mutuals webhook, now correct.
+Open and click tracking are both **off** on `hellomutuals.com`, so they were
+never a factor in the Promotions problem and the `List-Unsubscribe` fix in #19
+remains the lever there.
+
+## 2026-08-03: photos were never approved, so they never showed
+
+#19 made photos lead the invitation page and the email. Necessary, not
+sufficient. `src/app/api/photos/route.ts` creates every upload as `pending`
+(overriding the schema default), every display path filters on `approved`, and
+`approvePhoto`/`rejectPhoto` have revalidated `/studio/moderation` since launch,
+a route that was never built. The only working approval path was typing "approve
+photos for <name>" at the co-pilot. So uploads sat pending forever and every
+introduction went out with an initials avatar. **That, not the photo plumbing,
+is why photos did not show before a decision.**
+
+Built `/studio/moderation` against the actions that already existed, and put the
+pending count on the Directory above the fold, because a pending photo is
+invisible work: the member has uploaded a face and their introductions are going
+out without it. Five photos are waiting on production; approving a member's
+photo is Jess's call, so they were left alone.
+
+Two things found alongside it:
+
+- **The applicant copy promised the opposite of the product.** PhotoUpload told
+  applicants "a match only sees them after you both say yes." That was never
+  true (the primary photo has always travelled in the introduction) and is
+  further from true now. The copy moves to match the product and names exactly
+  who sees what.
+- **The invite photo route stopped a stage short of the page it serves.** The
+  page renders for `connecting` and `connected`; the route allowed only
+  `invited` and `mutual_yes`, so photos 404'd once two people connected.
+
+**CI note:** the operator-portal e2e failed twice in a row on this merge, which
+looked like a regression from the new sidebar item. It is not. Reproduced
+locally against a standalone production server: 3 pass / 1 fail, and the one
+failure is the documented `test-operator-portal.ts:212` waitForURL signature,
+while the sidebar assertions at 149 and 196 passed every run. Same known flake,
+unlucky twice.
+
 
 ## 2026-08-03: the co-pilot could not act, and dev ran against production
 
