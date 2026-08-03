@@ -17,16 +17,34 @@
 // so a stray click cannot email or text a real person.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
+import { createHash } from "node:crypto";
 
 const ROOT = process.cwd();
 const ENV_FILE = join(ROOT, ".env.sandbox");
 const CONTAINER = "mutuals-sandbox-pg";
 const PORT = 5433; // not 5432, so it cannot collide with a local Postgres
+
+// Every working copy gets its own database and its own port, derived from where
+// it sits on disk. Two Claude sessions in two git worktrees can then both run
+// `npm run dev` without one seeding over the other's roster or losing the race
+// for a port. See scripts/session.ts for why that matters.
+//
+// The main checkout keeps the familiar names so nothing about working alone
+// changes: mutuals_sandbox on 3009.
+const IS_SESSION = basename(dirname(ROOT)).endsWith("-sessions");
+const SLUG = basename(ROOT);
+
+function portFor(slug: string): number {
+  const h = parseInt(createHash("sha256").update(slug).digest("hex").slice(0, 8), 16);
+  return 3020 + (h % 200);
+}
+
 // The usual dev port, because the sandbox is now what `npm run dev` means.
 // Pointing a dev server at the live roster is `npm run dev:live`, on 3019.
-const APP_PORT = Number(process.env.SANDBOX_PORT) || 3009;
-const DB_URL = `postgresql://postgres@127.0.0.1:${PORT}/mutuals_sandbox?schema=meetcute`;
+const APP_PORT = Number(process.env.SANDBOX_PORT) || (IS_SESSION ? portFor(SLUG) : 3009);
+const DB_NAME = IS_SESSION ? `mutuals_s_${SLUG.replace(/-/g, "_")}` : "mutuals_sandbox";
+const DB_URL = `postgresql://postgres@127.0.0.1:${PORT}/${DB_NAME}?schema=meetcute`;
 
 // Every provider that can reach the outside world, blanked. An empty string is
 // deliberate rather than unset: the app's own code checks for a truthy key, and
@@ -134,7 +152,7 @@ async function up() {
       "run", "-d",
       "--name", CONTAINER,
       "-e", "POSTGRES_HOST_AUTH_METHOD=trust",
-      "-e", "POSTGRES_DB=mutuals_sandbox",
+      "-e", "POSTGRES_DB=postgres",
       "-p", `${PORT}:5432`,
       "postgres:16",
     ], { quiet: true });
@@ -147,6 +165,21 @@ async function up() {
   }
 
   await waitForPostgres();
+
+  // One container, one database per working copy. Creating a database is cheap;
+  // a container per session is not, and they would fight over the port.
+  const exists = sh(
+    "docker",
+    ["exec", CONTAINER, "psql", "-U", "postgres", "-d", "postgres", "-tAc",
+     `SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'`],
+    { quiet: true },
+  );
+  if (exists.out.trim() !== "1") {
+    console.log(`sandbox: creating database ${DB_NAME}`);
+    sh("docker", ["exec", CONTAINER, "psql", "-U", "postgres", "-d", "postgres", "-c",
+       `CREATE DATABASE ${DB_NAME}`], { quiet: true });
+  }
+
   writeEnvFile();
   const env = sandboxEnv();
 
@@ -166,7 +199,7 @@ async function up() {
   console.log(
     [
       "",
-      "sandbox is up.",
+      `sandbox is up${IS_SESSION ? ` for session "${SLUG}"` : ""}.`,
       `  database  ${DB_URL}`,
       `  app       npm run sandbox   ->  http://127.0.0.1:${APP_PORT}`,
       "  email/SMS disabled, demo login on, production untouched",
@@ -183,15 +216,18 @@ async function up() {
  * that actually runs.
  */
 function stopExistingDevServer() {
-  // ps, not pgrep: pgrep has under-reported live processes on this machine.
-  const listing = sh("ps", ["ax", "-o", "pid=,command="], { quiet: true });
+  // Only whatever is holding OUR port. The first version of this killed every
+  // Next process on the machine, which was survivable with one checkout and
+  // actively hostile with several: it would have taken down another session's
+  // dev server mid-edit. lsof by port is exact, and a worktree cannot collide
+  // with another because the port is derived from its path.
+  const listing = sh("lsof", ["-nP", `-iTCP:${APP_PORT}`, "-sTCP:LISTEN", "-t"], { quiet: true });
   const pids = listing.out
     .split("\n")
-    .filter((l) => /next-server|next dev|\/next\b.*dev/.test(l))
-    .map((l) => Number(l.trim().split(/\s+/)[0]))
-    .filter((n) => Number.isFinite(n) && n !== process.pid);
+    .map((l) => Number(l.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0 && n !== process.pid);
   if (!pids.length) return;
-  console.log(`sandbox: stopping ${pids.length} running dev server process(es) so the sandbox env takes effect`);
+  console.log(`sandbox: stopping ${pids.length} process(es) holding port ${APP_PORT}, so this environment is the one that runs`);
   for (const pid of pids) {
     try {
       process.kill(pid, "SIGTERM");
@@ -223,7 +259,7 @@ function down() {
 }
 
 function psql() {
-  const r = spawnSync("docker", ["exec", "-it", CONTAINER, "psql", "-U", "postgres", "-d", "mutuals_sandbox"], {
+  const r = spawnSync("docker", ["exec", "-it", CONTAINER, "psql", "-U", "postgres", "-d", DB_NAME], {
     stdio: "inherit",
   });
   process.exit(r.status ?? 0);

@@ -43,7 +43,10 @@
     "sandbox:down": "tsx scripts/sandbox.ts down",
     "sandbox:psql": "tsx scripts/sandbox.ts psql",
     "dev:live": "next dev -p 3019",
-    "venues:suggest": "node --env-file-if-exists=.env --import tsx scripts/suggest-venues.ts"
+    "venues:suggest": "node --env-file-if-exists=.env --import tsx scripts/suggest-venues.ts",
+    "session:new": "tsx scripts/session.ts new",
+    "session:list": "tsx scripts/session.ts list",
+    "session:end": "tsx scripts/session.ts end"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
