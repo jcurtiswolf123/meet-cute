@@ -3,6 +3,7 @@ node_modules
 out
 .env
 .env*.local
+.env.sandbox
 prisma/dev.db-journal
 *.log
 .DS_Store
@@ -23,3 +24,4 @@ graphify-out/
 
 # playwright-mcp browser artifacts (local QA)
 .playwright-mcp/
+.claude/worktrees/
