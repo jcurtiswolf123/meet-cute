@@ -158,6 +158,11 @@ async function up() {
     console.warn("sandbox: seed script failed; the database is empty but usable");
   }
 
+  console.log("sandbox: filling in photo bytes");
+  if (!sh("npx", ["tsx", "scripts/sandbox-photos.ts"], { env }).ok) {
+    console.warn("sandbox: photo fill failed; profile images will 404");
+  }
+
   console.log(
     [
       "",
