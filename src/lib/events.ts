@@ -4,6 +4,7 @@
 import { prisma } from "./prisma";
 import { eventInviteEmail } from "./email";
 import { makeDeliveryKey, queueEmailDelivery } from "./delivery";
+import { formatEventWhen } from "./event-time";
 
 export type NewEvent = {
   city: string; // "NYC" | "SF"
@@ -14,10 +15,16 @@ export type NewEvent = {
   notes?: string | null;
 };
 
-export function formatWhen(date: Date): string {
-  return date.toLocaleString("en-US", {
-    weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit",
-  });
+/** Normalize a loose city string to the two the product supports. */
+export function normalizeCity(city: string | null | undefined): "NYC" | "SF" {
+  const c = (city ?? "").trim();
+  return c.toLowerCase().includes("franc") || c.toUpperCase() === "SF" ? "SF" : "NYC";
+}
+
+/** An event time always reads in the city it happens in. Pass the city; the
+ *  default only exists so older call sites keep compiling, and it is NYC. */
+export function formatWhen(date: Date, city?: string | null): string {
+  return formatEventWhen(date, city);
 }
 
 function appBase(): string {
@@ -25,7 +32,7 @@ function appBase(): string {
 }
 
 export async function createEventRecord(e: NewEvent) {
-  const city = e.city.toLowerCase().includes("franc") || e.city.toUpperCase() === "SF" ? "SF" : "NYC";
+  const city = normalizeCity(e.city);
   return prisma.dinner.create({
     data: {
       city,
@@ -174,7 +181,7 @@ export async function inviteToEvent(
     });
   }
 
-  const when = formatWhen(dinner.date);
+  const when = formatWhen(dinner.date, dinner.city);
   const link = `${appBase()}/app/events`;
   let emailed = 0;
   await Promise.all(
@@ -221,11 +228,11 @@ export async function findEvent(text: string): Promise<{ id: string; label: stri
     const theme = (d.theme || "").toLowerCase();
     const venue = d.venue.toLowerCase();
     if ((theme && theme.length > 3 && lc.includes(theme)) || (venue.length > 3 && lc.includes(venue))) {
-      return { id: d.id, label: `${d.theme} (${d.city}, ${formatWhen(d.date)})` };
+      return { id: d.id, label: `${d.theme} (${d.city}, ${formatWhen(d.date, d.city)})` };
     }
   }
   // Otherwise the soonest upcoming (optionally filtered by a city hint).
   const pool = cityHint ? upcoming.filter((d) => d.city === cityHint) : upcoming;
   const pick = pool[0] || upcoming[0];
-  return pick ? { id: pick.id, label: `${pick.theme} (${pick.city}, ${formatWhen(pick.date)})` } : null;
+  return pick ? { id: pick.id, label: `${pick.theme} (${pick.city}, ${formatWhen(pick.date, pick.city)})` } : null;
 }

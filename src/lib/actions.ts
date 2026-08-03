@@ -36,6 +36,7 @@ import {
 import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInvites, recordInviteDecision, LIVE_INTRO_STAGES, introReturnPath } from "./introductions";
 import { rateLimit } from "./ratelimit";
 import { calendarAge, parseCalendarDate } from "./age";
+import { formatEventDay, parseEventDate } from "./event-time";
 import { mutualFriends } from "./social";
 import { deleteUpload } from "./uploads";
 import {
@@ -772,8 +773,11 @@ export async function createEvent(formData: FormData) {
   const notes = String(formData.get("notes") || "").trim();
 
   if (!venue) throw new Error("Add a venue.");
-  const date = dateRaw ? new Date(dateRaw) : null;
-  if (!date || Number.isNaN(date.getTime())) throw new Error("Pick a valid date and time.");
+  // datetime-local posts a naive wall clock. Read it in the dinner's city, not
+  // in the server's zone, which on Fly is UTC and shifted every NYC dinner by
+  // four hours.
+  const date = dateRaw ? parseEventDate(dateRaw, city) : null;
+  if (!date) throw new Error("Pick a valid date and time.");
 
   const ev = await createEventRecord({ city, date, venue, theme, capacity, notes });
   revalidatePath("/studio/events");
@@ -1532,7 +1536,7 @@ export async function requestDinnerSeat(formData: FormData) {
 
   const dinner = dinnerId ? await prisma.dinner.findUnique({ where: { id: dinnerId } }) : null;
   const context = dinner
-    ? `${dinner.theme || "Mutuals Dinner"} - ${dinner.city}, ${dinner.date.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`
+    ? `${dinner.theme || "Mutuals Dinner"} - ${dinner.city}, ${formatEventDay(dinner.date, dinner.city, { month: "long", day: "numeric" })}`
     : "an upcoming Mutuals dinner";
 
   // Signed-in member: record their interest on the guest list so it surfaces in

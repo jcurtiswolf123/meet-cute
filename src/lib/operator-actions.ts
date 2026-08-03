@@ -10,6 +10,7 @@
 // RAG answer.
 import { prisma } from "./prisma";
 import { findEvent, inviteToEvent, createEventRecord, formatWhen } from "./events";
+import { parseLooseWhen } from "./event-time";
 
 export type ActionResult = { handled: boolean; text?: string };
 
@@ -153,14 +154,10 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
     // venue: text after " at " up to a date/"on" boundary
     const venueMatch = q.match(/\bat\s+(.+?)(?:\s+on\s+|\s*,|\s+\d|$)/i);
     const venue = venueMatch?.[1]?.trim();
-    // date: try the chunk after " on ", else any parseable tail
+    // date: the chunk after " on " if there is one, else the whole command.
+    // Read as wall clock in the dinner's city, so "7pm" means 7pm there.
     const onMatch = q.match(/\bon\s+(.+)$/i);
-    const candidate = onMatch?.[1]?.trim();
-    let date: Date | null = null;
-    for (const s of [candidate, q].filter(Boolean) as string[]) {
-      const d = new Date(s);
-      if (!Number.isNaN(d.getTime()) && d.getFullYear() > 2000) { date = d; break; }
-    }
+    const date = parseLooseWhen(onMatch?.[1]?.trim() || q, city);
     if (!venue || !date) {
       return {
         handled: true,
@@ -170,7 +167,7 @@ export async function tryOperatorAction(operatorId: string, text: string): Promi
     const ev = await createEventRecord({ city, date, venue });
     return {
       handled: true,
-      text: `Created ${ev.theme} at ${venue} (${city}) for ${formatWhen(ev.date)}. Add invitees in Studio > Events, or say 'invite <names> to ${venue}'.`,
+      text: `Created ${ev.theme} at ${venue} (${city}) for ${formatWhen(ev.date, city)}. Add invitees in Studio > Events, or say 'invite <names> to ${venue}'.`,
     };
   }
 

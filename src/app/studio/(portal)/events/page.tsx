@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { createEvent } from "@/lib/actions";
+import { formatEventWhen, formatEventDay } from "@/lib/event-time";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ export default async function Events() {
                 </div>
                 <h3 className="mt-3 font-sans tracking-[-0.012em] text-xl font-medium">{e.theme}</h3>
                 <p className="mt-1 text-sm text-muted">
-                  {e.date.toLocaleString("en-US", { weekday: "short", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                  {formatEventWhen(e.date, e.city)}
                   {" · "}{e.venue}
                 </p>
                 <span className="mt-3 inline-block text-xs font-medium text-ink">Manage invitees →</span>
@@ -100,7 +101,7 @@ export default async function Events() {
                 <Link href={`/studio/events/${e.id}`} className="hover:underline">
                   {e.theme} · {e.city}
                 </Link>
-                <span>{e.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                <span>{formatEventDay(e.date, e.city, { month: "short", day: "numeric", year: "numeric" })}</span>
               </li>
             ))}
           </ul>
