@@ -21,13 +21,47 @@ Premium matchmaking with public applications, a member app, and an operator stud
 ## How to run
 ```bash
 npm ci
-npm run dev
+npm run dev            # sandbox: throwaway local database, :3009
 npm run test:launch
 npm run build
 ```
 
+`npm run dev` is a **local throwaway database**, not production, and every
+outbound provider key is blank so it cannot email or text a member. The repo's
+`.env` still points `DATABASE_URL` at the production Neon branch, so anything
+that talks to a database needs `set -a; . ./.env.sandbox; set +a` first. Use
+`. ./.env` only when you actually intend to touch the live roster, and say so
+out loud when you do. `npm run dev:live` (:3019) is the deliberate way to point
+a dev server at real data.
+
+## Working alongside other sessions
+
+**If another Claude session might be working in this repo, start your own
+worktree before you touch anything:**
+
+```bash
+npm run session:new <short-name>   # worktree + branch + database + port
+npm run session:list               # who is where, and what is dirty
+npm run session:end <short-name>   # refuses to run if you have uncommitted work
+```
+
+Three sessions shared this one checkout on 2026-08-03 and every failure that day
+came from it: an in-flight edit swept into someone else's commit and shipped, a
+typecheck run against a half-written file, `prisma generate` breaking another
+session's types, two dev servers fighting over one Next daemon, and a branch
+merged out from under the session that made it.
+
+A worktree gives you your own index, HEAD, files, database, and port. Inside
+one, `git add -A` is safe again because it can only see your own tree.
+
+If you are the only session, the main checkout is fine and nothing changes.
+
 ## Conventions
-- Neon Postgres is used in development and production. Never run database scripts without verifying the target database.
+- Neon Postgres is production. Development uses the sandbox (`npm run dev`).
+  Never run a database script without printing the target host first.
+- Never stage a whole file another session may be editing. Inside your own
+  worktree this is a non-issue; in the shared checkout it is how an unfinished
+  nav link reached production.
 - Production has two Fly machines. Uploads use Vercel Blob when configured and
   otherwise use Postgres, so no upload depends on one machine.
 - Demo login is local development only.
@@ -55,5 +89,6 @@ npm run build
 - `docs/TASKS.md` : backlog and in-progress work
 - `docs/BRAND-RENAME.md` : the Meet-Cute to Mutuals rename, which deployment
   identifiers still carry the old name, and the cutover order
+- `docs/SESSIONS.md` : running several Claude sessions on this repo at once
 
 _Created 2026-06-24._

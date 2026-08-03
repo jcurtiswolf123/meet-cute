@@ -169,10 +169,14 @@ function listSessions() {
   for (const e of entries) {
     const slug = basename(e.path);
     const isSession = e.path.startsWith(SESSIONS_DIR);
-    const port = isSession ? portFor(slug) : e.path === REPO ? 3009 : null;
+    const isMain = e.path === REPO;
+    // A worktree that is neither: someone made it by hand. Worth showing, since
+    // it is still a checkout that can hold uncommitted work.
+    const kind = isSession ? "session" : isMain ? "main   " : "other  ";
+    const port = isSession ? portFor(slug) : isMain ? 3009 : null;
     const dirty = sh("git", ["status", "--porcelain"], { cwd: e.path, quiet: true }).out;
     const changed = dirty ? dirty.split("\n").length : 0;
-    console.log(`  ${isSession ? "session" : "main   "}  ${e.branch.padEnd(28)} ${port ? `:${port}` : "     "}  ${changed ? `${changed} changed` : "clean"}`);
+    console.log(`  ${kind}  ${e.branch.padEnd(28)} ${port ? `:${port}` : "     "}  ${changed ? `${changed} changed` : "clean"}`);
     console.log(`           ${e.path}`);
   }
   console.log("");

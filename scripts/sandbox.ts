@@ -16,7 +16,7 @@
 // database URL resolves to localhost, and it blanks every outbound provider key
 // so a stray click cannot email or text a real person.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { createHash } from "node:crypto";
 
@@ -237,8 +237,46 @@ function stopExistingDevServer() {
   }
 }
 
+/**
+ * Turbopack keys its cache by ABSOLUTE path: the root is baked into the .sst
+ * files under .next/dev/cache. A .next produced at a different path does not
+ * error, it starts, prints "Ready", and then 404s every route, which is a
+ * genuinely confusing way to lose twenty minutes. Seen once already while
+ * setting up two session worktrees.
+ *
+ * It only takes a copied, renamed or restored working copy to hit this, all of
+ * which are normal things to do with worktrees. So stamp the root and wipe the
+ * cache when it does not match. .next is pure cache and rebuilds in under a
+ * second, so this is cheap insurance.
+ */
+function ensureBuildCacheBelongsHere() {
+  const next = join(ROOT, ".next");
+  if (!existsSync(next)) return;
+  const stamp = join(next, ".root");
+  const owner = existsSync(stamp) ? readFileSync(stamp, "utf8").trim() : "";
+  if (owner === ROOT) return;
+  console.log(
+    owner
+      ? `sandbox: .next was built at ${owner}, not here. Clearing it.`
+      : "sandbox: clearing an unstamped .next so turbopack rebuilds for this path",
+  );
+  rmSync(next, { recursive: true, force: true });
+}
+
+function stampBuildCache() {
+  const next = join(ROOT, ".next");
+  try {
+    mkdirSync(next, { recursive: true });
+    writeFileSync(join(next, ".root"), ROOT);
+  } catch {
+    /* best effort; the check simply re-clears next time */
+  }
+}
+
 function dev() {
   const env = sandboxEnv();
+  ensureBuildCacheBelongsHere();
+  stampBuildCache();
   stopExistingDevServer();
   console.log(`sandbox: next dev on http://127.0.0.1:${APP_PORT} against the local database`);
   const child = spawn("npx", ["next", "dev", "-p", String(APP_PORT)], { cwd: ROOT, stdio: "inherit", env });
