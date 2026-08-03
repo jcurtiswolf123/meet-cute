@@ -40,6 +40,19 @@ type SendArgs = {
   replyTo?: string;
   headers?: Record<string, string>;
   idempotencyKey?: string;
+  /**
+   * True only for mail sent to a list rather than to one person about their own
+   * account. Bulk mail gets the List-Unsubscribe pair; nothing else does.
+   *
+   * This used to be unconditional, which is why match emails landed in
+   * Promotions. List-Unsubscribe is how a sender tells Gmail "this is a
+   * mailing", and Gmail files it accordingly. Putting it on a one-to-one
+   * introduction, or on a sign-in link the recipient just asked for, is
+   * declaring your transactional mail to be a newsletter. Gmail only requires
+   * the header of senders above 5,000 messages a day, which this is nowhere
+   * near.
+   */
+  bulk?: boolean;
 };
 
 export type EmailSendResult =
@@ -54,6 +67,7 @@ export async function sendEmail({
   replyTo,
   headers,
   idempotencyKey,
+  bulk = false,
 }: SendArgs): Promise<EmailSendResult> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM || "Mutuals <hello@hellomutuals.com>";
@@ -82,9 +96,9 @@ export async function sendEmail({
     return { ok: true, providerMessageId: "dev" };
   }
 
-  // Reply-To a real inbox (improves deliverability vs a bare noreply) and a
-  // List-Unsubscribe header, both of which lower spam scoring. A caller-supplied
-  // replyTo (the token-bearing opt-in address) wins.
+  // Reply-To a real inbox, which reads as correspondence rather than a
+  // broadcast. A caller-supplied replyTo (the token-bearing opt-in address)
+  // wins.
   const replyToAddr = replyTo || process.env.RESEND_REPLY_TO || "josh@shiftsupportnetwork.com";
   // List-Unsubscribe takes a bare addr-spec. Interpolating replyToAddr directly
   // produced `<mailto:Mutuals <r+token@...>>` for every invite, which is not a
@@ -111,10 +125,14 @@ export async function sendEmail({
         text,
         reply_to: replyToAddr,
         headers: {
-          "List-Unsubscribe": `<mailto:${unsubscribeAddr}>`,
-          // RFC 8058 one-click, which Gmail's bulk sender guidelines expect
-          // alongside List-Unsubscribe.
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          ...(bulk
+            ? {
+                "List-Unsubscribe": `<mailto:${unsubscribeAddr}>`,
+                // RFC 8058 one-click, which Gmail's bulk sender guidelines
+                // expect alongside List-Unsubscribe.
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+              }
+            : {}),
           ...(headers || {}),
         },
       }),
@@ -480,7 +498,10 @@ export type InviteProfile = {
   recommendation?: string | null;
   voucherName?: string | null;
   prompts?: { question: string; answer: string }[];
+  /** Lead photo. Kept for callers that only have one. */
   photoUrl?: string | null;
+  /** Every approved photo, lead first. Preferred over photoUrl when present. */
+  photoUrls?: string[] | null;
 };
 
 /** A labelled block of the member's own words. */
@@ -549,8 +570,27 @@ export function matchInviteEmail(args: {
     .filter((line) => line !== null)
     .join("\n");
 
-  const photo = other.photoUrl
-    ? `<img src="${encodeURI(other.photoUrl)}" width="88" height="88" alt="${esc(otherFirst)}" style="display:block;width:88px;height:88px;border-radius:50%;object-fit:cover;border:1px solid ${BRAND.line}" />`
+  // Photos, not a photo. This email is where most people actually decide, and
+  // an 88px circle beside a name is an avatar, not a look at someone. The lead
+  // photo is 240px square; any others follow underneath at 104px.
+  //
+  // Every URL is token-scoped and approved-only. Widths and heights are set as
+  // attributes as well as CSS because Outlook ignores the CSS, and each image
+  // has real alt text for the many clients that block remote images by default.
+  const gallery = (other.photoUrls?.length ? other.photoUrls : other.photoUrl ? [other.photoUrl] : []).slice(0, 3);
+  const lead = gallery[0];
+  const rest = gallery.slice(1);
+
+  const photo = lead
+    ? `<img src="${encodeURI(lead)}" width="240" height="240" alt="${esc(otherFirst)}" style="display:block;width:240px;max-width:100%;height:auto;border-radius:14px;object-fit:cover;border:1px solid ${BRAND.line}" />` +
+      (rest.length
+        ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:8px"><tr>${rest
+            .map(
+              (url, i) =>
+                `<td style="padding-right:8px"><img src="${encodeURI(url)}" width="104" height="104" alt="${esc(otherFirst)}, photo ${i + 2}" style="display:block;width:104px;height:104px;border-radius:10px;object-fit:cover;border:1px solid ${BRAND.line}" /></td>`
+            )
+            .join("")}</tr></table>`
+        : "")
     : "";
 
   const inner =
@@ -559,10 +599,13 @@ export function matchInviteEmail(args: {
     (note
       ? `<p style="margin:0 0 20px;padding:12px 16px;background:${BRAND.paper};border-radius:10px;font-family:${SANS};font-size:14px;line-height:1.6;color:${BRAND.ink}">${esc(note)}</p>`
       : "") +
+    // Photos above the name rather than in a narrow cell beside it. At 88px a
+    // photo fits next to the text; at the size you can actually judge someone
+    // by, it has to lead.
     `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid ${BRAND.line};padding-top:8px">
+      ${photo ? `<tr><td style="padding:20px 0 0">${photo}</td></tr>` : ""}
       <tr>
-        ${photo ? `<td width="88" valign="top" style="padding:20px 16px 0 0">${photo}</td>` : ""}
-        <td valign="top" style="padding-top:20px">
+        <td valign="top" style="padding-top:${photo ? "16px" : "20px"}">
           <p style="margin:0;font-family:${SERIF};font-size:24px;line-height:1.2;color:${BRAND.ink}">${esc(otherFirst)}</p>
           ${meta ? `<p style="margin:4px 0 0;font-family:${SANS};font-size:14px;color:${BRAND.muted}">${esc(meta)}</p>` : ""}
           ${headline ? `<p style="margin:8px 0 0;font-family:${SERIF};font-size:17px;font-style:italic;line-height:1.4;color:${BRAND.oxblood}">${esc(headline)}</p>` : ""}

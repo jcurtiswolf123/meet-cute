@@ -87,7 +87,11 @@ const invitePersonSelect = {
   photos: {
     where: { status: "approved" },
     orderBy: { order: "asc" },
-    take: 1,
+    // Three, not one. The invite email is where most people decide, and one
+    // 88px circle is not a look at someone. Three is the ceiling because Gmail
+    // clips a message past ~102KB and every extra image is another remote
+    // fetch the recipient's client may refuse.
+    take: 3,
     select: { id: true },
   },
   prompts: {
@@ -180,6 +184,7 @@ export async function sendEmailInvites(
             voucherName: other.voucherName,
             prompts: other.prompts,
             photoUrl: other.photos[0] ? invitePhotoUrl(token, other.photos[0].id) : null,
+            photoUrls: other.photos.map((photo) => invitePhotoUrl(token, photo.id)),
           },
           matchmakerNote: match.rationale,
           profileUrl,
