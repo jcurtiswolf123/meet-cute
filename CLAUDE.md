@@ -65,6 +65,12 @@ If you are the only session, the main checkout is fine and nothing changes.
 - Production has two Fly machines. Uploads use Vercel Blob when configured and
   otherwise use Postgres, so no upload depends on one machine.
 - Demo login is local development only.
+- An application is accepted by two friends of the opposite gender writing
+  recommendations, not by submitting the form. See `src/lib/recommendations.ts`
+  and `docs/DECISIONS.md`. Operator approval still works and is now the
+  exception. A photo is required to apply.
+- Every select and checkbox on a form driven by `useActionState` must be
+  controlled. Uncontrolled ones reset on the re-render after a failed submit.
 - Email magic links are shared authentication. `isOperator` grants studio
   access, while `isSuperAdmin` grants only operator-account management.
 - Introduction delivery uses a database outbox with fenced workers, retries,

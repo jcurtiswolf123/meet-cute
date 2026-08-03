@@ -29,10 +29,24 @@ async function createSession(personId: string): Promise<string> {
   return token;
 }
 
+/** A real JPEG, because /api/photos re-encodes with sharp and rejects anything
+ *  it cannot decode. Generated rather than committed so there is no fixture to
+ *  go stale. */
+async function testPhotoBytes(): Promise<Buffer> {
+  const sharp = (await import("sharp")).default;
+  return sharp({
+    create: { width: 480, height: 600, channels: 3, background: { r: 214, g: 196, b: 172 } },
+  })
+    .jpeg()
+    .toBuffer();
+}
+
 async function main() {
   const suffix = randomUUID();
   const memberEmail = `member-application-${suffix}@example.test`;
   const operatorEmail = `member-operator-${suffix}@example.test`;
+  const firstRecommenderEmail = `member-rec1-${suffix}@example.test`;
+  const secondRecommenderEmail = `member-rec2-${suffix}@example.test`;
   const browser = await chromium.launch({ headless: true });
   const cookieUrl = new URL(baseUrl);
   let memberId: string | null = null;
@@ -80,21 +94,48 @@ async function main() {
     await memberPage.waitForURL(/\/apply$/);
     await memberPage.getByLabel("First name").fill("Journey");
     await memberPage.getByLabel("Last name").fill("Member");
+    await memberPage.getByLabel("You are").selectOption("man");
     await memberPage.getByLabel("Date of birth").fill("1990-01-01");
     await memberPage.getByLabel("Instagram").fill("@journey-member");
     await memberPage
       .getByLabel("What you're looking for")
       .fill("A thoughtful relationship with someone curious and kind.");
-    await memberPage.getByLabel("Who vouches for you?").fill("Journey Voucher");
-    await memberPage
-      .getByLabel("How do we reach them?")
-      .fill("voucher@example.test");
-    await memberPage
-      .getByLabel("What would they say about you?")
-      .fill("Journey is dependable, warm, and always brings people together.");
+    await memberPage.getByLabel("Their name").first().fill("Ada Recommender");
+    await memberPage.getByLabel("They are").first().selectOption("woman");
+    await memberPage.getByLabel("Their email").first().fill(firstRecommenderEmail);
+    await memberPage.getByLabel("Their name").nth(1).fill("Grace Recommender");
+    await memberPage.getByLabel("They are").nth(1).selectOption("woman");
+    await memberPage.getByLabel("Their email").nth(1).fill(secondRecommenderEmail);
     await memberPage
       .getByLabel(/I am 18 or older and I agree to the Terms of Service/)
       .check();
+
+    // A photo is required now, and the uploader posts on its own rather than
+    // through the form, so the server rejects a submit with none. Submit once
+    // with no photo to prove the gate is real, then add one.
+    await memberPage.getByRole("button", { name: "Submit application" }).click();
+    await memberPage
+      .getByText("Add at least one photo. Your matchmaker and your introduction both need a face.")
+      .waitFor();
+    assert.equal(
+      new URL(memberPage.url()).pathname,
+      "/apply",
+      "An application with no photo must not be accepted.",
+    );
+
+    // Through the real control (a button that opens the file chooser), not by
+    // setting files on the hidden input, so this covers the path a member takes.
+    const [chooser] = await Promise.all([
+      memberPage.waitForEvent("filechooser"),
+      memberPage.getByRole("button", { name: "Upload photos" }).click(),
+    ]);
+    await chooser.setFiles({
+      name: "journey.jpg",
+      mimeType: "image/jpeg",
+      buffer: await testPhotoBytes(),
+    });
+    await memberPage.getByRole("button", { name: "Add another photo" }).waitFor();
+
     await memberPage.getByRole("button", { name: "Submit application" }).click();
     await memberPage.waitForURL(/\/apply\/thanks$/);
 
@@ -106,19 +147,62 @@ async function main() {
     assert.ok(member.appliedAt);
     assert.ok(member.agreedTosAt);
     assert.equal(member.openToMatch, false);
+    assert.equal(member.gender, "man");
     assert.equal(member.lookingFor, "A thoughtful relationship with someone curious and kind.");
-    assert.equal(member.voucherName, "Journey Voucher");
-    assert.equal(member.recommendation, "Journey is dependable, warm, and always brings people together.");
     assert.equal(member.instagram, "https://instagram.com/journey-member");
+    assert.equal(
+      member.status,
+      "applicant",
+      "Submitting the form does not accept anyone. Two friends writing back does.",
+    );
+    assert.equal(
+      await prisma.photo.count({ where: { personId: member.id, status: "approved" } }),
+      1,
+      "The uploaded photo must be live immediately, with no review queue.",
+    );
+
+    // The waiting page names the friends and says who has answered.
+    const waitingText = await memberPage.locator("main").innerText();
+    assert.match(waitingText, /Ada Recommender/, "The waiting page must name who was asked.");
+    assert.match(waitingText, /Grace Recommender/);
+
+    const requests = await prisma.recommendation.findMany({
+      where: { applicantId: member.id },
+      orderBy: { createdAt: "asc" },
+    });
+    assert.equal(requests.length, 2, "Both friends must have a request row.");
+    assert.ok(requests.every((r) => r.requestedAt), "Both requests must be sent, not just recorded.");
     await memberContext.close();
 
-    await prisma.person.update({
-      where: { id: member.id },
-      data: {
-        status: "active",
-        acceptedAt: new Date(),
-      },
-    });
+    // --- the friends write back, with no account and no session -------------
+    for (const [index, request] of requests.entries()) {
+      const friendContext = await browser.newContext();
+      const friendPage = await friendContext.newPage();
+      await friendPage.goto(`${baseUrl}/r/${request.token}`);
+      await friendPage
+        .getByRole("heading", { name: "Journey asked you to vouch for them." })
+        .waitFor();
+      await friendPage
+        .getByLabel("What would you say about Journey?")
+        .fill(`Recommendation ${index + 1}: Journey is the person everyone calls first, and has been for years.`);
+      await friendPage.getByRole("button", { name: "Send my recommendation" }).click();
+      await friendPage.getByRole("heading", { name: /Thank you,/ }).waitFor();
+      await friendContext.close();
+    }
+
+    const afterRecommendations = await prisma.person.findUniqueOrThrow({ where: { id: member.id } });
+    assert.equal(
+      afterRecommendations.status,
+      "active",
+      "Two recommendations from the opposite gender accept the applicant.",
+    );
+    assert.ok(afterRecommendations.acceptedAt);
+    assert.match(
+      afterRecommendations.recommendation ?? "",
+      /Journey is the person everyone calls first/,
+      "The lead recommendation is copied onto the profile field the introduction email reads.",
+    );
+
     const memberToken = await createSession(member.id);
     const approvedMemberContext = await browser.newContext();
     await approvedMemberContext.addCookies([
@@ -228,7 +312,13 @@ async function main() {
     await memberLink.waitFor();
     await memberLink.click();
     await operatorPage.waitForURL(new RegExp(`/studio/person/${member.id}$`));
-    await operatorPage.getByText("Journey Voucher", { exact: true }).waitFor();
+    // The operator sees the recommendations the friends actually wrote, not a
+    // line the applicant wrote on their behalf.
+    await operatorPage.getByText("Ada Recommender", { exact: false }).first().waitFor();
+    await operatorPage
+      .getByText(/Journey is the person everyone calls first/)
+      .first()
+      .waitFor();
     // Scoped to the profile's own "Looking for" box. The page also seeds the
     // introduction composer from this field, so an unscoped exact match now
     // resolves to two elements.
@@ -241,7 +331,7 @@ async function main() {
     await operatorContext.close();
 
     console.log(
-      "member application passed: signup token, email-first opt-in and pause, profile creation, and operator-visible profile",
+      "member application passed: signup token, required photo, two recommendation requests, acceptance by the friends' replies, email-first opt-in and pause, and an operator-visible profile",
     );
   } finally {
     await browser.close();
@@ -253,6 +343,11 @@ async function main() {
     }
     await prisma.loginToken.deleteMany({
       where: { email: { in: [memberEmail, operatorEmail] } },
+    });
+    // Recommendation request mail is addressed to the friend, not the applicant,
+    // so those jobs carry no personId and do not cascade with the member.
+    await prisma.deliveryJob.deleteMany({
+      where: { recipient: { in: [firstRecommenderEmail, secondRecommenderEmail] } },
     });
     await prisma.$disconnect();
   }

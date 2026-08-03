@@ -256,26 +256,156 @@ function small(text: string): string {
   return `<p style="margin:16px 0 0;font-family:${SANS};font-size:13px;line-height:1.6;color:${BRAND.muted}">${text}</p>`;
 }
 
-// Sent the moment an application is submitted. Reassures the applicant a real
-// person will read it - no dashboards, no instant "you're in".
+// Sent the moment an application is submitted. It has one job now: tell the
+// applicant the ball is in their friends' court, and name the friends, so the
+// wait is something they can act on rather than something they endure.
 export function applicationReceivedEmail(args: {
   name: string;
   city?: string | null;
+  /** The friends they named. Empty for an application taken before the gate. */
+  recommenders?: { name: string; status: string }[];
+  statusUrl?: string;
 }): { subject: string; html: string; text: string } {
   const first = (args.name || "there").split(" ")[0];
   const place = args.city === "SF" ? "San Francisco" : args.city === "NYC" ? "New York" : null;
-  const subject = "We have your application";
+  const waiting = (args.recommenders ?? []).filter((r) => r.status !== "submitted");
+  const names = waiting.map((r) => r.name.split(" ")[0]).filter(Boolean);
+  const nameList =
+    names.length === 0
+      ? ""
+      : names.length === 1
+        ? names[0]
+        : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  const subject = names.length ? "We have your application (now it's up to your friends)" : "We have your application";
+
+  const text = names.length
+    ? `Hi ${first},\n\n` +
+      `We have your application to Mutuals${place ? ` in ${place}` : ""}.\n\n` +
+      `We have emailed ${nameList} to ask what they would say about you. The moment both write back, you are in - that is the whole review. Nudging them is the fastest way to move this along.\n\n` +
+      (args.statusUrl ? `See where it stands: ${args.statusUrl}\n\n` : "") +
+      `Warmly,\nMutuals`
+    : `Hi ${first},\n\n` +
+      `Thank you for applying to Mutuals${place ? ` in ${place}` : ""}. A matchmaker reads every application by hand, so this takes a little time - that is on purpose.\n\n` +
+      `If it is a fit, we will be in touch to welcome you in and start making introductions. Either way, you will hear from a person, not a form.\n\n` +
+      `Warmly,\nMutuals`;
+
+  const inner = names.length
+    ? h1("Now it's up to your friends.") +
+      p(`Hi ${esc(first)}, we have your application${place ? ` in ${esc(place)}` : ""}.`) +
+      p(`We have emailed <strong>${esc(nameList)}</strong> to ask what they would say about you. The moment both write back, you are in - that is the whole review.`) +
+      (args.statusUrl ? `<p style="margin:24px 0 0">${emailButton("See where it stands", args.statusUrl)}</p>` : "") +
+      small("A nudge from you is the fastest way to move this along.")
+    : h1("Thank you for applying.") +
+      p(`Hi ${esc(first)}, we have your application${place ? ` in ${esc(place)}` : ""}. A matchmaker reads every one by hand, so this takes a little time - that is on purpose.`) +
+      p(`If it is a fit, we will be in touch to welcome you and start making introductions. Either way, you will hear from a person, not a form.`) +
+      small("You do not need to do anything else right now.");
+
+  return {
+    subject,
+    html: emailShell(inner, names.length ? `We asked ${nameList} to vouch for you.` : "A matchmaker reads every application by hand."),
+    text,
+  };
+}
+
+// Sent to a friend an applicant named. This is the email the whole gate rests
+// on, so it is written to be answered: it says who asked, what is being asked,
+// how long it takes, and that the applicant does not get in until they reply.
+//
+// It goes to someone who never signed up for anything, so it names the person
+// who caused it in the first line and asks for nothing but a few sentences.
+export function recommendationRequestEmail(args: {
+  recommenderName: string;
+  applicantName: string;
+  applicantCity?: string | null;
+  link: string;
+  /** True when this is the nudge rather than the first ask. */
+  reminder?: boolean;
+}): { subject: string; html: string; text: string } {
+  const first = (args.recommenderName || "there").split(" ")[0];
+  const applicantFirst = (args.applicantName || "your friend").split(" ")[0];
+  const place = args.applicantCity === "SF" ? "San Francisco" : args.applicantCity === "NYC" ? "New York" : null;
+  const subject = args.reminder
+    ? `Still waiting on you: ${applicantFirst}'s recommendation`
+    : `${applicantFirst} asked you to vouch for them`;
+
   const text =
     `Hi ${first},\n\n` +
-    `Thank you for applying to Mutuals${place ? ` in ${place}` : ""}. A matchmaker reads every application by hand, so this takes a little time - that is on purpose.\n\n` +
-    `If it is a fit, we will be in touch to welcome you in and start making introductions. Either way, you will hear from a person, not a form.\n\n` +
+    `${args.applicantName} applied to Mutuals${place ? ` in ${place}` : ""} - curated matchmaking, where a matchmaker introduces you to one person at a time - and named you as someone who knows them well.\n\n` +
+    `${applicantFirst} is not accepted until two friends write back, so this genuinely decides it.\n\n` +
+    `A few sentences is plenty: what they are like, what makes them worth meeting, and anything you would tell a friend before setting them up.\n\n` +
+    `Write it here (two minutes, no account needed):\n${args.link}\n\n` +
+    `What you write shows on ${applicantFirst}'s profile, so write it the way you would say it to them.\n\n` +
+    `Thank you,\nMutuals`;
+
+  const inner =
+    h1(`${applicantFirst} asked you to vouch for them.`) +
+    p(`Hi ${esc(first)}, <strong>${esc(args.applicantName)}</strong> applied to Mutuals${place ? ` in ${esc(place)}` : ""} and named you as someone who knows them well.`) +
+    p(`${esc(applicantFirst)} is <strong>not accepted until two friends write back</strong>, so this genuinely decides it.`) +
+    p(`A few sentences is plenty: what they are like, what makes them worth meeting, and anything you would tell a friend before setting them up.`) +
+    `<p style="margin:24px 0 0">${emailButton(args.reminder ? "Write it now" : `Vouch for ${applicantFirst}`, args.link)}</p>` +
+    small(`Two minutes, no account needed. What you write shows on ${esc(applicantFirst)}'s profile, so write it the way you would say it to them.`);
+
+  return {
+    subject,
+    html: emailShell(inner, `${applicantFirst} is not in until two friends write back.`),
+    text,
+  };
+}
+
+// Sent to the applicant when one friend writes back and they still need
+// another. Turns a silent wait into a visible one, and asks for the nudge.
+export function recommendationReceivedEmail(args: {
+  name: string;
+  recommenderName: string;
+  remaining: number;
+  statusUrl: string;
+}): { subject: string; html: string; text: string } {
+  const first = (args.name || "there").split(" ")[0];
+  const from = (args.recommenderName || "your friend").split(" ")[0];
+  const subject = `${from} vouched for you`;
+  const need =
+    args.remaining === 1
+      ? "One more recommendation and you are in."
+      : `${args.remaining} more recommendations and you are in.`;
+  const text =
+    `Hi ${first},\n\n` +
+    `${from} just wrote your recommendation. ${need}\n\n` +
+    `See it, and who we are still waiting on:\n${args.statusUrl}\n\n` +
     `Warmly,\nMutuals`;
   const inner =
-    h1("Thank you for applying.") +
-    p(`Hi ${esc(first)}, we have your application${place ? ` in ${esc(place)}` : ""}. A matchmaker reads every one by hand, so this takes a little time - that is on purpose.`) +
-    p(`If it is a fit, we will be in touch to welcome you and start making introductions. Either way, you will hear from a person, not a form.`) +
-    small("You do not need to do anything else right now.");
-  return { subject, html: emailShell(inner, "A matchmaker reads every application by hand."), text };
+    h1(`${from} vouched for you.`) +
+    p(`Hi ${esc(first)}, <strong>${esc(from)}</strong> just wrote your recommendation. ${esc(need)}`) +
+    `<p style="margin:24px 0 0">${emailButton("See where it stands", args.statusUrl)}</p>` +
+    small("A nudge from you is the fastest way to finish this.");
+  return { subject, html: emailShell(inner, need), text };
+}
+
+// Sent to a friend after they write a recommendation. They did the applicant a
+// favour and got nothing out of it; this is the thank-you, and the one place it
+// is fair to tell them Mutuals exists for them too.
+export function recommendationThanksEmail(args: {
+  recommenderName: string;
+  applicantName: string;
+  accepted: boolean;
+  applyUrl: string;
+}): { subject: string; html: string; text: string } {
+  const first = (args.recommenderName || "there").split(" ")[0];
+  const applicantFirst = (args.applicantName || "your friend").split(" ")[0];
+  const subject = `Thank you for vouching for ${applicantFirst}`;
+  const outcome = args.accepted
+    ? `That was the one they needed - ${applicantFirst} is in, and your words are on their profile.`
+    : `It is on ${applicantFirst}'s profile now. They need one more friend to write back before they are in.`;
+  const text =
+    `Hi ${first},\n\n` +
+    `Thank you - that helps more than you would think. ${outcome}\n\n` +
+    `If you would like introductions of your own, this is how Mutuals works: a matchmaker introduces you to one person at a time, by email, and you decide for yourself.\n${args.applyUrl}\n\n` +
+    `Warmly,\nMutuals`;
+  const inner =
+    h1("Thank you.") +
+    p(`Hi ${esc(first)}, that helps more than you would think. ${esc(outcome)}`) +
+    p(`If you would like introductions of your own: a matchmaker introduces you to <strong>one person at a time</strong>, by email, and you decide for yourself.`) +
+    `<p style="margin:24px 0 0">${emailButton("See how it works", args.applyUrl)}</p>`;
+  return { subject, html: emailShell(inner, `${applicantFirst} will be glad you did.`), text };
 }
 
 // Sent when an operator approves an applicant. This is the "welcome, you'll

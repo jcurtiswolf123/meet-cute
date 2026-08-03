@@ -14,8 +14,10 @@ const MAX_MULTIPART_BYTES = MAX_BYTES + 1_000_000;
 class PhotoLimitError extends Error {}
 
 // Upload a profile photo. Auth required. Allowlisted image types only, size
-// capped, stored to the volume, and created in `pending` so it is invisible to
-// other members until an operator approves it.
+// capped, stored to the volume, and live immediately: the review queue was
+// removed in the 20260803120000 migration because it was never worked and left
+// 38 of 43 photos invisible. An operator takes a photo down after the fact
+// (hidePhoto), which every read honours by filtering on "approved".
 export async function POST(req: Request) {
   const me = await getSessionPersonId();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

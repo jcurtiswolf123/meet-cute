@@ -8,6 +8,14 @@ _Lightweight backlog. Move items between sections as they progress._
 - [ ] Obtain counsel review of legal, consent, retention, and safety language
 
 ## Backlog (prioritized)
+- [ ] Scheduled reminder for recommenders who have not written back after 48
+  hours. Today the nudge only goes out when the applicant presses the button on
+  `/apply/thanks`, so an applicant who never returns to the page has two friends
+  who were asked once and forgotten.
+- [ ] Backfill gender for the 25 existing roster members. It was never collected
+  before 2026-08-03, so the studio gender filter matches nothing for them.
+- [ ] Ask the 12 pre-gate applicants for two recommendations, or accept them by
+  hand and close them out.
 - [ ] Automated photo pre-screening before high upload volume
 - [ ] Retire unused legacy Fly volumes during a maintenance window
 - [ ] Community admissions voting (V2)

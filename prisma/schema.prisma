@@ -63,14 +63,23 @@ model Person {
   // member and are connected to matches by email.
   smsConsentAt DateTime?
 
-  // community recommendation (collected at application): every applicant names
-  // someone who can vouch for them. voucherContact is the voucher's email/phone
-  // so an operator can verify; recommendation is the displayed blurb shown on the
-  // profile ("Josh is fun-loving, adventurous..."). See lib/social.ts for the
-  // member-to-member Vouch[] relation that powers aggregate social proof.
+  // community recommendation. These three fields hold the LEAD recommendation:
+  // the first one a friend actually wrote back (see lib/recommendations.ts),
+  // copied here so every existing surface that renders one line of social proof
+  // (the introduction email, the invite page, the studio profile) keeps working
+  // off a single field. The full set lives in recommendationsReceived.
+  //
+  // They used to be self-reported: the applicant typed what they imagined their
+  // friend would say. Nobody was ever asked. Now the applicant names the
+  // friends and the friends write the words.
   voucherName    String?
   voucherContact String?
   recommendation String?
+
+  // Recommendations written about this person by the friends they named at
+  // application. Two submitted ones from the opposite gender are what accepts
+  // an applicant into Mutuals.
+  recommendationsReceived Recommendation[] @relation("RecommendationSubject")
 
   // ambassador
   ambassadorTitle String?
@@ -386,6 +395,47 @@ model Reference {
   reply       String?
   status      String    @default("requested") // requested | replied | declined
   repliedAt   DateTime?
+}
+
+// A recommendation request sent to a friend the applicant named, and the reply
+// they wrote. An application is not accepted until two of these come back from
+// people of the opposite gender to the applicant: the applicant has to ask, and
+// the friends have to answer, which is also how the roster grows.
+//
+// The friend needs no account and no session. The token in the email is the
+// capability: it identifies exactly one request, is single-purpose, and stops
+// working the moment it is answered.
+model Recommendation {
+  id          String @id @default(cuid())
+  applicantId String
+  applicant   Person @relation("RecommendationSubject", fields: [applicantId], references: [id], onDelete: Cascade)
+
+  // Who the applicant named. gender is theirs, not the applicant's, and is what
+  // the opposite-gender rule is checked against: "woman" | "man" | "nonbinary".
+  name   String
+  email  String
+  gender String
+
+  // Opaque capability token (base64url) carried by the request email.
+  token String @unique
+
+  status      String    @default("requested") // requested | submitted | declined
+  createdAt   DateTime  @default(now())
+  requestedAt DateTime?
+  remindedAt  DateTime?
+  submittedAt DateTime?
+  declinedAt  DateTime?
+
+  // The friend's own words. body is what shows on the applicant's profile.
+  body         String?
+  relationship String?
+
+  // One request per person per email address: naming the same friend twice is a
+  // typo, not two recommendations, and re-submitting an application reuses the
+  // row rather than mailing them again.
+  @@unique([applicantId, email])
+  @@index([applicantId, status])
+  @@index([token])
 }
 
 model Referral {

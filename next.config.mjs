@@ -27,6 +27,14 @@ const securityHeaders = [
 const nextConfig = {
   output: "standalone",
   typescript: { ignoreBuildErrors: false },
+  // Development only. Next 16 blocks cross-origin requests for dev resources,
+  // and it treats 127.0.0.1 as a different origin from localhost: the sandbox
+  // server and every browser test address it by IP, so the client bundle was
+  // refused and the page rendered but never hydrated. Server actions still
+  // worked (they degrade to a plain form post), which is why nothing looked
+  // wrong until the first control that genuinely needs JavaScript - the photo
+  // uploader - did nothing when clicked. Ignored entirely in production builds.
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   images: { remotePatterns: [{ protocol: "https", hostname: "i.pravatar.cc" }] },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
