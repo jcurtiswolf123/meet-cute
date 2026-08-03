@@ -4,6 +4,9 @@
 // to the server console and returns ok, so the magic-link flow is testable
 // without sending real mail. Set RESEND_API_KEY + RESEND_FROM in production.
 
+import type { DateIdeas } from "./date-ideas";
+import { dateIdeasBlock, type PickUrlFor } from "./email-date-ideas";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 /** The addr-spec out of either `Name <user@host>` or a bare `user@host`.
@@ -602,21 +605,29 @@ export function matchThreadEmail(args: {
   aName: string;
   bName: string;
   city?: string | null;
+  // Optional "a few ideas" block: grounded venue suggestions for this pair. Both
+  // are omitted everywhere except the live connection send, so every other
+  // caller and every test renders exactly the email this sent before.
+  ideas?: DateIdeas;
+  pickUrlFor?: PickUrlFor;
 }): { subject: string; html: string; text: string } {
   const aFirst = (args.aName || "there").split(" ")[0];
   const bFirst = (args.bName || "there").split(" ")[0];
   const subject = `${aFirst} + ${bFirst}: you both said yes`;
+  const block = dateIdeasBlock(args.ideas, args.pickUrlFor);
 
   const text =
     `Hi ${aFirst} and ${bFirst},\n\n` +
     `You both said yes to an introduction, so here you are on one thread.\n\n` +
     `Just hit reply-all to say hello and find a time this week. A short first message goes a long way.\n\n` +
+    (block.text ? `${block.text}\n\n` : "") +
     `Warmly,\nMutuals`;
 
   const inner =
     h1("You both said yes.") +
     p(`Hi <strong>${esc(aFirst)}</strong> and <strong>${esc(bFirst)}</strong> - you both said yes to an introduction, so here you are on one thread.`) +
     p(`Just hit <strong>reply-all</strong> to say hello and find a time this week. A short first message goes a long way.`) +
+    block.html +
     small("Reply any time if you would like a hand.");
   return { subject, html: emailShell(inner, `${aFirst} and ${bFirst}, meet each other.`), text };
 }

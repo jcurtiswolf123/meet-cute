@@ -263,6 +263,7 @@ model Match {
   introMessages IntroMessage[]
   invites       MatchInvite[]
   deliveryJobs  DeliveryJob[]
+  datePicks     DatePick[]
 
   @@unique([personAId, personBId])
 }
@@ -317,7 +318,7 @@ model DeliveryJob {
   lastError         String?
   providerMessageId String?
   personId          String?
-  person            Person? @relation(fields: [personId], references: [id], onDelete: Cascade)
+  person            Person?   @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   matchId String?
   match   Match?  @relation(fields: [matchId], references: [id], onDelete: Cascade)
@@ -400,9 +401,56 @@ model Venue {
   name    String
   area    String?
   notes   String?
-  partner Boolean           @default(true)
+  // Whether Mutuals actually holds standing tables here. Defaulted to true when
+  // the table was seeded, which was never accurate: nothing is partnered. New
+  // rows default to false and the flag is only a ranking hint, never copy.
+  partner Boolean           @default(false)
   slots   VenueSlot[]
   threads ConciergeThread[]
+
+  // Everything below exists so a suggestion can actually be acted on. A name and
+  // a neighbourhood are not enough to send two people somewhere.
+  address    String?
+  bookingUrl String? // the venue's own reservation page. Mutuals books nothing.
+  mapsUrl    String?
+  cuisine    String?
+  priceBand  String? // "$" | "$$" | "$$$" | "$$$$"
+  goodFor    String? // free text: "quiet enough to talk", "walk-ins", "late"
+
+  // A restaurant that closed is worse than no suggestion at all, so eligibility
+  // is opt-in and expires. Only an active venue verified inside
+  // VENUE_FRESH_DAYS is ever put in front of a member; everything else silently
+  // drops out of the shortlist. scripts/verify-venues.ts stamps this.
+  active         Boolean   @default(true)
+  lastVerifiedAt DateTime?
+
+  picks DatePick[]
+
+  @@index([city, active])
+}
+
+/// Which venue a matched pair said they were going to. Written from a
+/// token-gated link in the connection email, so neither person needs a session.
+/// This is a record of their stated intent, NOT a reservation: Mutuals does not
+/// hold the table and the copy never implies it does.
+model DatePick {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  matchId String
+  match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  venueId String
+  venue   Venue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  // Who tapped it. Null when the link was opened from the shared thread email,
+  // which is addressed to both people and so cannot attribute the tap.
+  personId String?
+
+  // One pick per match per venue: tapping the same suggestion twice is a
+  // double-click, not a second decision.
+  @@unique([matchId, venueId])
+  @@index([matchId])
 }
 
 model VenueSlot {

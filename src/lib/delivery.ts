@@ -3,6 +3,8 @@ import * as Sentry from "@sentry/nextjs";
 import type { DeliveryJob, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { connectionEmail, matchThreadEmail, sendEmail } from "./email";
+import { dateIdeasFor } from "./date-ideas";
+import { datePickToken, datePickUrl } from "./date-pick";
 import {
   PRELUDE_TEMPLATES,
   normalizePhone,
@@ -686,10 +688,22 @@ export async function queueConnectionDeliveries(matchId: string): Promise<number
     where: { id: matchId },
     include: {
       personA: {
-        select: { id: true, name: true, email: true, phone: true, city: true, smsConsentAt: true },
+        select: {
+          id: true, name: true, email: true, phone: true, city: true, smsConsentAt: true,
+          // Read only for the date-ideas prompt, which sees profile text but
+          // never puts it in the email: the model returns venue ids and one
+          // line of reasoning, nothing quoted back at either member.
+          neighborhood: true, bio: true, lookingFor: true,
+        },
       },
       personB: {
-        select: { id: true, name: true, email: true, phone: true, city: true, smsConsentAt: true },
+        select: {
+          id: true, name: true, email: true, phone: true, city: true, smsConsentAt: true,
+          // Read only for the date-ideas prompt, which sees profile text but
+          // never puts it in the email: the model returns venue ids and one
+          // line of reasoning, nothing quoted back at either member.
+          neighborhood: true, bio: true, lookingFor: true,
+        },
       },
     },
   });
@@ -702,11 +716,25 @@ export async function queueConnectionDeliveries(matchId: string): Promise<number
   const queued: Promise<DeliveryJob>[] = [];
   const bothHaveEmail = Boolean(match.personA.email && match.personB.email);
 
+  // Where to go. Best effort and never awaited without a bound: dateIdeasFor
+  // swallows its own failures and returns NO_IDEAS, so the connection email,
+  // which is the payoff of the whole product, still goes out when the venue
+  // table is empty or every model provider is down.
+  const ideas = await dateIdeasFor({
+    city: match.personA.city || match.personB.city,
+    a: match.personA,
+    b: match.personB,
+  });
+  const pickToken = datePickToken(matchId);
+  const pickUrlFor = pickToken ? (venueId: string) => datePickUrl(pickToken, venueId) : undefined;
+
   if (match.personA.email && match.personB.email) {
     const message = matchThreadEmail({
       aName: match.personA.name,
       bName: match.personB.name,
       city: match.personA.city || match.personB.city,
+      ideas,
+      pickUrlFor,
     });
     queued.push(
       queueEmailDelivery({
