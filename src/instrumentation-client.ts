@@ -25,6 +25,11 @@ async function initializeSentry() {
           // touches window.webkit.
           /window\.webkit\.messageHandlers/i,
           /webkit\.messageHandlers/i,
+          // Browser extensions injecting Google's API loader into the page. We
+          // load no Google scripts; this fired on /apply from a Chrome
+          // extension and looks like an application error until you read it.
+          /apis\.google\.com/i,
+          /Jsloader error/i,
           // The opaque cross-origin error. There is nothing in it to act on.
           "Script error.",
           "ResizeObserver loop completed with undelivered notifications",
