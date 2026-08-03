@@ -2,10 +2,57 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-02 (Send introductions no longer crashes the studio, and a
-suggested pair can be introduced; before that, public voice warmed and a full
-design and functionality audit; canonical domain is hellomutuals.com; Prelude
-still wired as the no-registration SMS path, default provider still twilio)
+Last updated: 2026-08-02 (roster pruned to two real members and four operators,
+Send introductions no longer crashes the studio, and a suggested pair can be
+introduced; the database is healthy, the latency cost is sjc app plus us-east-2
+Neon; canonical domain is hellomutuals.com; Prelude still wired as the
+no-registration SMS path, default provider still twilio)
+
+## 2026-08-02: roster pruned to real people, and the database is fine
+
+**The roster is now two members and four operators.** Removed six seed and
+rehearsal rows with `scripts/prune-people.ts` (new): the `davd@booth.vc` typo
+duplicate of the `david@booth.vc` operator, `Demo Optin2`, the phone-only
+`Garrett Lord` and `Joshua Wolf` seed rows, `admin@shiftsupportnetwork.com`,
+and the `jessicaraquelwolf@gmail.com` member row. Seven matches went with them.
+Full JSON backup taken before the delete.
+
+**One row was deliberately left in place.** `Jess Wolf (Moderator)`
+(`jwolflord@a16z.com`) is holding a live `mutual_yes` with **Michelle
+Killoran**, who applied at 23:30 tonight with four photos and is the only real
+member on the site. She has said nothing yet; Jess has said yes. Deleting the
+counterpart would have silently killed a real prospect's introduction, so the
+prune stopped short and reported it. Decide that pair before pruning further.
+
+**Also cleared:** the permanent "Delivery failures (1)" banner on Directory was
+a `kind: "qa"` job from 7/24 aimed at `+15555550123` with no person and no
+match attached. Deleted. The blockers panel is empty.
+
+**The database is not broken.** Neon, PostgreSQL 17.10, 13 MB, 50 indexes,
+`max_connections` 901. Zero database errors in Sentry over 14 days apart from
+one cold-start warning (7/30) and one unreachable (7/26), both consistent with
+Neon scale-to-zero rather than a fault.
+
+The one real finding is topology, not the vendor: **the Fly app runs in `sjc`
+and the Neon project is in `aws-us-east-2`**, so every query crosses the
+country. Measured from inside the Fly machine: **70ms per round trip**, and
+417ms for a roster query with joins. From a laptop on the same path it is 36ms
+ping but 1.3s for the same joined query. A studio page issuing six to eight
+queries pays roughly half a second of pure network before it renders anything.
+
+Moving to Supabase would not change that by itself and would cost a migration.
+The cheap fixes, in order: move the Fly app to `iad` (one line in `fly.toml`,
+and it is also closer to the NYC members who are most of the roster), or move
+the Neon project to a west-coast region. Either collapses 70ms to roughly 10.
+
+**Test coverage caught up.** The database-backed suites had not been run since
+7/28 because there is no local PostgreSQL on this machine and Docker is
+unavailable. Ran them against a disposable Neon project instead, then deleted
+it: capacity, delivery outbox, photo storage, operator roles, lifecycle emails,
+introduction race, and Prelude SMS all pass, on top of pure, reply-parse and
+age-gate. Three suites (`test:journey:email`, `test:prelude:pipeline`,
+`test:prelude:webhook`) hard-require a `127.0.0.1` or `localhost` hostname by
+design and were not run. That guard is correct and was left alone.
 
 ## 2026-08-02: Send introductions crashed the studio, twice over
 
