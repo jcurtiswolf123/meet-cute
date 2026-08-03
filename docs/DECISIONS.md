@@ -2,6 +2,44 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-03 : The recommender loop, and why recommenders do not sign up first
+
+- Decision: A recommender is never asked to create an account before writing.
+  The vouch comes first, the offer comes second.
+- Why: gating the vouch behind a signup loses most of the vouches, and then the
+  applicant they were asked about cannot get in either. The first real
+  recommender wrote back ten minutes after being asked, with nothing to join.
+  That is the number the whole gate depends on and it is not worth trading.
+- Decision: Someone who has already vouched for a member needs one new friend,
+  not two. The member they vouched for counts as the other, and is asked to
+  vouch back. The opposite-gender rule still applies to the credit, and vouching
+  for someone who was declined earns nothing.
+- Why: it is the honest version of an incentive. Someone a member's own circle
+  vouched for is exactly who this network wants, and the evidence already
+  exists. Halving the work raises the one term the loop actually multiplies:
+  how many recommenders become members.
+- Decision: `Recommendation.convertedPersonId` stamps who a recommender became.
+  Nothing attributed a signup to a recommendation before, so the funnel could
+  not be measured at all.
+- Decision: The nudge and the follow-up are queued into the future on the
+  outbox's own `availableAt` and withdrawn when they stop being needed. No cron.
+  The scheduler that already exists is the schedule.
+- Decision: Exactly one follow-up email to a recommender, 36 hours after they
+  write, and only if they have not already applied. No drip, no list. It is the
+  only mail Mutuals sends to someone who did not ask to hear from it, and it
+  earns the send by reporting the outcome of what they did.
+- Decision: Approving an applicant whose friends have not written requires a
+  reason, recorded on `Person.acceptOverrideReason` with `acceptedById`.
+- Why: on the day the gate shipped, both applicants were approved by hand within
+  an hour, so three of their four recommenders had no reason to write and the
+  loop had no fuel. The override stays possible and stops being invisible.
+- Not claimed: that this is a viral loop. Two recommenders per member at a 50%
+  reply rate needs 100% conversion to sustain itself. It is an amplifier on
+  acquisition cost and a source of unusually warm leads, not exponential growth.
+- Alternatives rejected: requiring signup before vouching (kills the vouch);
+  asking recommenders to name more people (cold-emailing addresses nobody
+  volunteered is how a 10/10 sending domain stops delivering).
+
 ## 2026-08-03 : No native selects, and short choices are pills
 
 - Decision: A native `<select>` is not used anywhere in the product. Two to five

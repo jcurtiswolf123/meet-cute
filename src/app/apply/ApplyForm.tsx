@@ -18,6 +18,9 @@ type Defaults = {
   lookingFor: string;
   maxBirthdate: string;
   recommenders: { name: string; email: string; gender: string }[];
+  /** Set when this applicant has already vouched for a member, in which case
+   *  that member counts as one of their two and the form asks for one friend. */
+  fastTrack: { memberName: string; memberGender: string | null } | null;
 };
 
 const GENDER_OPTIONS = [
@@ -79,6 +82,11 @@ export function ApplyForm({
   const setRecGender = (slot: 1 | 2, value: string) =>
     setRecGenders((prev) => (slot === 1 ? [value, prev[1]] : [prev[0], value]));
 
+  // One friend instead of two when the applicant has already vouched for a
+  // member. The server decides this; the form only renders what it was told,
+  // so nobody can talk their way into a shorter gate by editing the page.
+  const slots = defaults.fastTrack ? [1] : [1, 2];
+
   const vouchRule =
     gender === "woman"
       ? "Name two men who know you well."
@@ -87,6 +95,14 @@ export function ApplyForm({
         : gender === "nonbinary"
           ? "Name two friends who know you well."
           : "Name two friends of the opposite gender who know you well.";
+  const vouchRuleSingle =
+    gender === "woman"
+      ? "Name one more man who knows you well."
+      : gender === "man"
+        ? "Name one more woman who knows you well."
+        : gender === "nonbinary"
+          ? "Name one more friend who knows you well."
+          : "Name one more friend of the opposite gender who knows you well.";
 
   return (
     <form className="mt-8 space-y-5" action={formAction} noValidate>
@@ -213,18 +229,33 @@ export function ApplyForm({
           what happens next, because the applicant is about to put two friends'
           names into a stranger's website. */}
       <fieldset className="space-y-4 rounded-xl border border-line bg-panel p-4">
-        <legend className="label px-1">Two friends who will vouch for you</legend>
-        <p className="-mt-1 text-xs leading-relaxed text-muted">
-          {vouchRule} We email them, they write a few sentences about you, and the moment both
-          write back you are in. What they say goes on your profile.
-        </p>
+        <legend className="label px-1">
+          {defaults.fastTrack ? "One more friend to vouch for you" : "Two friends who will vouch for you"}
+        </legend>
+        {defaults.fastTrack ? (
+          <div className="-mt-1 space-y-2">
+            <p className="rounded-lg border border-claret/25 bg-claret/[0.05] px-3 py-2 text-xs leading-relaxed text-ink">
+              You vouched for <strong>{defaults.fastTrack.memberName}</strong>, so they count as one
+              of your two. We have asked them to write one back for you.
+            </p>
+            <p className="text-xs leading-relaxed text-muted">
+              {vouchRuleSingle} We email them, they write a few sentences about you, and once both
+              are in you are a member. What they say goes on your profile.
+            </p>
+          </div>
+        ) : (
+          <p className="-mt-1 text-xs leading-relaxed text-muted">
+            {vouchRule} We email them, they write a few sentences about you, and the moment both
+            write back you are in. What they say goes on your profile.
+          </p>
+        )}
 
-        {[1, 2].map((slot) => {
+        {slots.map((slot) => {
           const s = slot as 1 | 2;
           return (
             <div key={slot} className="space-y-3 border-t border-line pt-4 first:border-t-0 first:pt-0">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                Friend {slot}
+                {defaults.fastTrack ? "Your friend" : `Friend ${slot}`}
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -320,8 +351,8 @@ export function ApplyForm({
         </SubmitButton>
         <p className="mt-2 text-center text-xs text-muted">
           {photoCount === 0
-            ? "Add a photo above, then submit. We email your two friends the moment you do."
-            : "We email your two friends the moment you submit."}
+            ? `Add a photo above, then submit. We email your ${defaults.fastTrack ? "friend" : "two friends"} the moment you do.`
+            : `We email your ${defaults.fastTrack ? "friend" : "two friends"} the moment you submit.`}
         </p>
       </div>
     </form>

@@ -51,6 +51,7 @@ async function main() {
   const cookieUrl = new URL(baseUrl);
   let memberId: string | null = null;
   let operatorId: string | null = null;
+  let adaId: string | null = null;
 
   try {
     const memberContext = await browser.newContext();
@@ -340,8 +341,79 @@ async function main() {
       .waitFor();
     await operatorContext.close();
 
+    // --- the loop: a recommender comes back and needs one friend, not two ---
+    // Ada wrote Journey's recommendation. She is the warmest lead this product
+    // gets, and the whole growth argument is that she converts. When she does,
+    // Journey counts as one of her two.
+    const adaRequest = requests.find((r) => r.email === firstRecommenderEmail)!;
+    const adaContext = await browser.newContext();
+    const adaPage = await adaContext.newPage();
+    const adaToken = await createLoginToken(firstRecommenderEmail);
+    await adaPage.goto(`${baseUrl}/apply?from=${adaRequest.token}`);
+    await adaPage.getByText(/already count as one of the two recommendations/).waitFor();
+    assert.equal(
+      await adaPage.getByLabel("Email").inputValue(),
+      firstRecommenderEmail,
+      "Their address is already known, so the form must not ask for it again.",
+    );
+
+    await adaPage.goto(`${baseUrl}/auth/verify?token=${encodeURIComponent(adaToken)}`);
+    await adaPage.waitForURL(/\/apply$/);
+    await adaPage.getByRole("group", { name: "You are" }).getByText("Woman", { exact: true }).click();
+    // waitFor rather than a one-shot innerText: the page streams behind the
+    // Suspense fallback in src/app/loading.tsx, so reading innerText the
+    // instant after a navigation can catch the spinner instead of the form.
+    await adaPage.getByText("One more friend to vouch for you").waitFor();
+    await adaPage.getByText(/You vouched for/).waitFor();
+    await adaPage.getByText(/Journey Member/).first().waitFor();
+    assert.equal(
+      await adaPage.getByLabel("Their email").count(),
+      1,
+      "Exactly one friend slot, not two.",
+    );
+    const adaFriendEmail = `member-ada-friend-${suffix}@example.test`;
+    await adaPage.getByLabel("Their name").fill("Ada Friend");
+    await adaPage.getByRole("group", { name: "They are" }).getByText("Man", { exact: true }).click();
+    await adaPage.getByLabel("Their email").fill(adaFriendEmail);
+    await adaPage.getByLabel("First name").fill("Ada");
+    await adaPage.getByLabel("Last name").fill("Recommender");
+    await adaPage.getByLabel("Date of birth").fill("1991-02-02");
+    await adaPage.locator('label:has(input[name="agree"])').click({ position: { x: 10, y: 12 } });
+    const [adaChooser] = await Promise.all([
+      adaPage.waitForEvent("filechooser"),
+      adaPage.getByRole("button", { name: /Add a photo/ }).click(),
+    ]);
+    await adaChooser.setFiles({ name: "ada.jpg", mimeType: "image/jpeg", buffer: await testPhotoBytes() });
+    await adaPage.getByRole("button", { name: /Add another/ }).waitFor();
+    await adaPage.getByRole("button", { name: "Submit application" }).click();
+    await adaPage.waitForURL(/\/apply\/thanks$/);
+    await adaContext.close();
+
+    const ada = await prisma.person.findUniqueOrThrow({ where: { email: firstRecommenderEmail } });
+    adaId = ada.id;
+    const adaRecs = await prisma.recommendation.findMany({ where: { applicantId: ada.id } });
+    assert.equal(adaRecs.length, 2, "One named friend plus the member she vouched for.");
+    assert.ok(
+      adaRecs.some((r) => r.email === member.email),
+      "The member she vouched for is asked to vouch back.",
+    );
+    assert.ok(
+      adaRecs.some((r) => r.email === adaFriendEmail),
+      "And the one new friend she named is asked.",
+    );
+    assert.equal(
+      (await prisma.recommendation.findUniqueOrThrow({ where: { id: adaRequest.id } })).convertedPersonId,
+      ada.id,
+      "Her signup must be attributed back to the recommendation that produced it.",
+    );
+    assert.equal(
+      await prisma.vouch.count({ where: { voucherId: ada.id, subjectId: member.id } }),
+      1,
+      "The vouch she already wrote becomes a member-to-member relation.",
+    );
+
     console.log(
-      "member application passed: signup token, required photo, two recommendation requests, acceptance by the friends' replies, email-first opt-in and pause, and an operator-visible profile",
+      "member application passed: signup token, required photo, two recommendation requests, acceptance by the friends' replies, a recommender converting on a one-friend gate, email-first opt-in and pause, and an operator-visible profile",
     );
   } finally {
     await browser.close();
@@ -350,6 +422,11 @@ async function main() {
     }
     if (operatorId) {
       await prisma.person.delete({ where: { id: operatorId } }).catch(() => {});
+    }
+    if (adaId) {
+      // Vouch rows do not cascade, so they go before the people they point at.
+      await prisma.vouch.deleteMany({ where: { OR: [{ voucherId: adaId }, { subjectId: adaId }] } });
+      await prisma.person.delete({ where: { id: adaId } }).catch(() => {});
     }
     await prisma.loginToken.deleteMany({
       where: { email: { in: [memberEmail, operatorEmail] } },

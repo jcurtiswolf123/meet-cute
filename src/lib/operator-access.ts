@@ -98,6 +98,8 @@ export async function setNonOperatorMemberStatus(
   actorId: string,
   targetId: string,
   action: "approve" | "decline",
+  /** Why the recommendation gate was overridden, when it was. */
+  overrideReason: string | null = null,
 ): Promise<MemberStatusChange> {
   return prisma.$transaction(async (tx) => {
     const actor = await tx.person.findUnique({
@@ -110,7 +112,12 @@ export async function setNonOperatorMemberStatus(
       where: { id: targetId, isOperator: false },
       data:
         action === "approve"
-          ? { status: "active", acceptedAt: new Date() }
+          ? {
+              status: "active",
+              acceptedAt: new Date(),
+              acceptedById: actorId,
+              acceptOverrideReason: overrideReason,
+            }
           : { status: "exited" },
     });
     if (changed.count !== 1) {

@@ -24,6 +24,37 @@ sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
 
+## 2026-08-03: the recommender loop
+
+Built, tested end to end on the sandbox. The recommender is the warmest lead
+this product gets and until now they hit a thank-you page and vanished.
+
+- **A recommender who applies needs one friend, not two.** The member they
+  vouched for counts as the other and is emailed to vouch back. Earned only by
+  vouching for a live member of the opposite gender; vouching for someone who
+  was declined earns nothing. The server decides it, so the form cannot be
+  talked into a shorter gate.
+- **The follow-up link carries their token**, so `/apply` greets them by name,
+  prefills the address someone else already gave us, and says up front that
+  their credit exists.
+- **One follow-up email, 36 hours after they write**, reporting whether the
+  person they vouched for got in and making the offer once. Withdrawn if they
+  have already applied. No drip, no list.
+- **The nudge is automatic now**: queued at the same moment as the ask, sent in
+  48 hours, withdrawn when they write back. No cron; the outbox `availableAt`
+  is the schedule.
+- **Signups are attributed** to the recommendation that produced them
+  (`convertedPersonId`), and a member-to-member `Vouch` is written. Before this
+  the funnel could not be measured at all.
+- **Approving early now costs a sentence.** An applicant with friends still
+  outstanding shows "Approve early", asks what the override is for, and records
+  it. Both applicants on day one were let in by hand within the hour, which is
+  why three of four recommenders never wrote.
+
+Honest limit: two recommenders per member at a 50% reply rate would need 100%
+conversion to be self-sustaining. This lowers acquisition cost and produces
+unusually warm leads. It is not exponential growth and should not be sold as it.
+
 ## 2026-08-03: the form controls are ours now, not the operating system's
 
 Joshua, on the gender dropdown: "these drop downs are really generic." They

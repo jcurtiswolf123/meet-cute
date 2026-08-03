@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { Avatar } from "@/components/ui";
 import { Select as FieldSelect } from "@/components/select";
+import { ApproveApplicant } from "./ApproveApplicant";
 import { retryDeliveryJob, setMemberStatus } from "@/lib/actions";
 import { IntroComposer } from "./matchmaking/IntroComposer";
 import { introNotice } from "./matchmaking/intro-notice";
@@ -97,7 +98,7 @@ export default async function Roster({
       status: "applicant",
       appliedAt: { not: null },
     },
-    include: { photos: true },
+    include: { photos: true, recommendationsReceived: { orderBy: { createdAt: "asc" } } },
     orderBy: { appliedAt: "desc" },
   });
   const [failedDeliveryCount, failedDeliveries] = await Promise.all([
@@ -178,6 +179,21 @@ export default async function Roster({
                   <span>
                     <span className="block text-sm font-medium text-ink">{a.name}{a.age ? `, ${a.age}` : ""}</span>
                     <span className="block text-xs text-muted">{a.email} · {a.city}</span>
+                    {/* What the gate is waiting on, in the list where the
+                        Approve button lives. Approving here is what let two
+                        applicants in before their friends wrote. */}
+                    {a.recommendationsReceived.length > 0 && (
+                      <span className="mt-0.5 block text-xs text-muted">
+                        {a.recommendationsReceived.filter((r) => r.status === "submitted").length} of{" "}
+                        {a.recommendationsReceived.length} friends have written
+                        {a.recommendationsReceived.some((r) => r.status === "requested")
+                          ? `, waiting on ${a.recommendationsReceived
+                              .filter((r) => r.status === "requested")
+                              .map((r) => r.name.split(" ")[0])
+                              .join(" and ")}`
+                          : ""}
+                      </span>
+                    )}
                     {a.voucherName && (
                       <span className="mt-0.5 block text-xs font-medium text-ink">
                         Vouched by {a.voucherName}
@@ -187,11 +203,11 @@ export default async function Roster({
                   </span>
                 </Link>
                 <div className="flex gap-2">
-                  <form action={setMemberStatus}>
-                    <input type="hidden" name="personId" value={a.id} />
-                    <input type="hidden" name="action" value="approve" />
-                    <button className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white transition hover:bg-ink/85">Approve</button>
-                  </form>
+                  <ApproveApplicant
+                    personId={a.id}
+                    name={a.name}
+                    outstanding={a.recommendationsReceived.filter((r) => r.status === "requested").length}
+                  />
                   <form action={setMemberStatus}>
                     <input type="hidden" name="personId" value={a.id} />
                     <input type="hidden" name="action" value="decline" />

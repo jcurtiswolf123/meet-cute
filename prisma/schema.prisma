@@ -93,6 +93,13 @@ model Person {
   acceptedAt  DateTime?
   fastTracked Boolean   @default(false)
 
+  // Who let them in, and why it was allowed to skip the recommendation gate.
+  // Recommendations normally accept an applicant on their own; an operator can
+  // still override, and an override that leaves no trace is how the gate quietly
+  // stops meaning anything. Null on anyone the gate accepted by itself.
+  acceptedById         String?
+  acceptOverrideReason String?
+
   // co-pilot semantic search
   embedding String? // JSON array of floats
 
@@ -430,12 +437,23 @@ model Recommendation {
   body         String?
   relationship String?
 
+  // The growth loop. A recommender is the warmest lead Mutuals ever sees: they
+  // know a member personally, they are in the right city, and they just spent
+  // two minutes writing thoughtfully about someone's dating life. These record
+  // whether that lead ever became a member, because before this nothing
+  // attributed a signup back to the recommendation that produced it and the
+  // funnel could not be measured at all.
+  convertedPersonId String?
+  convertedAt       DateTime?
+
   // One request per person per email address: naming the same friend twice is a
   // typo, not two recommendations, and re-submitting an application reuses the
   // row rather than mailing them again.
   @@unique([applicantId, email])
   @@index([applicantId, status])
   @@index([token])
+  // Finding "did this email ever vouch for anyone" runs on every application.
+  @@index([email, status])
 }
 
 model Referral {

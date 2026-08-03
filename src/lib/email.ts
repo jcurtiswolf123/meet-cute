@@ -814,6 +814,76 @@ export function matchThreadEmail(args: {
   return { subject, html: emailShell(inner, `${aFull} and ${bFull}, meet each other.`), text };
 }
 
+// Sent to a friend a day and a half after they wrote a recommendation, once,
+// and only if they have not already applied.
+//
+// This is the whole growth loop in one message, and it is the only mail this
+// system sends to someone who did not ask to hear from Mutuals. It earns the
+// send by reporting the outcome of the thing they actually did, it makes the
+// offer once, and it never repeats. There is no drip and no list.
+export function recommenderFollowUpEmail(args: {
+  recommenderName: string;
+  applicantName: string;
+  accepted: boolean;
+  applyUrl: string;
+}): { subject: string; html: string; text: string } {
+  const first = (args.recommenderName || "there").split(" ")[0];
+  const applicantFirst = (args.applicantName || "your friend").split(" ")[0];
+  const subject = args.accepted
+    ? `${applicantFirst} is in, and you are why`
+    : `Thank you for vouching for ${applicantFirst}`;
+  const outcome = args.accepted
+    ? `${applicantFirst} is in. Your words are on their profile, and they are the reason a matchmaker is now looking for someone worth introducing them to.`
+    : `${applicantFirst} is still waiting on one more friend to write back, but your part is done.`;
+
+  const text =
+    `Hi ${first},\n\n` +
+    `${outcome}\n\n` +
+    `Since you clearly know how to pick people: this works for you too. A matchmaker introduces you to one person at a time, by email, and you decide for yourself. No profile to maintain, no feed, no swiping.\n\n` +
+    `And because you have already vouched for ${applicantFirst}, they count as one of the two recommendations you would need. You would only have to ask one friend.\n\n` +
+    `${args.applyUrl}\n\n` +
+    `If this is not for you, ignore this and you will not hear from us again.\n\n` +
+    `Warmly,\nMutuals`;
+
+  const inner =
+    h1(args.accepted ? `${applicantFirst} is in.` : "Thank you for that.") +
+    p(`Hi ${esc(first)}, ${esc(outcome)}`) +
+    p(`Since you clearly know how to pick people, this works for you too: a matchmaker introduces you to <strong>one person at a time</strong>, by email, and you decide for yourself. No profile to maintain, no feed, no swiping.`) +
+    `<div style="margin:16px 0;padding:16px;border:1px solid ${BRAND.line};border-radius:12px;background:${BRAND.cream}">
+      <p style="margin:0;font-family:${SANS};font-size:14px;line-height:1.6;color:${BRAND.ink}">You have already vouched for <strong>${esc(applicantFirst)}</strong>, so they count as one of the two recommendations you would need. You would only have to ask one friend.</p>
+    </div>` +
+    `<p style="margin:24px 0 0">${emailButton("See how it works", args.applyUrl)}</p>` +
+    small("If this is not for you, ignore this and you will not hear from us again.");
+
+  return { subject, html: emailShell(inner, "You would only have to ask one friend."), text };
+}
+
+// Sent to a member when someone they were vouched for by is now applying, and
+// is counting on them to write one back. High odds of a reply: they already
+// know the person, and the person already did this for them.
+export function vouchBackRequestEmail(args: {
+  memberName: string;
+  applicantName: string;
+  link: string;
+}): { subject: string; html: string; text: string } {
+  const first = (args.memberName || "there").split(" ")[0];
+  const applicantFirst = (args.applicantName || "your friend").split(" ")[0];
+  const subject = `${applicantFirst} vouched for you. Return the favour?`;
+  const text =
+    `Hi ${first},\n\n` +
+    `${args.applicantName} wrote your recommendation when you applied to Mutuals, and is now applying too.\n\n` +
+    `You count as one of their two recommendations. A few sentences from you and they are most of the way in.\n\n` +
+    `${args.link}\n\n` +
+    `Warmly,\nMutuals`;
+  const inner =
+    h1(`${applicantFirst} vouched for you.`) +
+    p(`Hi ${esc(first)}, <strong>${esc(args.applicantName)}</strong> wrote your recommendation when you applied, and is now applying too.`) +
+    p(`You count as one of their two. A few sentences from you and they are most of the way in.`) +
+    `<p style="margin:24px 0 0">${emailButton(`Vouch for ${applicantFirst}`, args.link)}</p>` +
+    small("Two minutes. What you write shows on their profile, in your words.");
+  return { subject, html: emailShell(inner, `Return the favour for ${applicantFirst}.`), text };
+}
+
 export function magicLinkEmail(link: string): { subject: string; html: string; text: string } {
   const subject = "Your Mutuals sign-in link";
   const text = `Sign in to Mutuals:\n${link}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;

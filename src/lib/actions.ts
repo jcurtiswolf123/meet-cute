@@ -28,13 +28,21 @@ import {
   recommendationRequestEmail,
   recommendationReceivedEmail,
   recommendationThanksEmail,
+  recommenderFollowUpEmail,
+  vouchBackRequestEmail,
 } from "./email";
 import {
+  FOLLOW_UP_DELAY_MS,
+  REMINDER_DELAY_MS,
   REQUIRED_RECOMMENDATIONS,
   acceptIfRecommended,
+  fastTrackFor,
   gateState,
   isGender,
+  linkRecommenderSignup,
+  newRecommendationToken,
   recommendationUrl,
+  requiredNewRecommenders,
   saveRecommenders,
   type RecommenderInput,
 } from "./recommendations";
@@ -476,8 +484,15 @@ export async function completeApplication(
   // and it is also the field the matchmaker filters on. It was never collected
   // here: every one of the 25 people on the roster had a null gender.
   const gender = String(formData.get("gender") || "").trim();
-  // The two friends who have to write back before this application is accepted.
-  const recommenders = [1, 2].map((slot) => ({
+  // Someone who has already vouched for a member needs one new friend, not two:
+  // the member they vouched for counts as the other. That credit is what makes
+  // a recommender worth converting, and it is checked on the server rather than
+  // trusted from the form.
+  const fastTrack = await fastTrackFor(email, gender);
+  const needed = requiredNewRecommenders(fastTrack);
+
+  // The friends who have to write back before this application is accepted.
+  const recommenders = [1, 2].slice(0, needed).map((slot) => ({
     name: String(formData.get(`rec${slot}Name`) || "").trim().slice(0, 120),
     email: String(formData.get(`rec${slot}Email`) || "").trim().toLowerCase().slice(0, 254),
     gender: String(formData.get(`rec${slot}Gender`) || "").trim(),
@@ -562,8 +577,8 @@ export async function completeApplication(
       if (isGender(person.gender) && person.gender !== wanted) {
         fieldErrors[`rec${slot}Gender`] =
           wanted === "man"
-            ? "Both of your recommendations have to come from men."
-            : "Both of your recommendations have to come from women.";
+            ? `Your ${needed === 1 ? "recommendation has" : "recommendations have"} to come from men.`
+            : `Your ${needed === 1 ? "recommendation has" : "recommendations have"} to come from women.`;
       }
     });
   }
@@ -597,10 +612,56 @@ export async function completeApplication(
     },
   });
 
+  // This applicant may be a recommender who came back. Stamp the rows they
+  // wrote with the person they became (the only way the loop is measurable),
+  // write the member-to-member Vouch, and stop the follow-up that was going to
+  // ask them to do the thing they have now done.
+  const convertedFrom = await linkRecommenderSignup({ id: me!.id, email });
+  if (convertedFrom > 0) await cancelPendingMail("recommender_follow_up", email);
+
   // Ask the friends. Queued, like every other send, so a provider hiccup
   // retries rather than stranding an application nobody can complete.
   const saved = await saveRecommenders(me!.id, recommenders as RecommenderInput[]);
   await queueRecommendationRequests(saved, name, city);
+
+  // The credited half: the member they vouched for is asked to vouch back. It
+  // is a real request with a real token, so it shows on the waiting page and
+  // counts toward the gate exactly like any other.
+  if (fastTrack) {
+    const already = await prisma.recommendation.findUnique({
+      where: { applicantId_email: { applicantId: me!.id, email: fastTrack.member.email ?? "" } },
+    });
+    if (!already && fastTrack.member.email) {
+      const request = await prisma.recommendation.create({
+        data: {
+          applicantId: me!.id,
+          name: fastTrack.member.name,
+          email: fastTrack.member.email,
+          gender: fastTrack.member.gender ?? "nonbinary",
+          token: newRecommendationToken(),
+          requestedAt: new Date(),
+        },
+      });
+      try {
+        const msg = vouchBackRequestEmail({
+          memberName: request.name,
+          applicantName: name,
+          link: recommendationUrl(request.token),
+        });
+        await queueEmailDelivery({
+          kind: "vouch_back_request",
+          to: request.email,
+          subject: msg.subject,
+          html: msg.html,
+          text: msg.text,
+          personId: fastTrack.member.id,
+          idempotencyKey: makeDeliveryKey("vouch_back_request", request.token),
+        });
+      } catch (error) {
+        console.error(`[flywheel] could not ask for a vouch back: ${(error as Error).message}`);
+      }
+    }
+  }
 
   // Confirm receipt. Queued rather than sent inline so a provider hiccup retries
   // instead of silently dropping the applicant's only confirmation. The
@@ -634,6 +695,28 @@ export async function completeApplication(
 
 function appBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "");
+}
+
+/**
+ * Cancel a scheduled message that no longer needs to be sent.
+ *
+ * The reminder and the follow-up are both queued into the future the moment
+ * they become possible, using the outbox's own `availableAt`. That is why there
+ * is no cron: the job that already exists is the schedule. The cost is that
+ * both have to be withdrawn when the thing they were going to ask about has
+ * happened, which is what this does.
+ */
+async function cancelPendingMail(kind: string, recipient: string): Promise<number> {
+  const cancelled = await prisma.deliveryJob.updateMany({
+    where: { kind, recipient, status: "pending" },
+    data: {
+      status: "cancelled",
+      lockedAt: null,
+      leaseToken: null,
+      lastError: "Cancelled because it was no longer needed.",
+    },
+  });
+  return cancelled.count;
 }
 
 function isValidEmail(value: string): boolean {
@@ -683,6 +766,31 @@ async function queueRecommendationRequests(
         where: { id: request.id },
         data: options.reminder ? { remindedAt: new Date() } : { requestedAt: new Date() },
       });
+
+      // Schedule the nudge at the same time as the ask, to be sent in two days
+      // unless they have written back by then. Reply rate is one of the two
+      // numbers the whole loop multiplies, and leaving the only nudge as a
+      // button the applicant has to find means half of them never get one:
+      // of the two people who applied through the gate on the day it shipped,
+      // one pressed it and one did not.
+      if (!options.reminder) {
+        const nudge = recommendationRequestEmail({
+          recommenderName: request.name,
+          applicantName,
+          applicantCity,
+          link: recommendationUrl(request.token),
+          reminder: true,
+        });
+        await queueEmailDelivery({
+          kind: "recommendation_reminder",
+          to: request.email,
+          subject: nudge.subject,
+          html: nudge.html,
+          text: nudge.text,
+          idempotencyKey: makeDeliveryKey("recommendation_reminder", request.token, "auto"),
+          availableAt: new Date(Date.now() + REMINDER_DELAY_MS),
+        });
+      }
       queued += 1;
     } catch (error) {
       console.error(`[recommendations] could not queue request: ${(error as Error).message}`);
@@ -744,6 +852,10 @@ export async function submitRecommendation(
   });
   if (claimed.count !== 1) redirect(`/r/${token}?done=1`);
 
+  // They wrote back, so the nudge scheduled for two days from the ask is
+  // withdrawn before it can go out and ask them again.
+  await cancelPendingMail("recommendation_reminder", request.email);
+
   // Second qualifying recommendation accepts the applicant. Exactly one caller
   // wins the transition, so the welcome email goes out once.
   const outcome = await acceptIfRecommended(request.applicantId);
@@ -793,6 +905,32 @@ export async function submitRecommendation(
       text: thanks.text,
       idempotencyKey: makeDeliveryKey("recommendation_thanks", request.id),
     });
+
+    // The loop. One message, a day and a half later, reporting what came of
+    // what they wrote and making the offer once. Withdrawn the moment they
+    // apply, and never repeated: this is the only mail Mutuals sends to
+    // someone who did not ask to hear from it, and it stays that way.
+    const alreadyMember = await prisma.person.findUnique({
+      where: { email: request.email },
+      select: { appliedAt: true },
+    });
+    if (!alreadyMember?.appliedAt) {
+      const followUp = recommenderFollowUpEmail({
+        recommenderName: request.name,
+        applicantName: applicant.name,
+        accepted: outcome.accepted,
+        applyUrl: `${appBaseUrl()}/apply?from=${encodeURIComponent(token)}`,
+      });
+      await queueEmailDelivery({
+        kind: "recommender_follow_up",
+        to: request.email,
+        subject: followUp.subject,
+        html: followUp.html,
+        text: followUp.text,
+        idempotencyKey: makeDeliveryKey("recommender_follow_up", request.id),
+        availableAt: new Date(Date.now() + FOLLOW_UP_DELAY_MS),
+      });
+    }
   } catch (error) {
     // The recommendation is committed. Mail is a courtesy on top of it and must
     // never cost the friend the thing they just took two minutes to write.
@@ -912,7 +1050,27 @@ export async function setMemberStatus(formData: FormData) {
   const action = String(formData.get("action") || "");
   if (!id || !["approve", "decline"].includes(action)) throw new Error("invalid status change");
 
-  const change = await setNonOperatorMemberStatus(op.id, id, action as "approve" | "decline");
+  // Approving before the recommendations are in is allowed, and it is the one
+  // thing that quietly empties the gate: on the day it shipped, both applicants
+  // were let in by hand before their friends wrote, so three of four
+  // recommenders had no reason to answer and the loop had no fuel. It stays
+  // possible and stops being invisible. A reason is required and recorded.
+  const reason = String(formData.get("reason") || "").trim().slice(0, 280);
+  if (action === "approve") {
+    const gate = await gateState(id);
+    if (!gate.satisfied && gate.recommendations.length > 0 && !reason) {
+      throw new Error(
+        `${gate.remaining} of ${REQUIRED_RECOMMENDATIONS} recommendations are still outstanding. Give a reason to override the gate.`,
+      );
+    }
+  }
+
+  const change = await setNonOperatorMemberStatus(
+    op.id,
+    id,
+    action as "approve" | "decline",
+    reason || null,
+  );
 
   // Welcome the new member: "you're in, you'll start getting matches." Queued
   // through the outbox so a provider hiccup retries instead of stranding the
