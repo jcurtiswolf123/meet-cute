@@ -2,11 +2,56 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-02 (roster pruned to two real members and four operators,
+Last updated: 2026-08-03 (connection email suggests where to go, live but inert
+until venues are verified; roster pruned to two real members and four operators,
 Send introductions no longer crashes the studio, and a suggested pair can be
 introduced; the database is healthy, the latency cost is sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
+
+## 2026-08-03: the connection email suggests where to go
+
+Shipped and live (Fly v163, both sjc machines healthy), and deliberately inert
+until venues are verified.
+
+The connection email, the one sent when both people say yes, ended at "find a
+time this week". It now carries up to three places and one non-restaurant idea.
+
+**The design problem was not suggesting, it was not lying.** A model asked for
+restaurants in a neighbourhood answers confidently and is sometimes wrong, and a
+closed room in this particular email is two people standing outside a locked
+door. So facts and voice are split. Every venue fact comes from the Venue table;
+the model is handed a shortlist and may only return ids from it, so an invented
+id simply is not in the map and is dropped. The only text the model fully
+authors is the wildcard, a non-venue idea that names nothing checkable.
+
+**It ships switched off.** A venue is eligible only while active and verified
+inside `VENUE_FRESH_DAYS` (120). The migration leaves `lastVerifiedAt` NULL on
+every existing row, so 0 of 4 venues qualify and the block is omitted entirely.
+Nothing reaches a member until `npm run venues:verify -- --verify <id>` stamps a
+row. This is the point: the four seed venues have never been checked, none has a
+booking or map link, and two of them are the entire NYC list.
+
+**Booking is not claimed.** There is no reservation integration. The email links
+to the venue's own page and says plainly that nothing is reserved; a test asserts
+four phrasings of "we booked it" never appear. The Mutuals link only records
+which place the pair chose, into the new `DatePick` table, authorised by an HMAC
+of the match id so it works from an inbox with no session and cannot be forged
+without `SESSION_SECRET`.
+
+**Everything degrades to the email that sends today.** No venues, none eligible,
+a slow model, a dead model, or a model returning nonsense all end with the
+connection email unchanged. A test pins that an empty ideas object renders it
+byte-identical.
+
+Verified end to end against a disposable Neon database: an unverified venue and a
+retired venue were both excluded, and the live model picked only from the
+supplied list while writing real personalisation ("close to Ada's home"). All
+eleven launch suites pass, plus typecheck, lint and the production build.
+
+**What is needed next, and it is content not code:** a real venue list. Two
+rooms per city is not a suggestion engine, and every row needs an address and a
+booking link before it is worth stamping.
 
 ## 2026-08-02: roster pruned to real people, and the database is fine
 
