@@ -46,6 +46,7 @@ import {
   recommendationUrl,
   requiredNewRecommenders,
   saveRecommenders,
+  syncLeadRecommendation,
   type RecommenderInput,
 } from "./recommendations";
 import {
@@ -884,6 +885,10 @@ export async function afterRecommendationAnswer(
   await cancelScheduledMail("recommendation_reminder", request.email);
 
   const outcome = await acceptIfRecommended(request.applicantId);
+  // Also for someone who is already a member. acceptIfRecommended only copies
+  // the quote on the way in, so a recommendation written after an operator
+  // approved the applicant never reached the profile or the introduction.
+  await syncLeadRecommendation(request.applicantId);
 
   try {
     if (outcome.justAccepted && applicant.email) {
