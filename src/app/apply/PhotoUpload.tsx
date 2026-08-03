@@ -62,9 +62,16 @@ export function PhotoUpload({ initial }: { initial: Item[] }) {
   return (
     <fieldset className="space-y-4 rounded-xl border border-line bg-paper/40 p-4">
       <legend className="label px-1">Your photos</legend>
+      {/* This used to promise "a match only sees them after you both say yes",
+          which was never true: the introduction email and the invite page have
+          always shown the primary photo before either person decides, and now
+          show more than one. Someone deciding whether to meet you should see
+          your face, so the promise had to move to match the product rather than
+          the other way round. It still names exactly who sees what. */}
       <p className="-mt-1 text-xs text-muted">
-        Add a few clear, recent photos - at least one of just you. Only your matchmaker sees them,
-        and a match only sees them after you both say yes. Up to {MAX}.
+        Add a few clear, recent photos - at least one of just you. Your matchmaker sees them, and so
+        does the one person we introduce you to, so they can decide with your face in front of them.
+        Nobody else on the list ever sees them. Up to {MAX}.
       </p>
 
       {items.length > 0 && (
