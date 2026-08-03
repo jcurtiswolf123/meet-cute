@@ -6,8 +6,7 @@ import { getCurrentPerson } from "@/lib/auth";
 import { requestMagicLink } from "@/lib/actions";
 import { magicLinkErrorMessage } from "@/lib/magic-link-status";
 import { maxBirthdateForAge } from "@/lib/age";
-import { ApplyForm } from "./ApplyForm";
-import { PhotoUpload } from "./PhotoUpload";
+import { ApplySection } from "./ApplySection";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Apply" };
@@ -101,6 +100,15 @@ export default async function Apply({
     orderBy: { order: "asc" },
     select: { id: true, url: true, status: true },
   });
+  // Prefill the friends they already named, so a returning applicant who is
+  // fixing one field does not have to retype both recommenders. A friend who
+  // has already written back is never re-mailed (see saveRecommenders).
+  const recommenders = await prisma.recommendation.findMany({
+    where: { applicantId: me.id },
+    orderBy: { createdAt: "asc" },
+    take: 2,
+    select: { name: true, email: true, gender: true },
+  });
   return (
     <>
     <main id="main-content" className="container-mc min-h-screen py-12">
@@ -111,28 +119,25 @@ export default async function Apply({
         <p className="mt-3 text-sm leading-relaxed text-muted">
           {/* email is nullable on Person: an operator can create a member record
               without one, and "Signed in as ." reads as a broken sentence. */}
-          {me.email ? `Signed in as ${me.email}. ` : ""}This takes a minute - just a few essentials
-          and your socials so we can get to know you.
+          {me.email ? `Signed in as ${me.email}. ` : ""}This takes a minute: a few essentials, a
+          photo, and the two friends who will vouch for you. We email them, and their words are what
+          get you in.
         </p>
 
-        <div className="mt-8">
-          <PhotoUpload initial={photos} />
-        </div>
-
-        <ApplyForm
+        <ApplySection
+          photos={photos}
           defaults={{
             first,
             last,
             email: me.email ?? "",
             phone: me.phone ?? "",
             city: me.city === "SF" ? "SF" : "NYC",
+            gender: me.gender ?? "",
             instagram: me.instagram ?? "",
             linkedin: me.linkedin ?? "",
             lookingFor: me.lookingFor ?? "",
             maxBirthdate,
-            voucherName: me.voucherName ?? "",
-            voucherContact: me.voucherContact ?? "",
-            recommendation: me.recommendation ?? "",
+            recommenders,
           }}
         />
       </div>

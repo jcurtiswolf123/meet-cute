@@ -24,6 +24,53 @@ sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
 
+## 2026-08-03: two friends of the opposite gender accept an applicant, and a photo is required
+
+Joshua's ask, by email this morning. Built, tested end to end on the sandbox,
+**not yet deployed**.
+
+What an application is now:
+
+- **Two friends, named by the applicant, of the opposite gender.** Mutuals emails
+  each of them a token link. They write a few sentences with no account and no
+  sign-in. The second qualifying reply flips the applicant to `active`,
+  stamps `acceptedAt`, and sends the welcome email. Nonbinary applicants need
+  the same two recommendations with no gender constraint.
+- **A photo is required to submit.** Ten of the twenty-five people on the roster
+  had none, which is why introductions kept going out with initials. The check
+  is server-side because the uploader posts to `/api/photos` on its own and
+  never touches the form.
+- **Gender is collected.** It had never been asked. All 25 roster rows had a
+  null gender, so the studio's gender filter had nothing to filter on.
+- **`/apply/thanks` is a live status board**: who was asked, who has written,
+  what they wrote, and a rate-limited nudge button.
+- **`/r/[token]`** is the friend's page. Single-use, no session, and it stops
+  accepting writes once answered.
+- **What the friends write is the profile recommendation.** The first reply is
+  copied onto `Person.recommendation` / `voucherName`, so the introduction
+  email, the invite page, and the studio profile keep working unchanged. The
+  member cannot edit their friends' words.
+- Three new emails: the request (and its nudge), "your friend wrote back", and
+  the friend's thank-you, which is the one place it is fair to tell a
+  recommender that Mutuals exists for them too.
+
+Two bugs found and fixed on the way:
+
+- **Nothing on the site hydrated when it was served from 127.0.0.1.** Next 16
+  blocks cross-origin dev resources and does not treat 127.0.0.1 and localhost
+  as the same origin. Server actions masked it because forms degrade gracefully
+  without JavaScript. `allowedDevOrigins` now covers both.
+- **A failed submit silently reset the terms checkbox and the city select.**
+  Uncontrolled selects and checkboxes do not survive a `useActionState`
+  re-render. Every select and checkbox on the apply form is controlled now.
+
+Operator approval still exists and still works. It is no longer what normally
+accepts someone, and the 12 applicants who applied before today have no
+recommendation rows, so they are accepted by hand exactly as they were.
+
+Not done: no reminder job runs on a schedule (the nudge is applicant-triggered
+from `/apply/thanks`), and existing members still have a null gender.
+
 ## 2026-08-03: photos go live on upload, the review queue is gone
 
 Reversal of the queue built earlier today, at Joshua's call. Shipped and live.

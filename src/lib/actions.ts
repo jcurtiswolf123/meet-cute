@@ -25,7 +25,19 @@ import {
   matchFeedbackEmail,
   operatorLeadEmail,
   requestReceivedEmail,
+  recommendationRequestEmail,
+  recommendationReceivedEmail,
+  recommendationThanksEmail,
 } from "./email";
+import {
+  REQUIRED_RECOMMENDATIONS,
+  acceptIfRecommended,
+  gateState,
+  isGender,
+  recommendationUrl,
+  saveRecommenders,
+  type RecommenderInput,
+} from "./recommendations";
 import {
   normalizePhone,
   normalizeInstagram,
@@ -460,26 +472,35 @@ export async function completeApplication(
   const agreed = formData.get("agree") === "on";
   // SMS opt-in is separate and optional; only meaningful with a textable number.
   const smsConsent = formData.get("smsConsent") === "on";
-  // Community recommendation: every applicant names someone who vouches for them.
-  const voucherName = String(formData.get("voucherName") || "").trim().slice(0, 120);
-  const voucherContact = String(formData.get("voucherContact") || "").trim().slice(0, 200);
-  const recommendation = String(formData.get("recommendation") || "").trim().slice(0, 600);
+  // Gender is what the opposite-gender recommendation rule is checked against,
+  // and it is also the field the matchmaker filters on. It was never collected
+  // here: every one of the 25 people on the roster had a null gender.
+  const gender = String(formData.get("gender") || "").trim();
+  // The two friends who have to write back before this application is accepted.
+  const recommenders = [1, 2].map((slot) => ({
+    name: String(formData.get(`rec${slot}Name`) || "").trim().slice(0, 120),
+    email: String(formData.get(`rec${slot}Email`) || "").trim().toLowerCase().slice(0, 254),
+    gender: String(formData.get(`rec${slot}Gender`) || "").trim(),
+  }));
 
   // Echo the entered values back so a re-render preserves them.
-  const values = {
+  const values: Record<string, string> = {
     first,
     last,
     email,
     city,
+    gender,
     lookingFor,
     phone: phoneRaw,
     linkedin: linkedinRaw,
     instagram: instagramRaw,
     birthdate: birthdateRaw,
-    voucherName,
-    voucherContact,
-    recommendation,
   };
+  recommenders.forEach((r, i) => {
+    values[`rec${i + 1}Name`] = r.name;
+    values[`rec${i + 1}Email`] = r.email;
+    values[`rec${i + 1}Gender`] = r.gender;
+  });
 
   const fieldErrors: Record<string, string> = {};
   if (!first) fieldErrors.first = "Enter your first name.";
@@ -502,9 +523,50 @@ export async function completeApplication(
     fieldErrors.birthdate = "You must be 18 or older to join Mutuals.";
   }
   if (!agreed) fieldErrors.agree = "Please accept the Terms and Privacy Policy to continue.";
-  // Mutuals is vouched-for: every applicant names someone in the community.
-  if (!voucherName) fieldErrors.voucherName = "Name someone in the community who can vouch for you.";
-  if (!voucherContact) fieldErrors.voucherContact = "Add their email or phone so we can reach them.";
+  if (!isGender(gender)) fieldErrors.gender = "Tell us how you identify so we can match you.";
+
+  // A photo is required. It used to be encouraged, and 10 of the 25 people on
+  // the roster had none, so half the introductions went out with initials where
+  // a face should be. The check is here rather than only in the browser because
+  // the uploader posts to /api/photos on its own, outside this form.
+  const photoCount = await prisma.photo.count({
+    where: { personId: me!.id, status: "approved" },
+  });
+  if (photoCount === 0) {
+    fieldErrors.photos = "Add at least one photo. Your matchmaker and your introduction both need a face.";
+  }
+
+  // Two friends of the opposite gender. This is the gate: naming them is what
+  // an application IS now, so the errors have to be specific enough to fix.
+  const seen = new Set<string>();
+  recommenders.forEach((person, i) => {
+    const slot = i + 1;
+    if (!person.name) fieldErrors[`rec${slot}Name`] = "Add their name.";
+    if (!isValidEmail(person.email)) {
+      fieldErrors[`rec${slot}Email`] = "Add their email so we can ask them.";
+    } else if (person.email === normalizeEmail(email)) {
+      fieldErrors[`rec${slot}Email`] = "This has to be someone else's email, not your own.";
+    } else if (seen.has(person.email)) {
+      fieldErrors[`rec${slot}Email`] = "You have already named this person.";
+    }
+    seen.add(person.email);
+    if (!isGender(person.gender)) fieldErrors[`rec${slot}Gender`] = "Pick one.";
+  });
+  // The opposite-gender rule, checked once both slots are otherwise valid.
+  // Nonbinary applicants have no opposite to require, so they need the two
+  // recommendations and nothing more.
+  if (isGender(gender) && (gender === "woman" || gender === "man")) {
+    const wanted = gender === "woman" ? "man" : "woman";
+    recommenders.forEach((person, i) => {
+      const slot = i + 1;
+      if (isGender(person.gender) && person.gender !== wanted) {
+        fieldErrors[`rec${slot}Gender`] =
+          wanted === "man"
+            ? "Both of your recommendations have to come from men."
+            : "Both of your recommendations have to come from women.";
+      }
+    });
+  }
 
   if (Object.keys(fieldErrors).length > 0) {
     return { fieldErrors, values };
@@ -520,6 +582,7 @@ export async function completeApplication(
     data: {
       name,
       city,
+      gender,
       lookingFor,
       phone,
       linkedin,
@@ -531,18 +594,25 @@ export async function completeApplication(
       // gave a textable number. Unchecking (or no number) leaves it null.
       smsConsentAt: smsConsent && isTextablePhone(phone) ? new Date() : null,
       appliedAt: me!.appliedAt ?? new Date(),
-      voucherName,
-      voucherContact,
-      recommendation: recommendation || null,
     },
   });
+
+  // Ask the friends. Queued, like every other send, so a provider hiccup
+  // retries rather than stranding an application nobody can complete.
+  const saved = await saveRecommenders(me!.id, recommenders as RecommenderInput[]);
+  await queueRecommendationRequests(saved, name, city);
 
   // Confirm receipt. Queued rather than sent inline so a provider hiccup retries
   // instead of silently dropping the applicant's only confirmation. The
   // application itself is already committed above, so this never blocks it.
   if (email.includes("@")) {
     try {
-      const msg = applicationReceivedEmail({ name, city });
+      const msg = applicationReceivedEmail({
+        name,
+        city,
+        recommenders: saved.map((r) => ({ name: r.name, status: r.status })),
+        statusUrl: `${appBaseUrl()}/apply/thanks`,
+      });
       await queueEmailDelivery({
         kind: "application_received",
         to: email,
@@ -558,6 +628,180 @@ export async function completeApplication(
   }
 
   redirect("/apply/thanks");
+}
+
+// --- recommendations ---------------------------------------------------------
+
+function appBaseUrl(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "");
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) && value.length <= 254;
+}
+
+/**
+ * Queue the "please vouch for X" email for each outstanding request.
+ *
+ * personId is deliberately NOT set on these jobs. It is the applicant's id, not
+ * the recipient's, and deliveryEligibility refuses to send an email whose
+ * recipient is not that person's own address - which is exactly right for every
+ * other email in the system and exactly wrong for this one. The idempotency key
+ * covers the token, so a job is queued once per request and a re-sent request
+ * (new token) is a new job.
+ */
+async function queueRecommendationRequests(
+  requests: { id: string; token: string; name: string; email: string; status: string }[],
+  applicantName: string,
+  applicantCity: string | null,
+  options: { reminder?: boolean } = {},
+): Promise<number> {
+  let queued = 0;
+  for (const request of requests) {
+    if (request.status === "submitted") continue;
+    try {
+      const msg = recommendationRequestEmail({
+        recommenderName: request.name,
+        applicantName,
+        applicantCity,
+        link: recommendationUrl(request.token),
+        reminder: options.reminder,
+      });
+      await queueEmailDelivery({
+        kind: options.reminder ? "recommendation_reminder" : "recommendation_request",
+        to: request.email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        idempotencyKey: makeDeliveryKey(
+          options.reminder ? "recommendation_reminder" : "recommendation_request",
+          request.token,
+          options.reminder ? String(Date.now()) : "",
+        ),
+      });
+      await prisma.recommendation.update({
+        where: { id: request.id },
+        data: options.reminder ? { remindedAt: new Date() } : { requestedAt: new Date() },
+      });
+      queued += 1;
+    } catch (error) {
+      console.error(`[recommendations] could not queue request: ${(error as Error).message}`);
+    }
+  }
+  return queued;
+}
+
+/** Applicant-triggered nudge from the waiting page. Rate limited: a friend who
+ *  is being emailed every ten minutes stops reading the emails. */
+export async function nudgeRecommenders(): Promise<void> {
+  const me = await getCurrentPerson();
+  if (!me) redirect("/login");
+  const limit = await rateLimit(`nudge:${me.id}`, 3, 60 * 60 * 1000);
+  if (!limit.ok) return;
+  const state = await gateState(me.id);
+  await queueRecommendationRequests(state.outstanding, me.name, me.city, { reminder: true });
+  revalidatePath("/apply/thanks");
+}
+
+export type RecommendationState = {
+  error?: string;
+  values?: { body?: string; relationship?: string };
+};
+
+/**
+ * A friend writes the recommendation. No session: the token in the URL is the
+ * authorization, and it stops working once answered so a forwarded link cannot
+ * overwrite what they wrote.
+ */
+export async function submitRecommendation(
+  _prev: RecommendationState,
+  formData: FormData,
+): Promise<RecommendationState> {
+  const token = String(formData.get("token") || "");
+  const body = String(formData.get("body") || "").trim().slice(0, 1200);
+  const relationship = String(formData.get("relationship") || "").trim().slice(0, 160);
+  const values = { body, relationship };
+
+  if (!token) return { error: "This link is not valid any more.", values };
+  if (body.length < 40) {
+    return {
+      error: "A couple of sentences, please. This is the whole application - it decides whether they get in.",
+      values,
+    };
+  }
+
+  const request = await prisma.recommendation.findUnique({
+    where: { token },
+    include: { applicant: { select: { id: true, name: true, email: true, city: true } } },
+  });
+  if (!request) return { error: "This link is not valid any more.", values };
+  if (request.status === "submitted") redirect(`/r/${token}?done=1`);
+
+  // Guarded on the current status so two tabs cannot both count as the reply.
+  const claimed = await prisma.recommendation.updateMany({
+    where: { id: request.id, status: "requested" },
+    data: { status: "submitted", submittedAt: new Date(), body, relationship: relationship || null },
+  });
+  if (claimed.count !== 1) redirect(`/r/${token}?done=1`);
+
+  // Second qualifying recommendation accepts the applicant. Exactly one caller
+  // wins the transition, so the welcome email goes out once.
+  const outcome = await acceptIfRecommended(request.applicantId);
+
+  const applicant = request.applicant;
+  try {
+    if (outcome.justAccepted && applicant.email) {
+      const msg = applicationApprovedEmail({ name: applicant.name, appUrl: `${appBaseUrl()}/app/profile` });
+      await queueEmailDelivery({
+        kind: "application_approved",
+        to: applicant.email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        personId: applicant.id,
+        idempotencyKey: makeDeliveryKey("application_approved", applicant.id),
+      });
+    } else if (!outcome.accepted && applicant.email) {
+      const msg = recommendationReceivedEmail({
+        name: applicant.name,
+        recommenderName: request.name,
+        remaining: outcome.remaining || REQUIRED_RECOMMENDATIONS,
+        statusUrl: `${appBaseUrl()}/apply/thanks`,
+      });
+      await queueEmailDelivery({
+        kind: "recommendation_received",
+        to: applicant.email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        personId: applicant.id,
+        idempotencyKey: makeDeliveryKey("recommendation_received", request.id),
+      });
+    }
+
+    const thanks = recommendationThanksEmail({
+      recommenderName: request.name,
+      applicantName: applicant.name,
+      accepted: outcome.accepted,
+      applyUrl: `${appBaseUrl()}/apply`,
+    });
+    await queueEmailDelivery({
+      kind: "recommendation_thanks",
+      to: request.email,
+      subject: thanks.subject,
+      html: thanks.html,
+      text: thanks.text,
+      idempotencyKey: makeDeliveryKey("recommendation_thanks", request.id),
+    });
+  } catch (error) {
+    // The recommendation is committed. Mail is a courtesy on top of it and must
+    // never cost the friend the thing they just took two minutes to write.
+    console.error(`[recommendations] could not queue follow-up: ${(error as Error).message}`);
+  }
+
+  revalidatePath("/apply/thanks");
+  revalidatePath(`/studio/person/${request.applicantId}`);
+  redirect(`/r/${token}?done=1`);
 }
 
 /** Permanently delete the signed-in member and all of their data. */

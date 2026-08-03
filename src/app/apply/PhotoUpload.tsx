@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { deletePhoto } from "@/lib/actions";
 
 type Item = { id: string; url: string; status: string };
@@ -10,9 +10,20 @@ const MAX = 6;
 // Applicant photo uploader. Posts each file straight to /api/photos (which
 // normalizes, strips EXIF, and stores it live: there is no review queue),
 // so a photo is saved the moment it is chosen - independent of the main
-// application form submit. New members almost always convert better with a face
-// on file, so we make this prominent but not a hard blocker.
-export function PhotoUpload({ initial }: { initial: Item[] }) {
+// application form submit.
+//
+// At least one photo is now required. It used to be encouraged, and the result
+// was that 10 of the 25 people on the roster had no photo at all, so half the
+// introductions went out with initials where a face should be. The count is
+// reported upward so the form can hold the submit; the server checks it too,
+// because this uploader posts on its own and never touches the form.
+export function PhotoUpload({
+  initial,
+  onCountChange,
+}: {
+  initial: Item[];
+  onCountChange?: (count: number) => void;
+}) {
   const [items, setItems] = useState<Item[]>(initial);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -20,6 +31,15 @@ export function PhotoUpload({ initial }: { initial: Item[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const remaining = MAX - items.length;
+
+  // Reported from an effect rather than from inside the state updaters. A
+  // setState updater has to be pure, and calling the parent's setter from
+  // inside one is an error React throws on: it took down this whole component,
+  // which is how an upload could succeed on the server and leave the button
+  // stuck on "Uploading...".
+  useEffect(() => {
+    onCountChange?.(items.length);
+  }, [items.length, onCountChange]);
 
   async function onFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -41,7 +61,10 @@ export function PhotoUpload({ initial }: { initial: Item[] }) {
           setError(data.error || "That photo could not be uploaded.");
           continue;
         }
-        setItems((prev) => [...prev, { id: data.id!, url: data.url!, status: data.status || "approved" }]);
+        setItems((prev) => [
+          ...prev,
+          { id: data.id!, url: data.url!, status: data.status || "approved" },
+        ]);
       } catch {
         setError("Upload failed. Check your connection and try again.");
       }
@@ -60,7 +83,7 @@ export function PhotoUpload({ initial }: { initial: Item[] }) {
   }
 
   return (
-    <fieldset className="space-y-4 rounded-xl border border-line bg-paper/40 p-4">
+    <fieldset id="photos-upload" className="space-y-4 rounded-xl border border-line bg-paper/40 p-4">
       <legend className="label px-1">Your photos</legend>
       {/* This used to promise "a match only sees them after you both say yes",
           which was never true: the introduction email and the invite page have
@@ -69,9 +92,9 @@ export function PhotoUpload({ initial }: { initial: Item[] }) {
           your face, so the promise had to move to match the product rather than
           the other way round. It still names exactly who sees what. */}
       <p className="-mt-1 text-xs text-muted">
-        Add a few clear, recent photos - at least one of just you. Your matchmaker sees them, and so
-        does the one person we introduce you to, so they can decide with your face in front of them.
-        Nobody else on the list ever sees them. Up to {MAX}.
+        At least one is required, and at least one should be just you. Your matchmaker sees them, and
+        so does the one person we introduce you to, so they can decide with your face in front of
+        them. Nobody else on the list ever sees them. Up to {MAX}.
       </p>
 
       {items.length > 0 && (

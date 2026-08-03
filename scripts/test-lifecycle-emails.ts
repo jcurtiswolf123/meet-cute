@@ -16,6 +16,9 @@ import {
   matchInviteEmail,
   matchThreadEmail,
   eventInviteEmail,
+  recommendationRequestEmail,
+  recommendationReceivedEmail,
+  recommendationThanksEmail,
   bareAddress,
 } from "../src/lib/email";
 
@@ -177,7 +180,82 @@ function main() {
   assertOnBrand("eventInvite", event);
   assert.match(event.subject, /invited/i);
 
+  // 11. Recommendation request. This one goes to someone who never signed up
+  // for anything, carries a capability token, and is the only email in the
+  // system whose recipient is not a member, so it gets the closest reading.
+  const request = recommendationRequestEmail({
+    recommenderName: "Ada Lovelace",
+    applicantName: "Maya Rosen",
+    applicantCity: "NYC",
+    link: "https://hellomutuals.com/r/tok3n",
+  });
+  assertWellFormed("recommendationRequest", request);
+  assertOnBrand("recommendationRequest", request);
+  assert.match(request.subject, /Maya/, "the person who caused this email must be named in the subject");
+  assert.match(request.html, /hellomutuals\.com\/r\/tok3n/);
+  assert.match(request.text, /not accepted until two friends write back/);
+  assert.match(request.html, /New York/);
+  const nudge = recommendationRequestEmail({
+    recommenderName: "Ada Lovelace",
+    applicantName: "Maya Rosen",
+    link: "https://hellomutuals.com/r/tok3n",
+    reminder: true,
+  });
+  assertWellFormed("recommendationRequest(reminder)", nudge);
+  assert.notEqual(nudge.subject, request.subject, "a nudge must not repeat the first subject line");
+
+  // 12. Applicant told a friend wrote back, and the friend thanked.
+  const oneIn = applicationReceivedEmail({
+    name: "Maya Rosen",
+    city: "NYC",
+    recommenders: [
+      { name: "Ada Lovelace", status: "requested" },
+      { name: "Grace Hopper", status: "requested" },
+    ],
+    statusUrl: "https://hellomutuals.com/apply/thanks",
+  });
+  assertWellFormed("applicationReceived(withRecommenders)", oneIn);
+  assert.match(oneIn.html, /Ada and Grace/, "the applicant is told exactly who was asked");
+
+  const gotOne = recommendationReceivedEmail({
+    name: "Maya Rosen",
+    recommenderName: "Ada Lovelace",
+    remaining: 1,
+    statusUrl: "https://hellomutuals.com/apply/thanks",
+  });
+  assertWellFormed("recommendationReceived", gotOne);
+  assertOnBrand("recommendationReceived", gotOne);
+  assert.match(gotOne.text, /One more recommendation/);
+
+  const thanks = recommendationThanksEmail({
+    recommenderName: "Ada Lovelace",
+    applicantName: "Maya Rosen",
+    accepted: true,
+    applyUrl: "https://hellomutuals.com/apply",
+  });
+  assertWellFormed("recommendationThanks", thanks);
+  assertOnBrand("recommendationThanks", thanks);
+  assert.match(thanks.text, /Maya is in/);
+  assertWellFormed(
+    "recommendationThanks(stillWaiting)",
+    recommendationThanksEmail({
+      recommenderName: "Ada Lovelace",
+      applicantName: "Maya Rosen",
+      accepted: false,
+      applyUrl: "https://hellomutuals.com/apply",
+    }),
+  );
+
   // HTML-injection guard: a hostile display name must not break out into markup.
+  // The recommendation request carries an applicant-supplied name to a stranger.
+  const hostileRequest = recommendationRequestEmail({
+    recommenderName: '<img src=x onerror="alert(1)">',
+    applicantName: '<script>alert(1)</script>',
+    link: "https://hellomutuals.com/r/tok3n",
+  });
+  assert.ok(!hostileRequest.html.includes("<script>alert(1)</script>"), "request: unescaped applicant name");
+  assert.ok(!hostileRequest.html.includes("<img"), "request: hostile tag rendered live");
+
   const hostile = applicationApprovedEmail({
     name: '<script>alert(1)</script>',
     appUrl: "https://hellomutuals.com/apply",
@@ -237,7 +315,7 @@ function main() {
   );
 
   console.log(
-    "lifecycle + intake email render checks passed (10 templates, on-brand, escaped, " +
+    "lifecycle + intake email render checks passed (13 templates, on-brand, escaped, " +
       "List-Unsubscribe well formed)",
   );
 }
