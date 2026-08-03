@@ -32,6 +32,10 @@ const BUILD_EVERY = Number(process.env.WATCHDOG_BUILD_EVERY) || 12; // ~hourly a
 const SKIP_BUILD = process.env.WATCHDOG_SKIP_BUILD === "1";
 const ALERT_EMAIL = process.env.WATCHDOG_ALERT_EMAIL || process.env.RESEND_REPLY_TO || "";
 const AUTOFIX = process.env.WATCHDOG_AUTOFIX === "1";
+/** Changed lines an auto-fix may touch before it is thrown away as unreviewable.
+ *  A compile error is usually one or two lines; anything much larger means the
+ *  model rewrote the file rather than fixing it. */
+const MAX_AUTOFIX_CHURN = Number(process.env.WATCHDOG_AUTOFIX_MAX_LINES) || 40;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const NVIDIA_KEY = process.env.NVIDIA_API_KEY;
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
@@ -436,6 +440,8 @@ async function attemptAutofix(tscOut: string): Promise<void> {
   const prompt = [
     "You are fixing TypeScript compile errors in a Next.js + Prisma project.",
     "Make the MINIMAL change needed to fix the errors. Do not refactor and do not change behaviour.",
+    "Reproduce every other line of the file EXACTLY as given, including blank lines, comments and formatting.",
+    "Changing lines the compiler did not complain about makes the patch unreviewable and it will be discarded.",
     "",
     "Reply with the FULL new content of each file you change, in exactly this form:",
     "",
@@ -467,6 +473,17 @@ async function attemptAutofix(tscOut: string): Promise<void> {
   // Work on a throwaway branch so master/working branch is never touched.
   const branch = `watchdog/fix-${Date.now()}`;
   const baseRef = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]).out || "HEAD";
+  // `gh pr create --base` needs a branch that exists on the remote. In CI the
+  // watchdog runs on master so this is the same thing; locally, or on any
+  // branch that was never pushed, fall back to the repository default so the
+  // PR step does not fail on an unknown revision.
+  const remoteHasBase = run("git", ["rev-parse", "--verify", `origin/${baseRef}`]).ok;
+  const prBase = remoteHasBase ? baseRef : "master";
+  const discard = () => {
+    run("git", ["checkout", "--", "."]);
+    run("git", ["checkout", baseRef]);
+    run("git", ["branch", "-D", branch]);
+  };
   if (!run("git", ["checkout", "-b", branch]).ok) {
     log("autofix: could not create branch; aborting");
     return;
@@ -476,16 +493,33 @@ async function attemptAutofix(tscOut: string): Promise<void> {
     const verify = checkTypecheck();
     if (!verify.ok) {
       log("autofix: patch did not resolve typecheck; discarding");
-      run("git", ["checkout", "--", "."]);
-      run("git", ["checkout", baseRef]);
-      run("git", ["branch", "-D", branch]);
+      discard();
       return;
     }
+
+    // A patch that also reformats the file is worse than no patch: it compiles,
+    // so it passes the check above, and then a human has to read every line to
+    // find the one that mattered. The first live drill fixed one assignment and
+    // stripped every blank line in the file while it was there. Trust the
+    // compiler for correctness and the diff size for reviewability.
+    const churn = run("git", ["diff", "--numstat"]).out
+      .split("\n")
+      .filter(Boolean)
+      .reduce((sum, line) => {
+        const [added, removed] = line.split(/\s+/);
+        return sum + (Number(added) || 0) + (Number(removed) || 0);
+      }, 0);
+    if (churn > MAX_AUTOFIX_CHURN) {
+      log(`autofix: patch touched ${churn} lines for ${files.length} file(s), over the ${MAX_AUTOFIX_CHURN} line budget; discarding as unreviewable`);
+      discard();
+      return;
+    }
+    log(`autofix: patch is ${churn} changed line(s)`);
     run("git", ["add", ...proposed.map((f) => f.path)]);
     run("git", ["commit", "-m", `fix(watchdog): auto-fix typecheck regression in ${proposed.map((f) => f.path).join(", ")}`]);
     const pushed = run("git", ["push", "-u", "origin", branch]);
     if (pushed.ok) {
-      const pr = run("gh", ["pr", "create", "--fill", "--head", branch, "--base", baseRef]);
+      const pr = run("gh", ["pr", "create", "--fill", "--head", branch, "--base", prBase]);
       log(pr.ok ? `autofix: opened PR for ${branch}` : `autofix: pushed ${branch} (open a PR manually: ${pr.out.slice(-200)})`);
     } else {
       log(`autofix: committed to ${branch} locally (push failed: ${pushed.out.slice(-200)})`);
