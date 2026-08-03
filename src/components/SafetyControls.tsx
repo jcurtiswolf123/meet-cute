@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { reportPerson, blockPerson } from "@/lib/actions";
+import { Select } from "@/components/select";
 
 // Compact report/block menu shown next to a member you are matched with.
 export function SafetyControls({ subjectId, name }: { subjectId: string; name: string }) {
@@ -68,13 +69,18 @@ export function SafetyControls({ subjectId, name }: { subjectId: string; name: s
             <label htmlFor="report-reason" className="label">
               Reason
             </label>
-            <select id="report-reason" name="reason" className="field" defaultValue="harassment">
-              <option value="harassment">Harassment</option>
-              <option value="fake">Fake profile</option>
-              <option value="inappropriate">Inappropriate content</option>
-              <option value="safety">Safety concern</option>
-              <option value="other">Other</option>
-            </select>
+            <Select
+              name="reason"
+              label="Reason"
+              defaultValue="harassment"
+              options={[
+                { value: "harassment", label: "Harassment" },
+                { value: "fake", label: "Fake profile" },
+                { value: "inappropriate", label: "Inappropriate content" },
+                { value: "safety", label: "Safety concern" },
+                { value: "other", label: "Other" },
+              ]}
+            />
             <label htmlFor="report-detail" className="label">
               What happened? (optional)
             </label>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { completeApplication, type ApplyState } from "@/lib/actions";
 import { SubmitButton } from "@/components/forms";
+import { ChoiceGroup, Checkbox } from "@/components/fields";
 
 type Defaults = {
   first: string;
@@ -20,9 +21,14 @@ type Defaults = {
 };
 
 const GENDER_OPTIONS = [
-  ["woman", "Woman"],
-  ["man", "Man"],
-  ["nonbinary", "Non-binary"],
+  { value: "woman", label: "Woman" },
+  { value: "man", label: "Man" },
+  { value: "nonbinary", label: "Non-binary" },
+] as const;
+
+const CITY_OPTIONS = [
+  { value: "NYC", label: "New York" },
+  { value: "SF", label: "San Francisco" },
 ] as const;
 
 // The applicant's completion form. A client component so validation problems
@@ -142,42 +148,25 @@ export function ApplyForm({
             <p className="mt-1 text-xs text-muted">Only needed if you opt in to text introductions below.</p>
           )}
         </div>
-        <div>
-          <label className="label" htmlFor="city">City</label>
-          <select
-            id="city"
-            className="field mt-1.5"
-            name="city"
-            value={city}
-            onChange={(event) => setCity(event.target.value)}
-          >
-            <option value="NYC">New York</option>
-            <option value="SF">San Francisco</option>
-          </select>
-        </div>
+        <ChoiceGroup
+          name="city"
+          label="City"
+          required
+          options={CITY_OPTIONS}
+          value={city}
+          onChange={setCity}
+        />
       </div>
-      <div>
-        <label className="label" htmlFor="gender">You are</label>
-        <select
-          id="gender"
-          className="field mt-1.5"
-          name="gender"
-          value={gender}
-          onChange={(event) => setGender(event.target.value)}
-          aria-invalid={e.gender ? true : undefined}
-          aria-describedby={e.gender ? "gender-error" : undefined}
-        >
-          <option value="">Select one</option>
-          {GENDER_OPTIONS.map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
-        {e.gender ? (
-          <p id="gender-error" className="mt-1 text-xs text-claret">{e.gender}</p>
-        ) : (
-          <p className="mt-1 text-xs text-muted">Your matchmaker needs this, and so does the step below.</p>
-        )}
-      </div>
+      <ChoiceGroup
+        name="gender"
+        label="You are"
+        required
+        options={GENDER_OPTIONS}
+        value={gender}
+        onChange={setGender}
+        error={e.gender}
+        hint="Your matchmaker needs this, and so does the step below."
+      />
       <div>
         <label className="label" htmlFor="birthdate">Date of birth</label>
         <input
@@ -255,44 +244,36 @@ export function ApplyForm({
                   )}
                 </div>
                 <div>
-                  <label className="label" htmlFor={`rec${slot}Gender`}>They are</label>
-                  <select
-                    id={`rec${slot}Gender`}
+                  <label className="label" htmlFor={`rec${slot}Email`}>Their email</label>
+                  <input
+                    id={`rec${slot}Email`}
                     className="field mt-1.5"
-                    name={`rec${slot}Gender`}
-                    value={recGenders[slot - 1]}
-                    onChange={(event) => setRecGender(s, event.target.value)}
-                    aria-invalid={e[`rec${slot}Gender`] ? true : undefined}
-                    aria-describedby={e[`rec${slot}Gender`] ? `rec${slot}Gender-error` : undefined}
-                  >
-                    <option value="">Select one</option>
-                    {GENDER_OPTIONS.map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                  {e[`rec${slot}Gender`] && (
-                    <p id={`rec${slot}Gender-error`} className="mt-1 text-xs text-claret">{e[`rec${slot}Gender`]}</p>
+                    name={`rec${slot}Email`}
+                    type="email"
+                    inputMode="email"
+                    autoComplete="off"
+                    defaultValue={rec(s, "Email")}
+                    placeholder="them@email.com"
+                    aria-invalid={e[`rec${slot}Email`] ? true : undefined}
+                    aria-describedby={e[`rec${slot}Email`] ? `rec${slot}Email-error` : undefined}
+                  />
+                  {e[`rec${slot}Email`] && (
+                    <p id={`rec${slot}Email-error`} className="mt-1 text-xs text-claret">{e[`rec${slot}Email`]}</p>
                   )}
                 </div>
               </div>
-              <div>
-                <label className="label" htmlFor={`rec${slot}Email`}>Their email</label>
-                <input
-                  id={`rec${slot}Email`}
-                  className="field mt-1.5"
-                  name={`rec${slot}Email`}
-                  type="email"
-                  inputMode="email"
-                  autoComplete="off"
-                  defaultValue={rec(s, "Email")}
-                  placeholder="them@email.com"
-                  aria-invalid={e[`rec${slot}Email`] ? true : undefined}
-                  aria-describedby={e[`rec${slot}Email`] ? `rec${slot}Email-error` : undefined}
-                />
-                {e[`rec${slot}Email`] && (
-                  <p id={`rec${slot}Email-error`} className="mt-1 text-xs text-claret">{e[`rec${slot}Email`]}</p>
-                )}
-              </div>
+              {/* Full width rather than in the two-column grid: three pills in
+                  half a column wrap onto a second row and the choice stops
+                  reading as one row of options. */}
+              <ChoiceGroup
+                name={`rec${slot}Gender`}
+                label="They are"
+                required
+                options={GENDER_OPTIONS}
+                value={recGenders[slot - 1]}
+                onChange={(next) => setRecGender(s, next)}
+                error={e[`rec${slot}Gender`]}
+              />
             </div>
           );
         })}
@@ -305,52 +286,29 @@ export function ApplyForm({
 
       {/* Required agreement: age + Terms + Privacy. This is the only box needed
           to join. */}
-      <div>
-        <label className="flex items-start gap-3 text-sm">
-          <input
-            type="checkbox"
-            name="agree"
-            className="mt-1"
-            checked={agree}
-            onChange={(event) => setAgree(event.target.checked)}
-            aria-invalid={e.agree ? true : undefined}
-            aria-describedby={e.agree ? "agree-error" : undefined}
-          />
-          <span className="text-muted">
-            I am 18 or older and I agree to the{" "}
-            <Link href="/terms" className="text-claret underline" target="_blank">
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link href="/privacy" className="text-claret underline" target="_blank">
-              Privacy Policy
-            </Link>
-            .
-          </span>
-        </label>
-        {e.agree && <p id="agree-error" className="mt-1 text-xs text-claret">{e.agree}</p>}
-      </div>
+      <Checkbox name="agree" checked={agree} onChange={setAgree} error={e.agree}>
+        I am 18 or older and I agree to the{" "}
+        <Link href="/terms" className="text-claret underline" target="_blank">
+          Terms of Service
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="text-claret underline" target="_blank">
+          Privacy Policy
+        </Link>
+        .
+      </Checkbox>
 
       {/* SEPARATE, OPTIONAL SMS opt-in. Unchecked by default and never required to
           join (CTIA / A2P 10DLC: SMS consent must not be bundled with, or a
           condition of, the service). Members who skip it are connected to matches
           by email instead. */}
       <div className="rounded-xl border border-line bg-paper/40 p-4">
-        <label className="flex items-start gap-3 text-sm">
-          <input
-            type="checkbox"
-            name="smsConsent"
-            className="mt-1"
-            checked={smsConsent}
-            onChange={(event) => setSmsConsent(event.target.checked)}
-          />
-          <span className="text-muted">
-            <span className="font-medium text-ink">Text me my introductions (optional).</span> I agree to
-            receive recurring text messages (SMS) from Mutuals about my matchmaking introductions at
-            the mobile number above. Message and data rates may apply; message frequency varies. Consent
-            is not a condition of joining. Reply STOP to cancel, HELP for help.
-          </span>
-        </label>
+        <Checkbox name="smsConsent" checked={smsConsent} onChange={setSmsConsent}>
+          <span className="font-medium text-ink">Text me my introductions (optional).</span> I agree to
+          receive recurring text messages (SMS) from Mutuals about my matchmaking introductions at
+          the mobile number above. Message and data rates may apply; message frequency varies. Consent
+          is not a condition of joining. Reply STOP to cancel, HELP for help.
+        </Checkbox>
         <p className="mt-2 pl-8 text-xs text-muted">
           Prefer not to? Leave this unchecked. You will still be introduced to your matches by email.
         </p>

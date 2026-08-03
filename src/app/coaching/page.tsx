@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SubmitButton } from "@/components/forms";
 import { LabelledField } from "@/components/LabelledField";
+import { ChoiceGroup } from "@/components/fields";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Coaching" };
@@ -81,10 +82,16 @@ export default async function Coaching({
               <form action={requestCoaching} className="mt-5 space-y-3">
                 <div>
                   <label className="label" htmlFor="type">What kind?</label>
-                  <select id="type" name="type" className="field mt-1.5">
-                    <option value="dating">Dating coaching (for me)</option>
-                    <option value="couples">Couples coaching (for us)</option>
-                  </select>
+                  <ChoiceGroup
+                    name="type"
+                    label="What you want"
+                    required
+                    defaultValue="dating"
+                    options={[
+                      { value: "dating", label: "For me", hint: "Dating coaching" },
+                      { value: "couples", label: "For us", hint: "Couples coaching" },
+                    ]}
+                  />
                 </div>
                 {me ? (
                   <p className="text-xs text-muted">Applying as {me.name} ({me.email}).</p>

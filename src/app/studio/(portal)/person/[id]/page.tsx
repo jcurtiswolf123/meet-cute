@@ -10,6 +10,7 @@ import { Avatar, StageBadge } from "@/components/ui";
 import { SubmitButton, ConfirmActionForm } from "@/components/forms";
 import { IntroComposer } from "../../matchmaking/IntroComposer";
 import { introNotice } from "../../matchmaking/intro-notice";
+import { Select } from "@/components/select";
 
 export const dynamic = "force-dynamic";
 
@@ -292,7 +293,17 @@ export default async function PersonPage({
         <h2 className="label mt-8">Notes</h2>
         <form action={saveNote} className="mt-2 flex gap-2">
           <input name="body" placeholder="Add a note (rationale, post-date feedback, anything)..." className="field" />
-          <select name="kind" className="field max-w-[8rem]"><option value="general">General</option><option value="rationale">Rationale</option><option value="postdate">Post-date</option></select>
+          <Select
+            name="kind"
+            label="Note kind"
+            defaultValue="general"
+            className="w-[8.5rem] shrink-0"
+            options={[
+              { value: "general", label: "General" },
+              { value: "rationale", label: "Rationale" },
+              { value: "postdate", label: "Post-date" },
+            ]}
+          />
           <SubmitButton className="btn-primary" pendingText="...">Add</SubmitButton>
         </form>
         <div className="mt-3 space-y-2">

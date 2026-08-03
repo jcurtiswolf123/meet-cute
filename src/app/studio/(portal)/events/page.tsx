@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { createEvent } from "@/lib/actions";
 import { formatEventWhen, formatEventDay } from "@/lib/event-time";
+import { Select } from "@/components/select";
 
 export const dynamic = "force-dynamic";
 
@@ -40,13 +41,16 @@ export default async function Events() {
             </label>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            <label className="block">
-              <span className="label">City</span>
-              <select name="city" defaultValue="NYC" className="field mt-1.5">
-                <option value="NYC">NYC</option>
-                <option value="San Francisco">SF</option>
-              </select>
-            </label>
+            <Select
+              name="city"
+              label="City"
+              showLabel
+              defaultValue="NYC"
+              options={[
+                { value: "NYC", label: "NYC" },
+                { value: "San Francisco", label: "SF" },
+              ]}
+            />
             <label className="block">
               <span className="label">Date &amp; time</span>
               <input name="date" type="datetime-local" required className="field mt-1.5" />

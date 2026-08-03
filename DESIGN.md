@@ -68,10 +68,33 @@
 - Do not use "private" as brand language. Describe the actual privacy mechanic instead (who sees what, and when).
 - Do not expose operator links in public navigation.
 
+## Form controls
+
+- **Never ship a native `<select>`.** Its popup is drawn by the operating
+  system, in the system accent (a blue bar on macOS), and cannot be styled. It
+  is the one place the whole cream-and-oxblood surface hands the page back to
+  the OS.
+- **Two to five options: `ChoiceGroup`** (`src/components/fields.tsx`). Radio
+  pills. One click instead of two, every option visible while you choose, and
+  the browser supplies the arrow keys, the label hit area, and the "radio, 2 of
+  3" announcement.
+- **Longer lists, or a dense studio toolbar: `Select`**
+  (`src/components/select.tsx`). A listbox drawn in the page. Everything native
+  selects gave away free is code here and is covered by
+  `scripts/test-form-controls.ts`.
+- **Checkboxes use `Checkbox`**, never a bare `input type="checkbox"`. Same
+  reason: the default box is system chrome.
+- **Native date and file inputs stay native.** The mobile date wheel and the
+  file chooser are better than anything we would build, and they carry locale
+  and permission behaviour for free. Style the chrome around them.
+- Selected state is ink fill, cream text. Focus is a two-pixel oxblood outline
+  at two-pixel offset. Transitions are 150 to 200ms on `ease-soft`.
+
 ## Decisions log
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-08-03 | Replace every native select and checkbox with our own controls | The applicant's first control opened a macOS menu with a blue highlight, on a page that is otherwise cream, ink, and one oxblood accent. Pills for short choices, an in-page listbox for long ones. |
 | 2026-07-26 | Adopt the quiet members club direction | Joshua asked for less generated styling and a more Raya-like level of restraint. |
 | 2026-08-02 | Warm the voice and drop the members-club posture | Jess asked to cut the word "private," lead with "Meet your friend's friends," and use "curated matchmaking" as the positioning line. Joshua asked for friendlier language overall, less Raya. The typographic restraint stays; the gatekeeping tone does not. |
 | 2026-07-26 | Remove public roster counts | A small live count weakens the membership posture and is not useful to an applicant. |

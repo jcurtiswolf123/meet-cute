@@ -24,6 +24,30 @@ sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
 
+## 2026-08-03: the form controls are ours now, not the operating system's
+
+Joshua, on the gender dropdown: "these drop downs are really generic." They
+were the OS: a native `<select>` draws its popup in system chrome with the
+system accent, on a page that is otherwise cream, ink, and one oxblood accent.
+
+Every native `<select>` in the product is gone (14 of them):
+
+- **`ChoiceGroup`** (`src/components/fields.tsx`) for two to five options: real
+  radio inputs behind pills. Gender, both recommender genders, city, and the
+  coaching type. One click instead of two, and all the keyboard and
+  screen-reader behaviour still comes from the browser.
+- **`Select`** (`src/components/select.tsx`) for long lists and the studio
+  toolbars: a listbox drawn in the page, with arrows, Home and End, type-ahead,
+  Escape returning focus, and close-on-outside-press written by hand and covered
+  by `scripts/test-form-controls.ts`.
+- **`Checkbox`** everywhere a bare checkbox was: the terms and SMS consent
+  boxes, the operator attestations, and the SMS opt-in page carriers review.
+- **The photo field is a dropzone**: drag and drop, a slot per file with a
+  skeleton while it uploads, a "Leads" badge on the first photo, a remove button
+  that is visible without hover (there is no hover on a phone), and a live
+  status line.
+- Native date and file inputs stay native, with our chrome around them.
+
 ## 2026-08-03: two friends of the opposite gender accept an applicant, and a photo is required
 
 Joshua's ask, by email this morning. **Shipped and live** (Fly version 179, both

@@ -2,6 +2,34 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-03 : No native selects, and short choices are pills
+
+- Decision: A native `<select>` is not used anywhere in the product. Two to five
+  options become `ChoiceGroup` radio pills; longer lists and dense studio
+  toolbars become the `Select` listbox we draw ourselves. Checkboxes become
+  `Checkbox`.
+- Why: Joshua, looking at the gender field on `/apply`: the popup is drawn by
+  the operating system, in the system accent, and no amount of styling reaches
+  it. Beyond the look, a three-option popup is the wrong control: it costs a
+  click to open and hides the alternatives while you decide.
+- Decision: The pills are real radio inputs, visually hidden, rather than
+  buttons with a hidden input. Arrow-key movement inside the group, the label
+  hit area, and the "radio, 2 of 3" announcement all come from the browser, and
+  all of them silently disappear the moment someone rebuilds this out of
+  buttons. `scripts/test-form-controls.ts` asserts the markup stayed a radio
+  group for exactly that reason.
+- Decision: Native date and file inputs stay native. The mobile date wheel and
+  the system file chooser are better than anything we would build; only the
+  chrome around them is restyled.
+- Not claimed: that any of this works with JavaScript disabled. The radio markup
+  would post fine, but every page renders behind the Suspense fallback in
+  `src/app/loading.tsx` and Next reveals streamed content with an inline script,
+  so with scripting off an applicant never gets past the spinner.
+- Alternatives rejected: styling the native select (the popup is not ours to
+  style); a headless component library (one listbox and one radio group is not
+  a dependency); keeping selects in the studio only (the operator deserves the
+  same control, and the toolbar reads better for it).
+
 ## 2026-08-03 : Two friends of the opposite gender let you in, not a form
 
 - Decision: An application is not accepted when it is submitted. The applicant

@@ -67,6 +67,33 @@ body {
     @apply w-full min-h-11 rounded-md border border-line bg-panel px-3.5 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted focus:border-ink focus:bg-cream;
   }
 
+  /* Native date inputs draw their own picker button, in the operating system's
+     blue, with no hit area worth pressing on a phone. The control itself stays
+     native on purpose (the mobile date wheel is genuinely better than anything
+     we would build, and it handles locales and input modes for free) but the
+     chrome is ours: a muted glyph that warms to oxblood, with a real target. */
+  .field::-webkit-calendar-picker-indicator {
+    @apply h-5 w-5 cursor-pointer rounded opacity-60 transition duration-200;
+    filter: grayscale(1);
+  }
+
+  .field::-webkit-calendar-picker-indicator:hover {
+    @apply opacity-100;
+  }
+
+  .field::-webkit-datetime-edit {
+    @apply text-ink;
+  }
+
+  /* An empty date field showed "mm/dd/yyyy" in full-strength ink, so it read as
+     a filled-in value rather than as a placeholder. */
+  .field:invalid::-webkit-datetime-edit,
+  .field:not(:focus)::-webkit-datetime-edit-year-field:not([aria-valuenow]),
+  .field:not(:focus)::-webkit-datetime-edit-month-field:not([aria-valuenow]),
+  .field:not(:focus)::-webkit-datetime-edit-day-field:not([aria-valuenow]) {
+    @apply text-muted;
+  }
+
   .pill {
     @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 text-xs text-muted;
   }

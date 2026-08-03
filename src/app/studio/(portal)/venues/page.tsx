@@ -4,6 +4,7 @@ import { saveVenue, verifyVenue, retireVenue, discardVenue } from "@/lib/venue-a
 import { VENUE_FRESH_DAYS } from "@/lib/date-ideas";
 import { LabelledField } from "@/components/LabelledField";
 import { ConfirmActionForm } from "@/components/forms";
+import { Select } from "@/components/select";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Venues" };
@@ -218,24 +219,32 @@ function VenueForm({ venue }: { venue?: Row }) {
     <form action={saveVenue} className="mt-3 grid gap-3 sm:grid-cols-2">
       {venue && <input type="hidden" name="venueId" value={venue.id} />}
       {field("name", "Name", venue?.name ?? "", undefined, true)}
-      <LabelledField id={`city-${key}`} label="City">
-        <select id={`city-${key}`} name="city" defaultValue={venue?.city ?? "NYC"} className="field mt-1">
-          <option value="NYC">NYC</option>
-          <option value="SF">SF</option>
-        </select>
-      </LabelledField>
+      <Select
+          name="city"
+          label="City"
+          showLabel
+          defaultValue={venue?.city ?? "NYC"}
+          options={[
+            { value: "NYC", label: "NYC" },
+            { value: "SF", label: "SF" },
+          ]}
+        />
       {field("area", "Neighbourhood", venue?.area ?? "")}
       {field("cuisine", "Cuisine", venue?.cuisine ?? "")}
-      <LabelledField id={`price-${key}`} label="Price">
-        <select id={`price-${key}`} name="priceBand" defaultValue={venue?.priceBand ?? ""} className="field mt-1">
-          <option value="">Not set</option>
-          {["$", "$$", "$$$", "$$$$"].map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-      </LabelledField>
+      <Select
+          name="priceBand"
+          label="Price"
+          showLabel
+          defaultValue={venue?.priceBand ?? ""}
+          placeholder="Not set"
+          options={[
+            { value: "", label: "Not set" },
+            { value: "$", label: "$" },
+            { value: "$$", label: "$$" },
+            { value: "$$$", label: "$$$" },
+            { value: "$$$$", label: "$$$$" },
+          ]}
+        />
       {field("address", "Address", venue?.address ?? "")}
       {field(
         "bookingUrl",

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { Avatar } from "@/components/ui";
 import { manualMatch } from "@/lib/actions";
+import { Select } from "@/components/select";
 
 export const dynamic = "force-dynamic";
 
@@ -75,24 +76,20 @@ export default async function Pipeline() {
           and existing matches are still respected.
         </p>
         <form action={manualMatch} className="mt-3 grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="label">Member A</span>
-            <select name="personAId" required defaultValue="" className="field mt-1.5">
-              <option value="" disabled>Choose a member</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>{m.name} ({m.city})</option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="label">Member B</span>
-            <select name="personBId" required defaultValue="" className="field mt-1.5">
-              <option value="" disabled>Choose a member</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>{m.name} ({m.city})</option>
-              ))}
-            </select>
-          </label>
+          <Select
+            name="personAId"
+            label="Member A"
+            showLabel
+            placeholder="Choose a member"
+            options={members.map((m) => ({ value: m.id, label: m.name, hint: m.city }))}
+          />
+          <Select
+            name="personBId"
+            label="Member B"
+            showLabel
+            placeholder="Choose a member"
+            options={members.map((m) => ({ value: m.id, label: m.name, hint: m.city }))}
+          />
           <label className="block sm:col-span-2">
             <span className="label">Why this match (optional)</span>
             <input name="rationale" placeholder="Your reasoning, shown to no one but the studio" className="field mt-1.5" />

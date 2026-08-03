@@ -6,6 +6,7 @@ import { addEventInvitees, removeAttendee, setAttendeeStatus, setEventStatus } f
 import { Avatar } from "@/components/ui";
 import { formatEventWhen } from "@/lib/event-time";
 import { ConfirmActionForm } from "@/components/forms";
+import { Select } from "@/components/select";
 
 export const dynamic = "force-dynamic";
 
@@ -57,11 +58,14 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
           </div>
           <form action={setEventStatus} className="flex items-center gap-2">
             <input type="hidden" name="dinnerId" value={event.id} />
-            <select name="status" defaultValue={event.status} className="field !py-1.5 text-sm" aria-label="Event status">
-              {["planned", "open", "full", "done"].map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+            <Select
+              name="status"
+              label="Event status"
+              defaultValue={event.status}
+              className="w-[9rem]"
+              buttonClassName="!py-1.5 text-sm"
+              options={["planned", "open", "full", "done"].map((value) => ({ value, label: value }))}
+            />
             <button className="rounded-full border border-line px-3 py-1.5 text-xs hover:border-studio-line">Save</button>
           </form>
         </div>
@@ -115,11 +119,14 @@ export default async function EventDetail({ params }: { params: Promise<{ id: st
                 <div className="flex items-center gap-2">
                   <form action={setAttendeeStatus} className="flex items-center gap-2">
                     <input type="hidden" name="attendeeId" value={a.id} />
-                    <select name="status" defaultValue={a.status} className="field !py-1 text-xs" aria-label="RSVP status">
-                      {Object.entries(STATUS_LABEL).map(([v, l]) => (
-                        <option key={v} value={v}>{l}</option>
-                      ))}
-                    </select>
+                    <Select
+                      name="status"
+                      label="RSVP status"
+                      defaultValue={a.status}
+                      className="w-[8.5rem]"
+                      buttonClassName="!py-1 text-xs"
+                      options={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))}
+                    />
                     <button className="rounded-full border border-line px-2.5 py-1 text-xs hover:border-studio-line">Set</button>
                   </form>
                   {/* Sat next to a Set button, and fired on the first click. */}
