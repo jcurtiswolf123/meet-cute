@@ -10,6 +10,7 @@ import type { Venue } from "@prisma/client";
 import { parseIdeaReply, rankVenues, fallbackWhy, NO_IDEAS } from "../src/lib/date-ideas";
 import { dateIdeasBlock } from "../src/lib/email-date-ideas";
 import { matchThreadEmail } from "../src/lib/email";
+import { datePickUrl, datePickToken } from "../src/lib/date-pick";
 
 function venue(over: Partial<Venue> & { id: string; name: string }): Venue {
   return {
@@ -249,4 +250,27 @@ for (const junk of ["", "   ", "I'd suggest Balthazar!", "{", "{]", "null", "[]"
   assert.match(email.text, /reply-all/i, "the original instruction survives");
 }
 
-console.log("date ideas checks passed: an invented venue never survives, nothing claims a booking, and an empty result leaves the email unchanged");
+// --- the pick link cannot be emitted broken -------------------------------
+// datePickToken returns "" when SESSION_SECRET is unset, and interpolating that
+// produced "/d//<venueId>": a link that renders in the email and 404s. Only the
+// caller's guard stood between that and a member's inbox.
+assert.equal(datePickUrl("", "venue123"), null, "empty token must not produce a URL");
+assert.equal(datePickUrl("tok", ""), null, "empty venue id must not produce a URL");
+
+{
+  const saved = process.env.SESSION_SECRET;
+
+  process.env.SESSION_SECRET = "";
+  assert.equal(datePickToken("match123"), "", "no secret means no token");
+  assert.equal(datePickUrl(datePickToken("match123"), "venue123"), null, "no secret means no pick link");
+
+  process.env.SESSION_SECRET = "test-secret-for-the-pick-link";
+  const token = datePickToken("match123");
+  assert.ok(token.includes("."), "a real token carries a signature");
+  const url = datePickUrl(token, "venue123");
+  assert.ok(url && !url.includes("/d//"), "a real token produces a well-formed URL");
+
+  process.env.SESSION_SECRET = saved;
+}
+
+console.log("date ideas checks passed: an invented venue never survives, nothing claims a booking, and an empty result leaves the email unchanged, and a pick link is never emitted broken");

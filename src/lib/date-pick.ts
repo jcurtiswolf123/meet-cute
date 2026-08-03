@@ -23,8 +23,16 @@ function appBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "");
 }
 
-/** Absolute "we're going here" URL for one venue on one match. */
-export function datePickUrl(token: string, venueId: string): string {
+/** Absolute "we're going here" URL for one venue on one match.
+ *
+ *  Null rather than a URL when either half is missing. `datePickToken` returns
+ *  an empty string when SESSION_SECRET is unset, and interpolating that
+ *  produced `/d//<venueId>`, a link that renders in the email and 404s. Callers
+ *  already guard, but a helper that can emit a broken link relies on every
+ *  caller remembering to; PickUrlFor is typed `string | null` and the renderer
+ *  drops nulls, so refusing here is free. */
+export function datePickUrl(token: string, venueId: string): string | null {
+  if (!token.trim() || !venueId.trim()) return null;
   return `${appBaseUrl()}/d/${encodeURIComponent(token)}/${encodeURIComponent(venueId)}`;
 }
 
