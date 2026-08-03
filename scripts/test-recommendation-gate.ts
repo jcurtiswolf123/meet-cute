@@ -18,6 +18,7 @@ import {
   hasAnswered,
   recordAnswer,
   remainingRequired,
+  syncLeadRecommendation,
   saveRecommenders,
 } from "../src/lib/recommendations";
 
@@ -298,6 +299,44 @@ async function main() {
     await prisma.person.update({ where: { id: silent.id }, data: { status: "exited" } });
     const closed = await recordAnswer(silentRecs[0].token, { body: "x".repeat(50) });
     assert.equal(closed.ok, false, "A declined applicant's links stop accepting answers.");
+
+    // --- a recommendation written for someone already let in by hand --------
+    // The case that actually happened: an operator approves an applicant, and
+    // twenty minutes later a friend writes six sentences about them. Copying
+    // the quote only on the way in meant those words reached nothing.
+    const already = await makeApplicant("woman");
+    created.push(already.id);
+    const [lateRec] = await saveRecommenders(already.id, [
+      { name: "Late Writer", email: `late-${randomUUID()}@example.test`, gender: "man" },
+    ]);
+    await prisma.person.update({
+      where: { id: already.id },
+      data: { status: "active", acceptedAt: new Date(), acceptOverrideReason: "approved by hand" },
+    });
+    await recordAnswer(lateRec.token, {
+      body: "She is the person everyone calls first, and this was written after she was already in.",
+    });
+    await acceptIfRecommended(already.id);
+    await syncLeadRecommendation(already.id);
+    const synced = await prisma.person.findUniqueOrThrow({ where: { id: already.id } });
+    assert.match(
+      synced.recommendation ?? "",
+      /already in/,
+      "A recommendation written for an existing member must still reach the profile.",
+    );
+    assert.equal(synced.voucherName, "Late Writer");
+
+    // And it never overwrites what is already there.
+    await prisma.recommendation.updateMany({
+      where: { applicantId: already.id },
+      data: { body: "A second set of words that must not replace the first." },
+    });
+    await syncLeadRecommendation(already.id);
+    assert.match(
+      (await prisma.person.findUniqueOrThrow({ where: { id: already.id } })).recommendation ?? "",
+      /already in/,
+      "The first friend to write owns the quote.",
+    );
 
     console.log(
       "recommendation gate passed: opposite-gender rule, one-tap vouches that count without inventing a quote, words upgrading a tap, one-shot acceptance under concurrency, edit-safe requests, and no revival of a declined applicant",

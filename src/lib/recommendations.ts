@@ -338,6 +338,46 @@ export async function recordAnswer(
   return { ok: true, request: fresh, applicant: request.applicant, alreadyAnswered };
 }
 
+/**
+ * Copy the first written recommendation onto the single-line profile fields
+ * every existing surface reads.
+ *
+ * This used to happen only on the transition into membership, which meant a
+ * recommendation written for someone who was ALREADY a member went nowhere.
+ * That is not a corner case: it is what happens every time an operator approves
+ * an applicant before their friends answer, and on the day this shipped that
+ * was every applicant. Ben Jain wrote six sentences about Krysten Connely
+ * twenty minutes after she had been let in by hand, and none of it would ever
+ * have reached the person she gets introduced to.
+ *
+ * Never overwrites: the first friend to write owns the quote, and anything an
+ * operator or the member has since edited by hand stays.
+ */
+export async function syncLeadRecommendation(applicantId: string): Promise<boolean> {
+  const person = await prisma.person.findUnique({
+    where: { id: applicantId },
+    select: { gender: true, recommendation: true, voucherName: true },
+  });
+  if (!person) return false;
+  if (person.recommendation?.trim() && person.voucherName?.trim()) return false;
+
+  const written = await prisma.recommendation.findFirst({
+    where: { applicantId, status: "submitted", body: { not: null } },
+    orderBy: { submittedAt: "asc" },
+  });
+  if (!written?.body?.trim()) return false;
+  if (!countsTowardGate(person.gender, written.gender)) return false;
+
+  await prisma.person.update({
+    where: { id: applicantId },
+    data: {
+      ...(person.recommendation?.trim() ? {} : { recommendation: written.body }),
+      ...(person.voucherName?.trim() ? {} : { voucherName: written.name }),
+    },
+  });
+  return true;
+}
+
 export type AcceptanceResult = {
   accepted: boolean;
   /** True only on the transition, so the welcome email is sent exactly once. */
@@ -361,7 +401,6 @@ export async function acceptIfRecommended(applicantId: string): Promise<Acceptan
 
   // Only a row with words can supply the quote a profile and an introduction
   // email render. A tap accepts someone; it does not put words in their mouth.
-  const lead = state.qualifying.find((r) => r.body?.trim()) ?? null;
   const applicant = await prisma.person.findUnique({
     where: { id: applicantId },
     select: { status: true, recommendation: true, voucherName: true },
@@ -373,15 +412,8 @@ export async function acceptIfRecommended(applicantId: string): Promise<Acceptan
 
   const changed = await prisma.person.updateMany({
     where: { id: applicantId, status: "applicant", isOperator: false },
-    data: {
-      status: "active",
-      acceptedAt: new Date(),
-      // Copy the lead recommendation onto the single-line fields every existing
-      // surface already reads. Never overwrite something an operator or the
-      // member has since edited by hand.
-      ...(applicant.recommendation?.trim() || !lead ? {} : { recommendation: lead.body }),
-      ...(applicant.voucherName?.trim() || !lead ? {} : { voucherName: lead.name }),
-    },
+    data: { status: "active", acceptedAt: new Date() },
   });
+  if (changed.count === 1) await syncLeadRecommendation(applicantId);
   return { accepted: changed.count === 1, justAccepted: changed.count === 1, remaining: 0 };
 }
