@@ -302,6 +302,57 @@ async function checkInboundWebhook(): Promise<Check | null> {
   }
 }
 
+/**
+ * Date ideas switch themselves off silently.
+ *
+ * A venue is eligible only while active AND verified inside VENUE_FRESH_DAYS,
+ * so the ideas block in the connection email disappears on its own the day the
+ * last stamp expires. That is the right safe default and it is also invisible:
+ * the email still sends, nothing errors, and the only signal is that two people
+ * stopped being told where to go. Verification expiring is a scheduled event,
+ * so it should be an alert rather than a discovery.
+ */
+async function checkVenueFreshness(): Promise<Check | null> {
+  if (!process.env.DATABASE_URL) return null;
+  try {
+    const { prisma } = await import("../src/lib/prisma");
+    const { VENUE_FRESH_DAYS } = await import("../src/lib/date-ideas");
+    const cutoff = new Date(Date.now() - VENUE_FRESH_DAYS * 24 * 3600 * 1000);
+
+    const counts = await Promise.all(
+      ["NYC", "SF"].map(async (city) => ({
+        city,
+        eligible: await prisma.venue.count({
+          where: { city, active: true, lastVerifiedAt: { gte: cutoff } },
+        }),
+      })),
+    );
+
+    // Expiring inside a fortnight, so there is time to re-check before the
+    // suggestion quietly vanishes.
+    const soon = new Date(Date.now() - (VENUE_FRESH_DAYS - 14) * 24 * 3600 * 1000);
+    const expiringSoon = await prisma.venue.count({
+      where: { active: true, lastVerifiedAt: { gte: cutoff, lt: soon } },
+    });
+
+    const empty = counts.filter((c) => c.eligible === 0).map((c) => c.city);
+    const summary =
+      counts.map((c) => `${c.city}=${c.eligible}`).join(" ") +
+      (expiringSoon ? `, ${expiringSoon} expiring within 14d` : "");
+
+    if (empty.length) {
+      return {
+        name: "venues",
+        ok: false,
+        detail: `no eligible venue in ${empty.join(" or ")}, so connection emails there carry no ideas (${summary})`,
+      };
+    }
+    return { name: "venues", ok: true, detail: summary };
+  } catch (e) {
+    return { name: "venues", ok: true, detail: `skipped (${(e as Error).message})` };
+  }
+}
+
 async function alert(failed: Check[]) {
   const body = failed.map((c) => `- ${c.name}: ${c.detail}`).join("\n");
   log(`ALERT: ${failed.map((c) => c.name).join(", ")} failing`);
@@ -412,6 +463,10 @@ async function cycle(n: number): Promise<boolean> {
   {
     const webhook = await checkInboundWebhook();
     if (webhook) checks.push(webhook);
+  }
+  {
+    const venues = await checkVenueFreshness();
+    if (venues) checks.push(venues);
   }
   const sentry = await checkSentry();
   if (sentry) {

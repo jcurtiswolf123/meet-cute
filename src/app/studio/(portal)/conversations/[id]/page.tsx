@@ -34,6 +34,13 @@ export default async function ConversationDetail({ params }: { params: Promise<{
         orderBy: { createdAt: "desc" },
         include: { subject: { select: { name: true } } },
       },
+      // Where they said they were going, tapped from the connection email.
+      // These rows were being written and read nowhere, so the operator had no
+      // way to know a pair had chosen a place.
+      datePicks: {
+        orderBy: { createdAt: "desc" },
+        include: { venue: { select: { name: true, area: true, city: true, bookingUrl: true } } },
+      },
     },
   });
   if (!match) notFound();
@@ -70,6 +77,36 @@ export default async function ConversationDetail({ params }: { params: Promise<{
           </span>
         </div>
       </div>
+
+      {match.datePicks.length > 0 && (
+        <div className="card p-4">
+          <p className="label">Where they said they were going</p>
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {match.datePicks.map((pick) => (
+              <li key={pick.id} className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="text-ink">
+                  {pick.venue.name}
+                  {pick.venue.area ? <span className="text-muted"> · {pick.venue.area}</span> : null}
+                </span>
+                <span className="text-xs text-muted">
+                  tapped{" "}
+                  {pick.createdAt.toLocaleDateString("en-US", {
+                    timeZone: "America/New_York",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {/* Said plainly, because the studio is where someone might otherwise
+              assume a table exists. Nothing is reserved anywhere. */}
+          <p className="mt-2.5 border-t border-line pt-2.5 text-xs text-muted">
+            Their stated intent from the introduction email. Nothing is reserved, and Mutuals holds
+            no tables.
+          </p>
+        </div>
+      )}
 
       {/* opt-in state */}
       <div className="card grid grid-cols-2 gap-4 p-4 text-sm">
