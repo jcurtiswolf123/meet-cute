@@ -1043,6 +1043,7 @@ export async function afterRecommendationAnswer(
         recommenderName: request.name,
         remaining: outcome.remaining || REQUIRED_RECOMMENDATIONS,
         statusUrl: `${appBaseUrl()}/apply/thanks`,
+        wroteWords: !!request.body,
       });
       await queueEmailDelivery({
         kind: "recommendation_received",
@@ -1064,6 +1065,8 @@ export async function afterRecommendationAnswer(
         applicantName: applicant.name,
         accepted: outcome.accepted,
         applyUrl: `${appBaseUrl()}/apply`,
+        wroteWords: !!request.body,
+        vouchUrl: recommendationUrl(token),
       });
       await queueEmailDelivery({
         kind: "recommendation_thanks",
@@ -1083,6 +1086,7 @@ export async function afterRecommendationAnswer(
           recommenderName: request.name,
           applicantName: applicant.name,
           accepted: outcome.accepted,
+          wroteWords: !!request.body,
           applyUrl: `${appBaseUrl()}/apply?from=${encodeURIComponent(token)}`,
         });
         await queueEmailDelivery({

@@ -19,6 +19,7 @@ import {
   recommendationRequestEmail,
   recommendationReceivedEmail,
   recommendationThanksEmail,
+  recommenderFollowUpEmail,
   unfinishedApplicationEmail,
   signInLinkUnusedEmail,
   bareAddress,
@@ -271,29 +272,108 @@ function main() {
     recommenderName: "Ada Lovelace",
     remaining: 1,
     statusUrl: "https://hellomutuals.com/apply/thanks",
+    wroteWords: true,
   });
   assertWellFormed("recommendationReceived", gotOne);
   assertOnBrand("recommendationReceived", gotOne);
   assert.match(gotOne.text, /One more recommendation/);
+  assert.match(gotOne.text, /just wrote your recommendation/);
 
+  // The same event from a friend who tapped rather than wrote. It still counts
+  // and the applicant still hears about it; it just must not promise a
+  // recommendation nobody typed.
+  const tappedFor = recommendationReceivedEmail({
+    name: "Maya Rosen",
+    recommenderName: "Ada Lovelace",
+    remaining: 1,
+    statusUrl: "https://hellomutuals.com/apply/thanks",
+    wroteWords: false,
+  });
+  assertWellFormed("recommendationReceived(tapped)", tappedFor);
+  assertOnBrand("recommendationReceived(tapped)", tappedFor);
+  assert.doesNotMatch(tappedFor.text, /wrote your recommendation/);
+  assert.match(tappedFor.text, /just vouched for you/);
+  assert.match(tappedFor.text, /One more recommendation/);
+
+  // All four combinations, because two things vary independently: whether that
+  // answer was the one that got them in, and whether there are any words to put
+  // on a profile. Collapsing them told a friend who tapped that "your words are
+  // on their profile" when they had written none, which is both untrue and the
+  // one moment they might have written some.
   const thanks = recommendationThanksEmail({
     recommenderName: "Ada Lovelace",
     applicantName: "Maya Rosen",
     accepted: true,
+    wroteWords: true,
     applyUrl: "https://hellomutuals.com/apply",
   });
   assertWellFormed("recommendationThanks", thanks);
   assertOnBrand("recommendationThanks", thanks);
   assert.match(thanks.text, /Maya is in/);
-  assertWellFormed(
-    "recommendationThanks(stillWaiting)",
+  assert.match(thanks.text, /your words are on their profile/);
+
+  const stillWaiting = recommendationThanksEmail({
+    recommenderName: "Ada Lovelace",
+    applicantName: "Maya Rosen",
+    accepted: false,
+    wroteWords: true,
+    applyUrl: "https://hellomutuals.com/apply",
+  });
+  assertWellFormed("recommendationThanks(stillWaiting)", stillWaiting);
+  assert.match(stillWaiting.text, /one more friend/);
+
+  for (const [label, accepted] of [["tapped, accepted", true], ["tapped, still waiting", false]] as const) {
+    const tapped = recommendationThanksEmail({
+      recommenderName: "Ada Lovelace",
+      applicantName: "Maya Rosen",
+      accepted,
+      wroteWords: false,
+      applyUrl: "https://hellomutuals.com/apply",
+      vouchUrl: "https://hellomutuals.com/r/tok123",
+    });
+    assertWellFormed(`recommendationThanks(${label})`, tapped);
+    assertOnBrand(`recommendationThanks(${label})`, tapped);
+    assert.doesNotMatch(
+      tapped.text,
+      /your words|It is on Maya's profile/,
+      `${label}: a tap writes nothing, so nothing may claim it did.`,
+    );
+    assert.match(tapped.text, /line or two/, `${label}: and the one moment they are paying attention must ask.`);
+    assert.ok(tapped.html.includes("https://hellomutuals.com/r/tok123"), `${label}: with a link back to their own ask.`);
+  }
+  assert.match(
     recommendationThanksEmail({
       recommenderName: "Ada Lovelace",
       applicantName: "Maya Rosen",
-      accepted: false,
+      accepted: true,
+      wroteWords: false,
       applyUrl: "https://hellomutuals.com/apply",
-    }),
+      vouchUrl: "https://hellomutuals.com/r/tok123",
+    }).text,
+    /Maya is in/,
+    "A tap still gets somebody in, and the email still says so.",
   );
+
+  // The delayed follow-up, which is the growth ask. Same trap as the two above:
+  // it told a tapper their words were on a profile.
+  for (const wroteWords of [true, false]) {
+    for (const accepted of [true, false]) {
+      const followUp = recommenderFollowUpEmail({
+        recommenderName: "Ada Lovelace",
+        applicantName: "Maya Rosen",
+        accepted,
+        wroteWords,
+        applyUrl: "https://hellomutuals.com/apply?from=tok123",
+      });
+      const label = `recommenderFollowUp(${wroteWords ? "wrote" : "tapped"}, ${accepted ? "in" : "waiting"})`;
+      assertWellFormed(label, followUp);
+      assertOnBrand(label, followUp);
+      if (!wroteWords) {
+        assert.doesNotMatch(followUp.text, /Your words are on their profile/, `${label}: a tap wrote nothing.`);
+      }
+      assert.match(followUp.text, /only have to ask one friend/, `${label}: the flywheel ask must survive every variant.`);
+    }
+  }
 
   // 14. The chase for an application that was started and abandoned. It names
   // what the person already did, because someone who uploaded five photos is

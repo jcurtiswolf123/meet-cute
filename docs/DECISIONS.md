@@ -2,6 +2,45 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-04 : A tap is a real answer, and three emails said it was prose
+
+- Found by reading the delivered mail rather than the send log. The full
+  acceptance path was rehearsed on production with one friend writing and one
+  tapping, and the tapper was thanked with "your words are on their profile".
+  She had written none. The applicant was separately told she "just wrote your
+  recommendation", and the delayed follow-up said the same thing again.
+- Cause: `endorsed` and `submitted` both satisfy the gate, and all three
+  templates took one boolean, `accepted`, so nothing downstream could tell a tap
+  from a paragraph. The one-tap vouch was added deliberately, because most
+  people answer from a phone, and every email about it was written as though
+  they had not.
+- Decision: all three take `wroteWords`. Four outcomes, not two: whether that
+  answer was the one that got somebody in varies independently of whether there
+  is anything to read.
+- Decision: the thanks to a tapper now asks for the words and links back to
+  their own ask. This is the growth part, not the tidiness part. The thanks
+  email is the one moment a tapper is paying attention, and telling them the job
+  was done removed the only reason to write anything. Words are what the profile
+  renders and what introductions are drafted from.
+- Every variant is a case in scripts/test-lifecycle-emails.ts, asserting that a
+  tap is never described as writing.
+
+## 2026-08-04 : The application is measured, not argued about
+
+- `scripts/apply-funnel.ts` reads the live roster: who signed in, who answered
+  anything, who finished, where the unfinished ones stopped, whether the
+  confirmation and the asks were sent, and who accepted whom.
+- It buckets on when a person first signed in, because the stepper shipped
+  mid-morning and both forms ran the same day against the same traffic.
+- The reason it exists: reverting the six-step form was raised on impressions,
+  and 5 hours after it shipped exactly one person had seen it. There was nothing
+  to revert on in either direction. The tool is so that question has an answer
+  next time it is asked.
+- It also corrected a metric that was lying. Attribution reads acceptedById,
+  which is null on every row that predates the gate, so "no override recorded"
+  was being counted as "accepted by their friends" and crediting the gate with
+  13 hand approvals that happened before it existed.
+
 ## 2026-08-04 : A surname is required, and the one-page form is audited into the stepper
 
 - Decision: last name is required. It is still never shown before two people

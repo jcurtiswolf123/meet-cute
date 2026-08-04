@@ -215,8 +215,77 @@ async function walk(browser: Browser, applicant: string, friends: string[]): Pro
     "One friend is not two. The gate must not open on the first answer.",
   );
 
+  // And the applicant is told where they stand, rather than being left to
+  // wonder whether their friend did anything.
+  await waitForJob(
+    { kind: "recommendation_received", recipient: applicant },
+    "the applicant is told one friend answered",
+  );
+
+  // The second friend, who is the one that actually gets somebody in. This is
+  // the whole product claim and the walk used to stop one answer short of it.
+  const secondContext = await browser.newContext();
+  const secondPage = await secondContext.newPage();
+  secondPage.setDefaultTimeout(45_000);
+  await secondPage.goto(`${BASE}/r/${asks[1].token}`);
+  // One tap, not words. Most people answer from a phone, and a tap has to be a
+  // real answer or the gate only opens for the minority who write an essay.
+  await secondPage.getByRole("button", { name: /Yes, I vouch for/ }).click();
+  await secondPage.getByText(/Thank you,/).waitFor();
+
+  const tapped = await prisma.recommendation.findUniqueOrThrow({ where: { id: asks[1].id } });
+  assert.equal(tapped.status, "endorsed", "A tap is an endorsement.");
+  assert.equal(tapped.body, null, "And it must not invent words nobody wrote.");
+
+  const accepted = await waitForPerson(
+    applied.id,
+    (row) => row.status === "active",
+    "the second answer accepts the applicant",
+  );
+  assert.ok(accepted.acceptedAt, "Acceptance must be stamped.");
+  assert.equal(accepted.acceptedById, null, "Accepted by the friends, not by an operator.");
+  assert.equal(
+    accepted.recommendation,
+    answered.body,
+    "The words that reach the profile are the ones a friend actually wrote, not the tap.",
+  );
+
+  await waitForJob({ kind: "application_approved", recipient: applicant }, "the welcome email");
+
+  // The friend who wrote is thanked; the one who tapped is asked for words.
+  await waitForJob({ kind: "recommendation_thanks", recipient: friends[0] }, "thanks to the friend who wrote");
+
   await context.close();
   await friendContext.close();
+  await secondContext.close();
+}
+
+/** A row reaching a state, polled. */
+async function waitForPerson(
+  id: string,
+  done: (row: NonNullable<Awaited<ReturnType<typeof prisma.person.findUnique>>>) => boolean,
+  description: string,
+) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const row = await prisma.person.findUnique({ where: { id } });
+    if (row && done(row)) return row;
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  throw new Error(`Waited 60s and ${description} never happened.`);
+}
+
+/** One queued email actually reaching the provider. */
+async function waitForJob(where: { kind: string; recipient: string }, description: string): Promise<void> {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const job = await prisma.deliveryJob.findFirst({ where, orderBy: { createdAt: "desc" } });
+    if (job?.status === "sent" && job.providerMessageId) {
+      console.log(`  ${description}: sent, resend id ${job.providerMessageId}`);
+      return;
+    }
+    assert.notEqual(job?.status, "failed", `${description} failed to send: ${job?.lastError}`);
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  throw new Error(`Waited 60s and ${description} never reached the provider.`);
 }
 
 /** The outbox is asynchronous by design, so poll rather than assume. */
@@ -286,7 +355,7 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   try {
     await walk(browser, applicant, friends);
-    console.log("production application walk passed: six steps each committing on their own, resume on the right step, a photo stored through the live upload path, two asks sent, and one friend vouching with no account while the gate correctly stays shut on one answer");
+    console.log("production application walk passed: six steps each committing on their own, resume on the right step, a photo stored through the live upload path, two asks sent and delivered, one friend writing and one tapping with no account between them, the gate staying shut on the first answer and opening on the second, and the welcome, the progress note and the thanks all reaching the provider");
   } finally {
     await browser.close();
     if (keep) {

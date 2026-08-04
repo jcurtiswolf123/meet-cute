@@ -396,6 +396,10 @@ export function recommendationReceivedEmail(args: {
   recommenderName: string;
   remaining: number;
   statusUrl: string;
+  /** Whether the friend wrote anything or simply tapped the button. Both are
+   *  real answers and both count toward the gate, but only one of them produces
+   *  something to read, and this email used to promise words either way. */
+  wroteWords: boolean;
 }): { subject: string; html: string; text: string } {
   const first = (args.name || "there").split(" ")[0];
   const from = (args.recommenderName || "your friend").split(" ")[0];
@@ -404,14 +408,18 @@ export function recommendationReceivedEmail(args: {
     args.remaining === 1
       ? "One more recommendation and you are in."
       : `${args.remaining} more recommendations and you are in.`;
+  const what = args.wroteWords
+    ? `${from} just wrote your recommendation.`
+    : `${from} just vouched for you.`;
+  const link = args.wroteWords ? "See it, and who we are still waiting on" : "See where it stands";
   const text =
     `Hi ${first},\n\n` +
-    `${from} just wrote your recommendation. ${need}\n\n` +
-    `See it, and who we are still waiting on:\n${args.statusUrl}\n\n` +
+    `${what} ${need}\n\n` +
+    `${link}:\n${args.statusUrl}\n\n` +
     `Warmly,\nMutuals`;
   const inner =
     h1(`${from} vouched for you.`) +
-    p(`Hi ${esc(first)}, <strong>${esc(from)}</strong> just wrote your recommendation. ${esc(need)}`) +
+    p(`Hi ${esc(first)}, <strong>${esc(from)}</strong> ${esc(args.wroteWords ? "just wrote your recommendation." : "just vouched for you.")} ${esc(need)}`) +
     `<p style="margin:24px 0 0">${emailButton("See where it stands", args.statusUrl)}</p>` +
     small("A nudge from you is the fastest way to finish this.");
   return { subject, html: emailShell(inner, need), text };
@@ -425,21 +433,47 @@ export function recommendationThanksEmail(args: {
   applicantName: string;
   accepted: boolean;
   applyUrl: string;
+  /** Whether they actually wrote something, as opposed to tapping the button.
+   *  A tap is a real answer and accepts somebody, but it puts nothing on a
+   *  profile, and this email used to thank a tapper for "your words". */
+  wroteWords: boolean;
+  /** Back to their own recommendation, so a tapper can add the words in one
+   *  click. Only used when they have not written any. */
+  vouchUrl?: string;
 }): { subject: string; html: string; text: string } {
   const first = (args.recommenderName || "there").split(" ")[0];
   const applicantFirst = (args.applicantName || "your friend").split(" ")[0];
   const subject = `Thank you for vouching for ${applicantFirst}`;
+
+  // Four outcomes, because two things vary independently: whether that answer
+  // was the one that got them in, and whether there are any words to put on the
+  // profile. Collapsing them is how a tapper got told their words were live.
   const outcome = args.accepted
-    ? `That was the one they needed - ${applicantFirst} is in, and your words are on their profile.`
-    : `It is on ${applicantFirst}'s profile now. They need one more friend to write back before they are in.`;
+    ? args.wroteWords
+      ? `That was the one they needed - ${applicantFirst} is in, and your words are on their profile.`
+      : `That was the one they needed - ${applicantFirst} is in.`
+    : args.wroteWords
+      ? `It is on ${applicantFirst}'s profile now. They need one more friend to write back before they are in.`
+      : `${applicantFirst} needs one more friend to answer before they are in.`;
+
+  // The ask, and the reason this matters more than tidiness: the thanks email
+  // is the one moment a tapper is paying attention, and telling them the job
+  // was done removed the only reason to write anything.
+  const ask = args.wroteWords
+    ? ""
+    : `A line or two from you is what actually shows on ${applicantFirst}'s profile, and it is what their introductions are written from. It takes a minute.`;
+
   const text =
     `Hi ${first},\n\n` +
     `Thank you - that helps more than you would think. ${outcome}\n\n` +
+    (ask ? `${ask}\n${args.vouchUrl ?? args.applyUrl}\n\n` : "") +
     `If you would like introductions of your own, this is how Mutuals works: a matchmaker introduces you to one person at a time, by email, and you decide for yourself.\n${args.applyUrl}\n\n` +
     `Warmly,\nMutuals`;
   const inner =
     h1("Thank you.") +
     p(`Hi ${esc(first)}, that helps more than you would think. ${esc(outcome)}`) +
+    (ask ? p(esc(ask)) : "") +
+    (ask && args.vouchUrl ? `<p style="margin:24px 0 0">${emailButton(`Add a few words about ${esc(applicantFirst)}`, args.vouchUrl)}</p>` : "") +
     p(`If you would like introductions of your own: a matchmaker introduces you to <strong>one person at a time</strong>, by email, and you decide for yourself.`) +
     `<p style="margin:24px 0 0">${emailButton("See how it works", args.applyUrl)}</p>`;
   return { subject, html: emailShell(inner, `${applicantFirst} will be glad you did.`), text };
@@ -863,6 +897,10 @@ export function recommenderFollowUpEmail(args: {
   applicantName: string;
   accepted: boolean;
   applyUrl: string;
+  /** Whether they wrote anything, or tapped. The third and last place that
+   *  assumed words: a tap accepts somebody without producing a sentence, and
+   *  all three of these emails thanked people for prose they never wrote. */
+  wroteWords: boolean;
 }): { subject: string; html: string; text: string } {
   const first = (args.recommenderName || "there").split(" ")[0];
   const applicantFirst = (args.applicantName || "your friend").split(" ")[0];
@@ -870,8 +908,10 @@ export function recommenderFollowUpEmail(args: {
     ? `${applicantFirst} is in, and you are why`
     : `Thank you for vouching for ${applicantFirst}`;
   const outcome = args.accepted
-    ? `${applicantFirst} is in. Your words are on their profile, and they are the reason a matchmaker is now looking for someone worth introducing them to.`
-    : `${applicantFirst} is still waiting on one more friend to write back, but your part is done.`;
+    ? args.wroteWords
+      ? `${applicantFirst} is in. Your words are on their profile, and they are the reason a matchmaker is now looking for someone worth introducing them to.`
+      : `${applicantFirst} is in, and your vouch is the reason a matchmaker is now looking for someone worth introducing them to.`
+    : `${applicantFirst} is still waiting on one more friend, but your part is done.`;
 
   const text =
     `Hi ${first},\n\n` +
