@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { scheduleUnfinishedApplicationNudge } from "@/lib/actions";
 import { consumeLoginToken, setSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,15 @@ export async function GET(req: NextRequest) {
   }
 
   await setSession(person.id, req.headers.get("user-agent") || undefined);
+
+  // Someone signing in with an unfinished application gets one chase a day
+  // later, withdrawn the moment they submit. Best effort: a failure here must
+  // never cost somebody their sign-in.
+  try {
+    await scheduleUnfinishedApplicationNudge(person);
+  } catch (error) {
+    console.error(`[auth] could not schedule the application chase: ${(error as Error).message}`);
+  }
 
   const dest = person.isOperator ? "/studio" : person.status === "applicant" ? "/apply" : "/app";
   return to(dest);

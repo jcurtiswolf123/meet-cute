@@ -95,6 +95,10 @@ model Person {
 
   // supply / provenance
   appliedAt   DateTime?
+  // When we last chased an application that was started and never finished.
+  // On 3 August, 18 people signed in and never submitted, seven of them after
+  // uploading photos, and not one of them was ever contacted about it.
+  unfinishedNudgedAt DateTime?
   acceptedAt  DateTime?
   fastTracked Boolean   @default(false)
 

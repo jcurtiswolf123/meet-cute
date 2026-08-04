@@ -921,6 +921,54 @@ export function vouchBackRequestEmail(args: {
   return { subject, html: emailShell(inner, `Return the favour for ${applicantFirst}.`), text };
 }
 
+// Sent to someone who signed in, started an application, and stopped.
+//
+// On 3 August, 18 people completed an application and 18 signed in and never
+// did. Seven of those had already uploaded photos, so they had done the part
+// most people find hardest and left before the part that takes a minute. Not
+// one of them heard from us again. This is that email, and it is sent once.
+//
+// It names what they already did, because a person who uploaded five photos is
+// not a lead to be re-pitched, they are someone who was nearly finished. And it
+// says what is actually left, which is short, rather than asking them to
+// "complete your profile" as though the work were unbounded.
+export function unfinishedApplicationEmail(args: {
+  name: string;
+  photos: number;
+  applyUrl: string;
+}): { subject: string; html: string; text: string } {
+  const first = (args.name || "there").split(" ")[0];
+  const got = args.photos > 0;
+  const subject = got
+    ? `Your ${args.photos === 1 ? "photo is" : "photos are"} saved. One step left`
+    : "You started an application to Mutuals";
+
+  const opener = got
+    ? `You uploaded ${args.photos === 1 ? "a photo" : `${args.photos} photos`} and then the application stopped. ${args.photos === 1 ? "It is" : "They are"} still saved, so nothing you did is lost.`
+    : `You signed in to apply to Mutuals and did not finish. Whatever you filled in is still there.`;
+
+  const text =
+    `Hi ${first},\n\n` +
+    `${opener}\n\n` +
+    `What is left is short: your city, your date of birth, and the two friends who will vouch for you. We email them, they answer in a couple of sentences or with one tap, and when both have, you are a member. There is nobody to impress in between.\n\n` +
+    `Pick up where you left off:\n${args.applyUrl}\n\n` +
+    `If you have changed your mind, ignore this and you will not hear from us again.\n\n` +
+    `Warmly,\nMutuals`;
+
+  const inner =
+    h1(got ? "You were nearly done." : "You started an application.") +
+    p(`Hi ${esc(first)}, ${esc(opener)}`) +
+    p(`What is left is short: your city, your date of birth, and the two friends who will vouch for you. We email them, they answer in a couple of sentences or with <strong>one tap</strong>, and when both have, you are a member. There is nobody to impress in between.`) +
+    `<p style="margin:24px 0 0">${emailButton("Pick up where you left off", args.applyUrl)}</p>` +
+    small("If you have changed your mind, ignore this and you will not hear from us again.");
+
+  return {
+    subject,
+    html: emailShell(inner, got ? "Your photos are saved. One step left." : "Pick up where you left off."),
+    text,
+  };
+}
+
 export function magicLinkEmail(link: string): { subject: string; html: string; text: string } {
   const subject = "Your Mutuals sign-in link";
   const text = `Sign in to Mutuals:\n${link}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;

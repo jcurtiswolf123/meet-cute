@@ -78,6 +78,7 @@ jobs:
           npm run test:launch:roles:e2e || { dump_server_log roles:e2e; exit 1; }
           npm run test:journey:application || { dump_server_log journey:application; exit 1; }
           npm run test:journey:controls || { dump_server_log journey:controls; exit 1; }
+          npm run test:journey:vouch || { dump_server_log journey:vouch; exit 1; }
 
   deploy:
     needs: ci
