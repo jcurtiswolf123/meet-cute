@@ -48,5 +48,5 @@ export function maxBirthdateForAge(minAge: number, today: Date = new Date()): st
 
 // DRILL: deliberate type error, never merged.
 export function drillAgeLabel(age: number): string {
-  return age;
+  return String(age);
 }
