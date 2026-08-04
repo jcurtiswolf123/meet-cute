@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { randomBytes, timingSafeEqual } from "crypto";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import {
   setSession,
@@ -64,6 +65,7 @@ import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInv
 import { rateLimit } from "./ratelimit";
 import { calendarAge, parseCalendarDate } from "./age";
 import { normalizeCity } from "./cities";
+import { isStepId, stepAfter, type StepId } from "./application-steps";
 import { formatEventDay, parseEventDate } from "./event-time";
 import { mutualFriends } from "./social";
 import { deleteUpload } from "./uploads";
@@ -526,70 +528,103 @@ export type ApplyState = {
  * stamped when the whole half is right, so a half-typed row is never mistaken
  * for a finished one.
  */
-export async function saveApplicationBasics(formData: FormData): Promise<void> {
+/**
+ * Save one step of the application and move to the next.
+ *
+ * A plain form action, so it posts before React hydrates: this is the form a
+ * stranger on a slow phone meets first, and a submit that silently does nothing
+ * is how you lose them. Errors come back in the query string for the same
+ * reason.
+ *
+ * Every step commits on its own. Leaving after step two is no longer leaving
+ * with nothing, which is the whole point: on 3 August, 18 people signed in and
+ * never finished and not one of them left anything behind to follow up on.
+ *
+ * `basicsAt` is stamped only when the last step is answered, so a part-finished
+ * application never counts as a real one.
+ */
+export async function saveApplicationStep(formData: FormData): Promise<void> {
   const me = await getCurrentPerson();
   if (!me) redirect("/login");
 
-  const first = String(formData.get("first") || "").trim();
-  const last = String(formData.get("last") || "").trim();
-  const city = normalizeCity(String(formData.get("city") || ""));
-  const secondRaw = String(formData.get("secondCity") || "").trim();
-  const secondCity = secondRaw && normalizeCity(secondRaw) !== city ? normalizeCity(secondRaw) : null;
-  const lookingFor = String(formData.get("lookingFor") || "").trim().slice(0, 280);
-  const email = me.email ?? "";
-  const phoneRaw = String(formData.get("phone") || "");
-  const phone = normalizePhone(phoneRaw);
-  const linkedin = normalizeLinkedin(String(formData.get("linkedin") || ""));
-  const instagram = normalizeInstagram(String(formData.get("instagram") || ""));
-  const birthdateRaw = String(formData.get("birthdate") || "");
-  const agreed = formData.get("agree") === "on";
-  const smsConsent = formData.get("smsConsent") === "on";
-  const gender = String(formData.get("gender") || "").trim();
+  const step = String(formData.get("step") || "");
+  if (!isStepId(step)) redirect("/apply");
 
+  const data: Prisma.PersonUpdateInput = {};
   const problems: string[] = [];
-  if (!first) problems.push("first");
-  if (!email.includes("@") || email.length > 254) problems.push("email");
-  if (smsConsent && !phoneRaw.trim()) problems.push("phone");
-  else if (phoneRaw.trim() && !isTextablePhone(phone)) problems.push("phone");
 
-  const birthParts = birthdateRaw ? parseCalendarDate(birthdateRaw) : null;
-  const birthdate = birthParts ? new Date(Date.UTC(birthParts.y, birthParts.m - 1, birthParts.d)) : null;
-  if (!birthParts || !birthdate) problems.push("birthdate");
-  else if (calendarAge(birthParts) < 18) problems.push("age");
+  if (step === "name") {
+    const first = String(formData.get("first") || "").trim().slice(0, 60);
+    const last = String(formData.get("last") || "").trim().slice(0, 60);
+    if (!first) problems.push("first");
+    else data.name = `${first} ${last}`.trim();
+  }
 
-  if (!agreed) problems.push("agree");
-  if (!isGender(gender)) problems.push("gender");
+  if (step === "city") {
+    const city = normalizeCity(String(formData.get("city") || ""));
+    const secondRaw = String(formData.get("secondCity") || "").trim();
+    if (!String(formData.get("city") || "").trim()) problems.push("city");
+    data.city = city;
+    data.secondCity = secondRaw && normalizeCity(secondRaw) !== city ? normalizeCity(secondRaw) : null;
+  }
 
-  const photoCount = await prisma.photo.count({
-    where: { personId: me!.id, status: "approved" },
-  });
-  if (photoCount === 0) problems.push("photos");
+  if (step === "gender") {
+    const gender = String(formData.get("gender") || "").trim();
+    if (!isGender(gender)) problems.push("gender");
+    else data.gender = gender;
+  }
 
-  // Everything valid is written either way, so a native re-render hands the
-  // applicant back their own work instead of an empty form.
-  await prisma.person.update({
-    where: { id: me!.id },
-    data: {
-      ...(first ? { name: `${first} ${last}`.trim() } : {}),
-      city,
-      secondCity,
-      ...(isGender(gender) ? { gender } : {}),
-      lookingFor,
-      phone,
-      linkedin,
-      instagram,
-      ...(birthdate && birthParts && calendarAge(birthParts) >= 18
-        ? { birthdate, age: calendarAge(birthParts) }
-        : {}),
-      ...(agreed ? { agreedTosAt: me!.agreedTosAt ?? new Date() } : {}),
-      smsConsentAt: smsConsent && isTextablePhone(phone) ? new Date() : null,
-      // Only a complete half counts as a saved half.
-      ...(problems.length === 0 ? { basicsAt: me!.basicsAt ?? new Date() } : {}),
-    },
-  });
+  if (step === "birthdate") {
+    const raw = String(formData.get("birthdate") || "");
+    const parts = raw ? parseCalendarDate(raw) : null;
+    if (!parts) problems.push("birthdate");
+    else if (calendarAge(parts) < 18) problems.push("age");
+    else {
+      data.birthdate = new Date(Date.UTC(parts.y, parts.m - 1, parts.d));
+      data.age = calendarAge(parts);
+    }
+  }
 
-  if (problems.length > 0) redirect(`/apply?missing=${problems.join(",")}`);
-  redirect("/apply/friends");
+  if (step === "photo") {
+    const photos = await prisma.photo.count({
+      where: { personId: me!.id, status: "approved" },
+    });
+    if (photos === 0) problems.push("photos");
+  }
+
+  if (step === "extras") {
+    const phoneRaw = String(formData.get("phone") || "");
+    const phone = normalizePhone(phoneRaw);
+    const smsConsent = formData.get("smsConsent") === "on";
+    if (smsConsent && !phoneRaw.trim()) problems.push("phone");
+    else if (phoneRaw.trim() && !isTextablePhone(phone)) problems.push("phone");
+    if (formData.get("agree") !== "on") problems.push("agree");
+
+    data.phone = phone;
+    data.instagram = normalizeInstagram(String(formData.get("instagram") || ""));
+    data.linkedin = normalizeLinkedin(String(formData.get("linkedin") || ""));
+    data.lookingFor = String(formData.get("lookingFor") || "").trim().slice(0, 280);
+    data.smsConsentAt = smsConsent && isTextablePhone(phone) ? new Date() : null;
+    if (problems.length === 0) {
+      data.agreedTosAt = me!.agreedTosAt ?? new Date();
+      data.basicsAt = me!.basicsAt ?? new Date();
+    }
+  }
+
+  // Record the furthest step answered, so coming back lands exactly here
+  // rather than at the beginning.
+  if (problems.length === 0) data.applicationStep = step;
+
+  // Whatever was valid is written even when the step was not, so a native
+  // re-render hands people back their own work rather than an empty field.
+  if (Object.keys(data).length > 0) {
+    await prisma.person.update({ where: { id: me!.id }, data });
+  }
+
+  if (problems.length > 0) redirect(`/apply?step=${step}&missing=${problems.join(",")}`);
+
+  const next = stepAfter(step as StepId);
+  redirect(next ? `/apply?step=${next}` : "/apply/friends");
 }
 
 /**

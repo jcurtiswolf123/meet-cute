@@ -42,7 +42,7 @@ export function SiteFooter() {
       </div>
 
       <div className="container-mc flex flex-col gap-3 border-t border-cream/15 py-6 text-xs text-cream/55 sm:flex-row sm:items-center sm:justify-between">
-        <p>New York + San Francisco</p>
+        <p>New York + San Francisco + Los Angeles</p>
         <p>&copy; {new Date().getFullYear()} Mutuals</p>
       </div>
     </footer>

@@ -104,7 +104,14 @@ model Person {
   // everything about themselves and stopped at the friends step left exactly
   // the same trace as someone who signed in and closed the tab: nothing. On
   // 3 August that was 18 people.
-  basicsAt    DateTime?
+  // The furthest step of the application they have answered. Resume has to be
+  // exact, and it cannot be derived: every applicant's name field is populated
+  // at sign-in from their email local part, so "do they have a name" is true
+  // for somebody who has typed nothing, and city defaults to NYC on the same
+  // row. Without this, coming back sent people to step one to redo work they
+  // had already done.
+  applicationStep String?
+  basicsAt        DateTime?
   appliedAt   DateTime?
   // When we last chased an application that was started and never finished.
   // On 3 August, 18 people signed in and never submitted, seven of them after

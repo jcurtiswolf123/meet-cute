@@ -111,7 +111,7 @@ export default function Home() {
             </Reveal>
             <Reveal className="md:col-span-4 md:col-start-9" delay={0.08}>
               <p className="leading-7 text-muted">
-                Twelve people. One long table. Monthly dinners in New York and San Francisco, with
+                Twelve people. One long table. Monthly dinners in New York, San Francisco and Los Angeles, with
                 no pressure to pair off.
               </p>
               <Link href="/dinners" className="text-link mt-8">
