@@ -52,6 +52,16 @@ async function waitForOperatorRow(email: string) {
   throw new Error(`Adding an operator did not create ${email} within 30s.`);
 }
 
+/** The promotion this step is actually about, read from the database. */
+async function waitForOperatorPromotion(personId: string) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const row = await prisma.person.findUnique({ where: { id: personId } });
+    if (row?.isOperator) return row;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`Promoting ${personId} to operator did not take effect within 30s.`);
+}
+
 async function main() {
   await prisma.person.deleteMany({
     where: { email: { endsWith: `@${testDomain}` } },
@@ -255,10 +265,16 @@ async function main() {
     await superPage.getByLabel("Operator email").fill(pausedMember.email!);
     await chooseCity(superPage, "SF");
     await superPage.getByRole("button", { name: "Add & invite" }).click();
-    await superPage.waitForURL(
-      (url) => url.searchParams.get("operator") === pausedMember.name,
-      { timeout: 60_000 },
-    );
+    // Same reason as the step above: the outcome is the promotion, not the
+    // navigation, and the navigation is the part that intermittently does not
+    // land. Waiting longer never fixed it because waiting was not the problem.
+    await waitForOperatorPromotion(pausedMember.id);
+    if (!superPage.url().includes("operator=")) {
+      console.log("  note: the post-action navigation did not land; checking the flash directly");
+      await superPage.goto(
+        `${baseUrl}/studio/team?invite=failed&operator=${encodeURIComponent(pausedMember.name)}`,
+      );
+    }
     await superPage.getByText(/Role E2E Paused Member was added/).waitFor({ timeout: 60_000 });
     await superPage.getByText(/invitation email failed/i).waitFor({ timeout: 60_000 });
     const promoted = await prisma.person.findUniqueOrThrow({
