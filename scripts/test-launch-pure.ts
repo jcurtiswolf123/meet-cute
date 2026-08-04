@@ -11,9 +11,38 @@ import { LIVE_INTRO_STAGES, introReturnPath } from "../src/lib/introductions";
 import { introNotice } from "../src/app/studio/(portal)/matchmaking/intro-notice";
 import { currentStep, hasFullName, splitName } from "../src/lib/application-steps";
 
-assert.equal(uploadStorageMode({ production: true, blobToken: "" }), "database");
-assert.equal(uploadStorageMode({ production: true, blobToken: "configured" }), "blob");
-assert.equal(uploadStorageMode({ production: false, blobToken: "" }), "database");
+// Storage mode is read from the environment, because the thing that has to be
+// true in production is that a photo lands in two places. "database" is a
+// single copy and only honest where there are no credentials: local, CI.
+{
+  const saved = {
+    endpoint: process.env.AWS_ENDPOINT_URL_S3,
+    bucket: process.env.BUCKET_NAME,
+    key: process.env.AWS_ACCESS_KEY_ID,
+    secret: process.env.AWS_SECRET_ACCESS_KEY,
+  };
+  for (const k of ["AWS_ENDPOINT_URL_S3", "BUCKET_NAME", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]) {
+    delete process.env[k];
+  }
+  assert.equal(uploadStorageMode(), "database", "no bucket configured means one copy, and it says so");
+  process.env.AWS_ENDPOINT_URL_S3 = "https://fly.storage.tigris.dev";
+  process.env.BUCKET_NAME = "mutuals-photos";
+  process.env.AWS_ACCESS_KEY_ID = "id";
+  process.env.AWS_SECRET_ACCESS_KEY = "secret";
+  assert.equal(uploadStorageMode(), "mirrored", "a configured bucket means both copies");
+  // A half-configured bucket is the dangerous case: it must not read as mirrored.
+  delete process.env.AWS_SECRET_ACCESS_KEY;
+  assert.equal(uploadStorageMode(), "database", "incomplete credentials must not claim two copies");
+  for (const [k, v] of Object.entries({
+    AWS_ENDPOINT_URL_S3: saved.endpoint,
+    BUCKET_NAME: saved.bucket,
+    AWS_ACCESS_KEY_ID: saved.key,
+    AWS_SECRET_ACCESS_KEY: saved.secret,
+  })) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+}
 
 const bookingMessage = bookingUnavailableMessage();
 assert.match(bookingMessage, /not automated/i);
