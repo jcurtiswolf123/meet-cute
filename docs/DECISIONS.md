@@ -2,6 +2,28 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-04 : Browser checks wait on the outcome, never on the screen
+
+- Master went red three times in one day, in three different files, every one a
+  wait on a UI transition that had not landed while the row underneath was
+  already correct. One printed the studio page it was giving up on and it was
+  rendering perfectly well. The same SHA passed on a rerun, which is what makes
+  this expensive: a green run and a flaky run are indistinguishable until the
+  next one fails.
+- Cause: every application step and every studio action is a server action plus
+  a redirect, so the control a check wants appears strictly after the commit.
+  Waiting only on the control makes a slow round trip indistinguishable from a
+  missing control, and 20 seconds is not much on a loaded runner.
+- Decision: `scripts/journey-waits.ts` is the one way to do this. Assert the
+  commit against the row, then give the screen 60 seconds it will not need. A
+  real regression still fails, and it fails saying which step never committed
+  rather than which button never appeared, and it prints the row.
+- Two files were fixed piecemeal earlier the same day and both are folded onto
+  the shared helper, because three private versions of this is how the fourth
+  site got missed.
+- There are now no 20-second element waits and no `waitForURL` in the journey
+  checks. Verified by running the three worst offenders three times each.
+
 ## 2026-08-04 : A tap is a real answer, and three emails said it was prose
 
 - Found by reading the delivered mail rather than the send log. The full

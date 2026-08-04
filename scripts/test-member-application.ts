@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { chromium } from "playwright";
 import { createLoginToken } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
+import { answered, waitForRow } from "./journey-waits";
 
 const baseUrl = process.env.MEMBER_E2E_BASE_URL || "http://127.0.0.1:3009";
 const databaseUrl = process.env.DATABASE_URL;
@@ -102,7 +103,7 @@ async function main() {
     // half an answer.
     await memberPage.getByLabel("First name").fill("Journey");
     await memberPage.getByRole("button", { name: "Continue" }).click();
-    await memberPage.getByText(/Enter your last name/).waitFor({ timeout: 20000 });
+    await memberPage.getByText(/Enter your last name/).waitFor({ timeout: 60000 });
     assert.equal(
       (await prisma.person.findUniqueOrThrow({ where: { email: memberEmail } })).applicationStep,
       null,
@@ -112,7 +113,8 @@ async function main() {
     await memberPage.getByLabel("First name").fill("Journey");
     await memberPage.getByLabel("Last name").fill("Member");
     await memberPage.getByRole("button", { name: "Continue" }).click();
-    await memberPage.getByRole("group", { name: "City" }).waitFor({ timeout: 20000 });
+    await waitForRow({ email: memberEmail }, answered("name"), "step one commits the name");
+    await memberPage.getByRole("group", { name: "City" }).waitFor({ timeout: 60000 });
     assert.equal(
       (await prisma.person.findUniqueOrThrow({ where: { email: memberEmail } })).name,
       "Journey Member",
@@ -121,7 +123,8 @@ async function main() {
 
     await memberPage.getByRole("group", { name: "City" }).getByText("New York", { exact: true }).click();
     await memberPage.getByRole("button", { name: "Continue" }).click();
-    await memberPage.getByRole("group", { name: "You are" }).waitFor({ timeout: 20000 });
+    await waitForRow({ email: memberEmail }, answered("city"), "step two commits the city");
+    await memberPage.getByRole("group", { name: "You are" }).waitFor({ timeout: 60000 });
 
     // Leaving and coming back has to land on the step they stopped at, not at
     // the beginning. This cannot be inferred from which fields are filled:
@@ -129,7 +132,7 @@ async function main() {
     // part and city defaults to NYC, so both look answered before anyone has
     // answered anything. It is recorded, and this is what proves it.
     await memberPage.goto(`${baseUrl}/apply`);
-    await memberPage.getByRole("group", { name: "You are" }).waitFor({ timeout: 20000 });
+    await memberPage.getByRole("group", { name: "You are" }).waitFor({ timeout: 60000 });
     assert.match(
       await memberPage.locator("h1").first().innerText(),
       /How do you identify/,
@@ -138,15 +141,17 @@ async function main() {
 
     await memberPage.getByRole("group", { name: "You are" }).getByText("Man", { exact: true }).click();
     await memberPage.getByRole("button", { name: "Continue" }).click();
-    await memberPage.getByLabel("Date of birth").waitFor({ timeout: 20000 });
+    await waitForRow({ email: memberEmail }, answered("gender"), "step three commits the gender");
+    await memberPage.getByLabel("Date of birth").waitFor({ timeout: 60000 });
 
     await memberPage.getByLabel("Date of birth").fill("1990-01-01");
     await memberPage.getByRole("button", { name: "Continue" }).click();
+    await waitForRow({ email: memberEmail }, answered("birthdate"), "step four commits the birthdate");
 
     // The photo step refuses to advance without one, and says so.
-    await memberPage.getByRole("button", { name: /Add a photo/ }).waitFor({ timeout: 20000 });
+    await memberPage.getByRole("button", { name: /Add a photo/ }).waitFor({ timeout: 60000 });
     await memberPage.getByRole("button", { name: "Continue" }).click();
-    await memberPage.getByText(/Add at least one photo to continue/).waitFor({ timeout: 20000 });
+    await memberPage.getByText(/Add at least one photo to continue/).waitFor({ timeout: 60000 });
 
     const [chooser] = await Promise.all([
       memberPage.waitForEvent("filechooser"),
@@ -159,9 +164,10 @@ async function main() {
     });
     await memberPage.getByRole("button", { name: /Add another/ }).waitFor();
     await memberPage.getByRole("button", { name: "Continue" }).click();
+    await waitForRow({ email: memberEmail }, answered("photo"), "step five commits the photo");
 
     // Last step: the optional things, and the one agreement that is not.
-    await memberPage.getByLabel(/What you're looking for/).waitFor({ timeout: 20000 });
+    await memberPage.getByLabel(/What you're looking for/).waitFor({ timeout: 60000 });
     await memberPage.getByLabel(/What you're looking for/).fill("A thoughtful relationship with someone curious and kind.");
     await memberPage.getByLabel("Instagram").fill("@journey-member");
     await memberPage.locator('label:has(input[name="agree"])').click({ position: { x: 10, y: 12 } });
@@ -431,16 +437,20 @@ async function main() {
     await adaPage.getByLabel("First name").fill("Ada");
     await adaPage.getByLabel(/Last name/).fill("Recommender");
     await adaPage.getByRole("button", { name: "Continue" }).click();
-    await adaPage.getByRole("group", { name: "City" }).waitFor({ timeout: 20000 });
+    await waitForRow({ email: firstRecommenderEmail }, answered("name"), "Ada's step one commits");
+    await adaPage.getByRole("group", { name: "City" }).waitFor({ timeout: 60000 });
     await adaPage.getByRole("group", { name: "City" }).getByText("New York", { exact: true }).click();
     await adaPage.getByRole("button", { name: "Continue" }).click();
-    await adaPage.getByRole("group", { name: "You are" }).waitFor({ timeout: 20000 });
+    await waitForRow({ email: firstRecommenderEmail }, answered("city"), "Ada's step two commits");
+    await adaPage.getByRole("group", { name: "You are" }).waitFor({ timeout: 60000 });
     await adaPage.getByRole("group", { name: "You are" }).getByText("Woman", { exact: true }).click();
     await adaPage.getByRole("button", { name: "Continue" }).click();
-    await adaPage.getByLabel("Date of birth").waitFor({ timeout: 20000 });
+    await waitForRow({ email: firstRecommenderEmail }, answered("gender"), "Ada's step three commits");
+    await adaPage.getByLabel("Date of birth").waitFor({ timeout: 60000 });
     await adaPage.getByLabel("Date of birth").fill("1991-02-02");
     await adaPage.getByRole("button", { name: "Continue" }).click();
-    await adaPage.getByRole("button", { name: /Add a photo/ }).waitFor({ timeout: 20000 });
+    await waitForRow({ email: firstRecommenderEmail }, answered("birthdate"), "Ada's step four commits");
+    await adaPage.getByRole("button", { name: /Add a photo/ }).waitFor({ timeout: 60000 });
     const [adaChooser] = await Promise.all([
       adaPage.waitForEvent("filechooser"),
       adaPage.getByRole("button", { name: /Add a photo/ }).click(),
