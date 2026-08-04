@@ -43,6 +43,30 @@ const OPTIONS = [
   },
 ];
 
+const HOMES = [
+  {
+    href: "/lab/home-video",
+    name: "The room, moving",
+    thesis: "Full-bleed generated loop, eight seconds, nobody in frame.",
+    detail:
+      "A table by a window and one slow change of light. A hero loop gets watched a hundred times by the same person, so it is atmosphere rather than a story: the moment it resolves into something it starts to feel like an advert. Muted, inline, 380KB, and anyone who asked for reduced motion gets the still and never downloads the file.",
+  },
+  {
+    href: "/lab/home-editorial",
+    name: "Photographic and editorial",
+    thesis: "An asymmetric 5/7 split and two large stills.",
+    detail:
+      "Closest to a magazine opening spread. The images are generated to the palette and are deliberately empty of people: a couple looking at the camera is the single fastest way a matchmaking site starts to look like stock.",
+  },
+  {
+    href: "/lab/home-quiet",
+    name: "Almost no imagery",
+    thesis: "Type, rules and space, with one photograph used as a band.",
+    detail:
+      "A service that opens with a big romantic picture is making a promise about pictures. One that opens with a sentence is making a promise about introductions. Also the fastest of the three by an order of magnitude.",
+  },
+];
+
 export default function Lab() {
   return (
     <main className="container-mc min-h-screen py-12">
@@ -94,8 +118,41 @@ export default function Lab() {
           ))}
         </ul>
 
+        <div className="mt-16 border-t border-line pt-10">
+          <p className="label mb-3">Home page directions</p>
+          <h2 className="font-display text-3xl font-medium tracking-tight">
+            Three ways to open.
+          </h2>
+          <p className="mt-3 max-w-[62ch] text-sm leading-relaxed text-muted">
+            The photography and the eight-second loop were generated for this, to the palette in
+            DESIGN.md: warm cream, ink, one oxblood accent, no gradients, no glass, and no people
+            in frame. They live in public/generated and are staged here only.
+          </p>
+          <ul className="mt-6 space-y-3">
+            {HOMES.map((home) => (
+              <li key={home.href}>
+                <Link
+                  href={home.href}
+                  className="group block rounded-xl2 border border-line bg-panel p-5 transition duration-200 ease-soft hover:border-ink hover:bg-cream"
+                >
+                  <div className="flex items-baseline justify-between gap-4">
+                    <p className="font-display text-xl">{home.name}</p>
+                    <span className="text-sm text-muted transition group-hover:text-ink">Open</span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted">{home.thesis}</p>
+                  <p className="mt-3 max-w-[62ch] text-xs leading-relaxed text-ink/80">{home.detail}</p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <p className="mt-10 text-xs text-muted">
-          Live application for comparison:{" "}
+          Live home page for comparison:{" "}
+          <Link href="/" className="text-claret underline">
+            /
+          </Link>
+          . Live application:{" "}
           <Link href="/apply" className="text-claret underline">
             /apply
           </Link>
