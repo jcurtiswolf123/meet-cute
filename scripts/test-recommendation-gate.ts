@@ -243,6 +243,58 @@ async function main() {
       "A declined applicant stays declined.",
     );
 
+    // --- a friend who says no ---------------------------------------------
+    //
+    // The status existed from the first day and nothing wrote it, so declining
+    // and forgetting were the same event and both earned three reminders.
+    const asked = await makeApplicant("woman");
+    created.push(asked.id);
+    const [sayingNo, sayingYes] = await saveRecommenders(asked.id, [
+      { name: "Says No", email: `no-${randomUUID()}@example.test`, gender: "man" },
+      { name: "Says Yes", email: `yes-${randomUUID()}@example.test`, gender: "man" },
+    ]);
+
+    const declineAnswer = await recordAnswer(sayingNo.token, { decline: true });
+    assert.ok(declineAnswer.ok, "Declining is a real answer and must be recorded.");
+    assert.equal(
+      (await prisma.recommendation.findUniqueOrThrow({ where: { id: sayingNo.id } })).status,
+      "declined",
+    );
+    assert.equal(hasAnswered("declined"), false, "It counts toward nothing.");
+    assert.equal(
+      (await gateState(asked.id)).remaining,
+      2,
+      "A decline leaves the applicant needing both, not one.",
+    );
+
+    // Saying no is final. A tap or a reply-by-email arriving afterwards must
+    // not quietly undo it: somebody who declined and is then counted anyway was
+    // never given a choice.
+    assert.equal(
+      (await recordAnswer(sayingNo.token, { endorseOnly: true })).ok,
+      false,
+      "A declined request cannot be revived by a later tap.",
+    );
+    assert.equal(
+      (await recordAnswer(sayingNo.token, { body: "Actually they are great." })).ok,
+      false,
+      "Nor by a later reply.",
+    );
+    assert.equal(
+      (await prisma.recommendation.findUniqueOrThrow({ where: { id: sayingNo.id } })).status,
+      "declined",
+    );
+
+    // And declining is not the same as the applicant failing: the other friend
+    // still counts, and the applicant is one answer away rather than out.
+    await write(sayingYes.id, "She is the person I call first, and I am not the only one.");
+    assert.equal((await gateState(asked.id)).remaining, 1);
+    assert.equal(
+      (await acceptIfRecommended(asked.id)).justAccepted,
+      false,
+      "One answer plus one decline is not two answers.",
+    );
+
     // --- the three doors: tap, words, and a tap upgraded by words ----------
     const tapper = await makeApplicant("woman");
     created.push(tapper.id);
@@ -339,7 +391,7 @@ async function main() {
     );
 
     console.log(
-      "recommendation gate passed: opposite-gender rule, one-tap vouches that count without inventing a quote, words upgrading a tap, one-shot acceptance under concurrency, edit-safe requests, and no revival of a declined applicant",
+      "recommendation gate passed: opposite-gender rule, one-tap vouches that count without inventing a quote, words upgrading a tap, one-shot acceptance under concurrency, edit-safe requests, no revival of a declined applicant, and a friend who says no counting toward nothing and never being revived",
     );
   } finally {
     await prisma.person.deleteMany({ where: { id: { in: created } } });

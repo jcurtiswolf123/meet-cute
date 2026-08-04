@@ -46,10 +46,10 @@ export default async function WriteRecommendation({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ done?: string; vouched?: string; short?: string }>;
+  searchParams: Promise<{ done?: string; vouched?: string; short?: string; declined?: string }>;
 }) {
   const { token } = await params;
-  const { done, vouched, short } = await searchParams;
+  const { done, vouched, short, declined } = await searchParams;
   const tooShort =
     short === "1"
       ? "A couple of sentences, please. Or use the one-tap vouch above if you would rather not write."
@@ -74,6 +74,22 @@ export default async function WriteRecommendation({
   if (request.applicant.status === "exited") {
     return (
       <Unavailable reason={`${applicantFirst} is no longer applying to Mutuals, so there is nothing to write here. Thank you for being willing.`} />
+    );
+  }
+
+  // They said no. Confirmed plainly and without guilt, and with no route back
+  // in: a friend who declines and then gets asked again has not been given a
+  // choice, only a delay.
+  if (request.status === "declined" || declined === "1") {
+    return (
+      <Shell>
+        <p className="label mb-3">No problem</p>
+        <h1 className="font-display text-4xl font-medium tracking-tight">Thank you for saying so.</h1>
+        <p className="mt-3 max-w-[60ch] text-sm leading-relaxed text-muted">
+          We will not ask you about {applicantFirst} again, and you will not hear from us about this
+          any further. They are not told who declined.
+        </p>
+      </Shell>
     );
   }
 

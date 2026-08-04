@@ -1007,6 +1007,26 @@ export async function endorseRecommendation(formData: FormData): Promise<void> {
 }
 
 /**
+ * Saying no.
+ *
+ * The `declined` status existed from the first day and nothing wrote it, so a
+ * friend who did not want to vouch looked exactly like one who forgot, and got
+ * chased at 48 hours, 5 days and 10 days for it. Three emails to somebody who
+ * has already decided is how an address stops opening any of them.
+ *
+ * It counts toward nothing, it cancels their reminders, and the applicant is
+ * not told who declined. Nobody should learn that a specific friend said no.
+ */
+export async function declineRecommendation(formData: FormData): Promise<void> {
+  const token = String(formData.get("token") || "");
+  if (!token) return;
+  const answer = await recordAnswer(token, { decline: true });
+  if (!answer.ok) redirect(`/r/${token}?done=1`);
+  await cancelScheduledMail("recommendation_reminder", answer.request.email);
+  redirect(`/r/${token}?declined=1`);
+}
+
+/**
  * Everything that happens once a friend has answered, whichever door they came
  * through: the page, the tap, or a plain reply to the email.
  */

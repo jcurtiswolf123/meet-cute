@@ -185,7 +185,7 @@ async function main() {
 
     // The ask is specific to what they said about themselves. Getting this
     // wrong sends someone off to ask the wrong two people.
-    await memberPage.getByText("Name two women who know you well.").waitFor();
+    await memberPage.getByText("Name two single women who know you well.").waitFor();
 
     await memberPage.getByLabel("Their name").first().fill("Ada Recommender");
     await memberPage.getByRole("group", { name: "They are" }).first().getByText("Woman", { exact: true }).click();

@@ -1,31 +1,49 @@
 import Link from "next/link";
 import { STEPS, stepBefore, stepIndex, type StepId } from "@/lib/application-steps";
 
+/** The six questions plus the two friends, which is the step that actually gets
+ *  somebody in. Counting it is the honest thing to do: showing "6 of 6" and then
+ *  producing another page is precisely the hidden cost the stepper exists to
+ *  remove. */
+export const TOTAL_STEPS = STEPS.length + 1;
+
 // One step, in the app's own clothes: same cream canvas, same display face for
 // the question, same muted line under it, same pill button. The prototype in
 // the lab had its own spacing and its own progress bar; this is the shipped
 // version, so it uses what every other page uses.
+//
+// The friends page used to draw its own chrome: a two-circle "1 you, 2 friends"
+// rail, no progress bar, a centred back link. It was the same application
+// wearing different clothes at the one moment somebody is deciding whether to
+// finish, so it renders through here too.
 export function StepShell({
   step,
+  index: indexOverride,
+  back: backOverride,
   title,
   sub,
   children,
 }: {
-  step: StepId;
+  step?: StepId;
+  /** Zero-based, for a step that is not one of the six. */
+  index?: number;
+  /** Where "Back" goes when it is not derived from the six. */
+  back?: string;
   title: string;
   sub: string;
   children: React.ReactNode;
 }) {
-  const index = stepIndex(step);
-  const back = stepBefore(step);
+  const index = indexOverride ?? (step ? stepIndex(step) : 0);
+  const previous = step ? stepBefore(step) : null;
+  const back = backOverride ?? (previous ? `/apply?step=${previous}` : null);
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-xl flex-col">
       {/* Progress reads as ground covered, not as work remaining. */}
       <div className="flex gap-1.5" aria-hidden>
-        {STEPS.map((s, i) => (
+        {Array.from({ length: TOTAL_STEPS }, (_, i) => (
           <span
-            key={s.id}
+            key={i}
             className={`h-0.5 flex-1 rounded-full transition-colors duration-300 ease-soft ${
               i <= index ? "bg-ink" : "bg-line"
             }`}
@@ -33,7 +51,7 @@ export function StepShell({
         ))}
       </div>
       <p className="mt-3 text-xs text-muted">
-        Step {index + 1} of {STEPS.length}
+        Step {index + 1} of {TOTAL_STEPS}
       </p>
 
       <div className="mt-10 flex-1">
@@ -44,7 +62,7 @@ export function StepShell({
 
       <div className="mt-10 flex items-center gap-4 border-t border-line pt-5">
         {back ? (
-          <Link href={`/apply?step=${back}`} className="text-sm text-muted underline underline-offset-4">
+          <Link href={back} className="text-sm text-muted underline underline-offset-4">
             Back
           </Link>
         ) : (

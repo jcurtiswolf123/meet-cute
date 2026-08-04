@@ -62,8 +62,11 @@ Notes that matter:
 
 ## 3. Naming the two friends
 
-After step 6, `/apply/friends`. The ask is specific to the gender they gave:
-"Name two women who know you well."
+Step 7 of 7, at `/apply/friends`, in the same shell as the other six. The ask
+is specific to the gender they gave: **"Name two single men who know you well"**,
+or two single women. Single is guidance, not a check: the vouchers are the
+warmest leads Mutuals sees, and they only become members if they are available
+to be one.
 
 - **A recommender who is already a member counts as one of the two**, and only
   one new friend is needed. That member is asked to vouch back
@@ -92,6 +95,9 @@ Two ways to answer, both real:
   an answer today and no answer at all.
 - **Words.** Also counts, and is the only thing that puts a quote on the profile
   and into the introduction email. Words can be added later on top of a tap.
+- **Decline.** Quiet and last, so it is never the easy option. Counts toward
+  nothing, cancels that friend's reminders, and is final. The applicant is never
+  told who declined.
 
 **Nudges if they go quiet: 48 hours, 5 days, 10 days** (`recommendation_reminder`),
 all cancelled the moment they answer. The applicant can also nudge by hand from
@@ -135,9 +141,6 @@ to answer.
 
 ## Known gaps
 
-- **A friend cannot decline.** The schema has a `declined` status and nothing
-  writes it. Someone who does not want to vouch just never answers, which is
-  indistinguishable from forgetting and gets them three reminders.
 - **Reply rate is 50%** (8 of 16 real asks). That number, not the form, is what
   the whole loop multiplies through.
 - **Nobody is retroactively asked for a surname.** Members who applied before it

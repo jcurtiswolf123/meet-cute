@@ -2,6 +2,38 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-04 : Single, said out loud. And a friend can finally say no
+
+- The ask is now "Name two single men who know you well", or two single women,
+  by the applicant's own gender. The people who vouch are the warmest leads
+  Mutuals ever sees: they know a member personally, they are in the right city,
+  and they have just spent two minutes thinking about somebody's dating life.
+  That only becomes members if the person named is available to be one, and
+  "two men" was collecting married brothers and colleagues.
+- It is guidance, not a check. Nothing verifies it and nothing should: a
+  recommendation from someone who knows you well still counts, and refusing one
+  because we doubted their marital status would be absurd.
+- The friends page rendered its own chrome: a two-circle "1 you, 2 friends"
+  rail, no progress bar, a centred back link. It was the same application in
+  different clothes at the exact moment somebody decides whether to finish. It
+  goes through StepShell now like the other six.
+- Which makes it Step 7 of 7, and that is the honest count. Showing "6 of 6" and
+  then producing another page is precisely the hidden cost the stepper exists to
+  remove.
+- A friend can decline. `declined` existed in the schema from the first day and
+  nothing ever wrote it, so somebody who did not want to vouch was
+  indistinguishable from somebody who forgot, and got chased at 48 hours, 5 days
+  and 10 days for it. Three emails to a person who has already decided is how an
+  address stops opening any of them.
+- Declining counts toward nothing, cancels that friend's reminders, and is
+  final: a tap or a reply arriving afterwards cannot revive it, because being
+  counted anyway means never having been given a choice.
+- The applicant is never told who declined. They see the number they still need,
+  which is what they can act on. Naming the friend who said no is the one thing
+  that would make asking for two friends cost a friendship.
+- The control is quiet and last, so it is never the easy option, and it is not
+  shown to someone who has already vouched.
+
 ## 2026-08-04 : Browser checks wait on the outcome, never on the screen
 
 - Master went red three times in one day, in three different files, every one a
