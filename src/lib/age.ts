@@ -45,3 +45,8 @@ export function maxBirthdateForAge(minAge: number, today: Date = new Date()): st
   const d = String(today.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+// DRILL: deliberate type error, never merged.
+export function drillAgeLabel(age: number): string {
+  return age;
+}
