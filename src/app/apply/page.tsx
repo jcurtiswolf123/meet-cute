@@ -7,6 +7,7 @@ import { requestMagicLink } from "@/lib/actions";
 import { magicLinkErrorMessage } from "@/lib/magic-link-status";
 import { maxBirthdateForAge } from "@/lib/age";
 import { fastTrackFor } from "@/lib/recommendations";
+import { normalizeCity } from "@/lib/cities";
 import { ApplySection } from "./ApplySection";
 
 export const dynamic = "force-dynamic";
@@ -154,7 +155,8 @@ export default async function Apply({
             last,
             email: me.email ?? "",
             phone: me.phone ?? "",
-            city: me.city === "SF" ? "SF" : "NYC",
+            city: normalizeCity(me.city),
+            secondCity: me.secondCity ?? "",
             gender: me.gender ?? "",
             instagram: me.instagram ?? "",
             linkedin: me.linkedin ?? "",

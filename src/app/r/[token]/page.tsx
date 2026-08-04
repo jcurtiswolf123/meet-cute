@@ -3,6 +3,7 @@ import { Logo, Avatar } from "@/components/ui";
 import { SiteFooter } from "@/components/SiteFooter";
 import { prisma } from "@/lib/prisma";
 import { gateState } from "@/lib/recommendations";
+import { citiesLabel } from "@/lib/cities";
 import { RecommendationForm } from "./RecommendationForm";
 
 export const dynamic = "force-dynamic";
@@ -57,7 +58,7 @@ export default async function WriteRecommendation({
   const request = await prisma.recommendation.findUnique({
     where: { token },
     include: {
-      applicant: { select: { id: true, name: true, city: true, status: true } },
+      applicant: { select: { id: true, name: true, city: true, secondCity: true, status: true } },
     },
   });
 
@@ -145,7 +146,7 @@ export default async function WriteRecommendation({
     );
   }
 
-  const place = request.applicant.city === "SF" ? "San Francisco" : "New York";
+  const place = citiesLabel(request.applicant);
 
   return (
     <Shell>

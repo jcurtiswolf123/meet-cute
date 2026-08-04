@@ -5,6 +5,7 @@ import { VENUE_FRESH_DAYS } from "@/lib/date-ideas";
 import { LabelledField } from "@/components/LabelledField";
 import { ConfirmActionForm } from "@/components/forms";
 import { Select } from "@/components/select";
+import { CITIES } from "@/lib/cities";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Venues" };
@@ -81,7 +82,7 @@ export default async function Venues() {
       </div>
 
       <div className="ledger mb-6">
-        {["NYC", "SF"].map((city) => (
+        {CITIES.map(({ value: city }) => (
           <div key={city} className={`ledger-cell ${eligibleIn(city) === 0 ? "bg-studio-canvas" : ""}`}>
             <div className="ledger-num">{eligibleIn(city)}</div>
             <div className="ledger-label">Eligible in {city}</div>
@@ -92,7 +93,7 @@ export default async function Venues() {
         ))}
       </div>
 
-      {["NYC", "SF"].map((city) => (
+      {CITIES.map(({ value: city }) => (
         <section key={city} className="mt-8 first:mt-0">
           <p className="label !text-ink">{city}</p>
           {byCity(city).length === 0 ? (
@@ -224,10 +225,7 @@ function VenueForm({ venue }: { venue?: Row }) {
           label="City"
           showLabel
           defaultValue={venue?.city ?? "NYC"}
-          options={[
-            { value: "NYC", label: "NYC" },
-            { value: "SF", label: "SF" },
-          ]}
+          options={CITIES.map((c) => ({ value: c.value, label: c.short }))}
         />
       {field("area", "Neighbourhood", venue?.area ?? "")}
       {field("cuisine", "Cuisine", venue?.cuisine ?? "")}

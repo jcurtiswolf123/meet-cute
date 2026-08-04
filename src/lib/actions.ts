@@ -59,6 +59,7 @@ import {
 import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInvites, recordInviteDecision, LIVE_INTRO_STAGES, introReturnPath } from "./introductions";
 import { rateLimit } from "./ratelimit";
 import { calendarAge, parseCalendarDate } from "./age";
+import { normalizeCity } from "./cities";
 import { formatEventDay, parseEventDate } from "./event-time";
 import { mutualFriends } from "./social";
 import { deleteUpload } from "./uploads";
@@ -468,8 +469,10 @@ export async function completeApplication(
 
   const first = String(formData.get("first") || "").trim();
   const last = String(formData.get("last") || "").trim();
-  const cityRaw = String(formData.get("city") || "");
-  const city = cityRaw === "SF" || cityRaw.includes("Francisco") ? "SF" : "NYC";
+  const city = normalizeCity(String(formData.get("city") || ""));
+  // Empty means one city, and a second that equals the first is one city too.
+  const secondRaw = String(formData.get("secondCity") || "").trim();
+  const secondCity = secondRaw && normalizeCity(secondRaw) !== city ? normalizeCity(secondRaw) : null;
   // One short line on what they want; the fast signup intentionally drops the
   // long free-form profile fields (headline/bio/deal-breakers).
   const lookingFor = String(formData.get("lookingFor") || "").trim().slice(0, 280);
@@ -512,6 +515,7 @@ export async function completeApplication(
     last,
     email,
     city,
+    secondCity: secondCity ?? "",
     gender,
     lookingFor,
     phone: phoneRaw,
@@ -606,6 +610,7 @@ export async function completeApplication(
     data: {
       name,
       city,
+      secondCity,
       gender,
       lookingFor,
       phone,

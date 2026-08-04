@@ -13,6 +13,7 @@ import { introNotice } from "./intro-notice";
 import { ConfirmActionForm } from "@/components/forms";
 import { Select } from "@/components/select";
 import { Checkbox } from "@/components/fields";
+import { CITIES } from "@/lib/cities";
 
 export const dynamic = "force-dynamic";
 
@@ -132,10 +133,7 @@ export default async function Matchmaking({
             label="City"
             showLabel
             defaultValue="NYC"
-            options={[
-              { value: "NYC", label: "NYC" },
-              { value: "SF", label: "SF" },
-            ]}
+            options={CITIES.map((c) => ({ value: c.value, label: c.short }))}
           />
           <label className="block">
             <span className="label">Email (optional)</span>
