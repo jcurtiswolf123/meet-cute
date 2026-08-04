@@ -2,6 +2,28 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-04 : An unused sign-in link is followed up once, with no token in it
+
+- Decision: Asking for a sign-in link schedules one follow-up, due three hours
+  later, withdrawn the moment the person signs in.
+- Why: this was the last hole in the funnel and the only one where the person
+  was completely invisible. A Person row is created when a link is CLICKED, so
+  somebody who asked for one and lost it left nothing but a LoginToken that
+  expired in fifteen minutes. Nothing in the product knew they had ever tried.
+- Decision: keyed on the email address alone, so asking for three links in a row
+  still produces at most one follow-up, ever.
+- Decision: the email carries NO sign-in token. It links to the application form
+  with the address prefilled, and they ask for a fresh link themselves.
+- Why: the link we sent expired in fifteen minutes on purpose. Minting a fresh,
+  longer-lived token into an inbox nobody has proven they can read is how a
+  magic-link system turns into an account-takeover system. Prefilling an address
+  grants nothing, because the thing that actually signs someone in is still
+  emailed to it.
+- Note for whoever adds the next constant: src/lib/actions.ts carries
+  "use server" and may only export async functions. Exporting a number from it
+  compiles, type-checks, lints, and then returns 500 on every render. The delay
+  constants live in src/lib/recommendations.ts for that reason.
+
 ## 2026-08-04 : The application is two halves with a real save between them
 
 - Decision: `/apply` saves everything about the applicant on its own and stamps

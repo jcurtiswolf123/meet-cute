@@ -79,6 +79,7 @@ jobs:
           npm run test:journey:application || { dump_server_log journey:application; exit 1; }
           npm run test:journey:controls || { dump_server_log journey:controls; exit 1; }
           npm run test:journey:vouch || { dump_server_log journey:vouch; exit 1; }
+          npm run test:journey:signin || { dump_server_log journey:signin; exit 1; }
           npm run test:journey:nativeforms || { dump_server_log journey:nativeforms; exit 1; }
 
   deploy:
