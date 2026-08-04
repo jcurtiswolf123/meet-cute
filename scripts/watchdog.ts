@@ -403,19 +403,124 @@ export type AutofixEdit = { path: string; search: string; replace: string };
  *  Exported so it can be tested without a live model. */
 export function parseEdits(raw: string, allowed: string[]): AutofixEdit[] {
   const edits: AutofixEdit[] = [];
-  // The separator after each marker is a newline OR a space: models put short
-  // search text on the marker line itself about half the time, and refusing
-  // that threw away otherwise perfect patches.
-  const re =
-    /<<<EDIT[ \t]+(\S+)[ \t]*\r?\n<<<SEARCH[ \t]*\r?\n?([\s\S]*?)\r?\n?<<<REPLACE[ \t]*\r?\n?([\s\S]*?)\r?\n?>>>END/g;
-  for (const m of raw.matchAll(re)) {
-    const path = m[1].trim();
-    if (!allowed.includes(path)) continue;
-    const search = m[2];
-    if (!search.trim()) continue; // an empty search would match anywhere
-    edits.push({ path, search, replace: m[3] });
+  // Two marker sets, and the order matters. The angle-bracket one came first
+  // and was a trap: `<<<` and `>>>` read as diff gutters, so the model answered
+  // in diff form, prefixing every line with `<` and putting the search text
+  // ABOVE the SEARCH marker. It knew the right fix every time and could not say
+  // it in a shape this could read, which is why autofix never once produced a
+  // patch. Square brackets resemble no diff syntax. The old form still parses,
+  // so a model that has seen it is not punished for using it.
+  //
+  // [SEARCH] and [END] are optional: models reliably produce the header, the
+  // search text, [REPLACE] and the replacement, then drop one of the other two
+  // about half the time. The shape is unambiguous without them.
+  const patterns = [
+    /\[EDIT[ \t]+(\S+?)\][ \t]*\r?\n(?:\[SEARCH\][ \t]*\r?\n)?([\s\S]*?)\r?\n?\[REPLACE\][ \t]*\r?\n?([\s\S]*?)(?:\r?\n?\[END\]|(?=\r?\n\[EDIT)|$)/g,
+    /<<<EDIT[ \t]+(\S+)[ \t]*\r?\n<<<SEARCH[ \t]*\r?\n?([\s\S]*?)\r?\n?<<<REPLACE[ \t]*\r?\n?([\s\S]*?)\r?\n?>>>END/g,
+  ];
+  for (const re of patterns) {
+    for (const m of raw.matchAll(re)) {
+      const path = m[1].trim();
+      if (!allowed.includes(path)) continue;
+      const search = stripGutter(m[2]);
+      if (!search.trim()) continue; // an empty search would match anywhere
+      edits.push({ path, search, replace: stripGutter(m[3]) });
+    }
+    if (edits.length) break;
   }
   return edits;
+}
+
+/**
+ * Remove a diff-style gutter, but only when every line carries the same one.
+ *
+ * Models reach for `+ `, `- `, `> ` and friends when they think they are
+ * writing a patch. Being generous here is safe: the search text still has to
+ * match the file, so a wrong strip produces a failed edit, never a wrong one.
+ */
+export function stripGutter(block: string): string {
+  const lines = block.split("\n");
+  const meaningful = lines.filter((line) => line.trim().length > 0);
+  if (meaningful.length === 0) return block;
+  for (const gutter of [">>> ", ">>>", "<<< ", "<<<", "> ", "< ", "+ ", "- "]) {
+    if (meaningful.every((line) => line.startsWith(gutter))) {
+      return lines
+        .map((line) => (line.startsWith(gutter) ? line.slice(gutter.length) : line))
+        .join("\n");
+    }
+  }
+  return block;
+}
+
+/**
+ * Match the search text ignoring horizontal whitespace only.
+ *
+ * Line breaks and every non-space character still line up, so this is nothing
+ * like a fuzzy match: it forgives indentation and trailing spaces, which is
+ * exactly what a model changes when it retypes a block from the prompt. Paired
+ * with the exactly-once rule below it cannot land an edit somewhere the model
+ * did not mean.
+ */
+export function whitespaceInsensitive(search: string): RegExp {
+  const body = search
+    .split("\n")
+    .map((line) =>
+      line
+        .trim()
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/\s+/g, "[ \\t]+"),
+    )
+    .join("[ \\t]*\\r?\\n[ \\t]*");
+  return new RegExp(body, "g");
+}
+
+/**
+ * Give the replacement the file's own indentation.
+ *
+ * A model that retypes a two-space block with four-space indents produces a
+ * patch that compiles and reads as a reformat, and the diff is what a human
+ * reviews, so it should contain the change and nothing else.
+ *
+ * When the edit keeps the same number of lines, which is nearly every real fix,
+ * each replacement line takes the indentation of the line it replaces. When it
+ * does not, only a uniform base indent is corrected: guessing the shape of a
+ * block that changed shape is how a formatter becomes a rewriter.
+ */
+export function reindent(matched: string, replacement: string): string {
+  const matchedLines = matched.split("\n");
+  const replacementLines = replacement.split("\n");
+  const indentOf = (line: string) => line.slice(0, line.length - line.trimStart().length);
+
+  if (matchedLines.length === replacementLines.length) {
+    return replacementLines
+      .map((line, i) => (line.trim() ? indentOf(matchedLines[i]) + line.trim() : ""))
+      .join("\n");
+  }
+
+  const baseOf = (lines: string[]) => indentOf(lines.find((l) => l.trim()) ?? "");
+  const from = baseOf(replacementLines);
+  const to = baseOf(matchedLines);
+  return replacementLines
+    .map((line) => {
+      const trimmed = line.trimEnd();
+      if (!trimmed.trim()) return "";
+      return from && trimmed.startsWith(from) ? to + trimmed.slice(from.length) : trimmed;
+    })
+    .join("\n");
+}
+
+/** Lines that differ between two versions of a file, counted the way a reviewer
+ *  experiences a diff: every line added plus every line removed. */
+export function changedLineCount(before: string, after: string): number {
+  const remaining = new Map<string, number>();
+  for (const line of before.split("\n")) remaining.set(line, (remaining.get(line) ?? 0) + 1);
+  let added = 0;
+  for (const line of after.split("\n")) {
+    const count = remaining.get(line) ?? 0;
+    if (count > 0) remaining.set(line, count - 1);
+    else added += 1;
+  }
+  return added + [...remaining.values()].reduce((sum, n) => sum + n, 0);
 }
 
 /** Apply edits to file contents, or explain why not.
@@ -437,18 +542,42 @@ export function applyEdits(
       continue;
     }
     const occurrences = before.split(edit.search).length - 1;
-    if (occurrences === 0) {
-      problems.push(`${edit.path}: search text not found`);
-      continue;
-    }
     if (occurrences > 1) {
-      problems.push(`${edit.path}: search text appears ${occurrences} times, too ambiguous to apply`);
+      problems.push(
+        `${edit.path}: the SEARCH text appears ${occurrences} times, so there is no single place to put it. Include the enclosing function's signature line so it appears exactly once.`,
+      );
       continue;
     }
-    applied.set(edit.path, before.replace(edit.search, edit.replace));
+    if (occurrences === 1) {
+      applied.set(edit.path, before.replace(edit.search, edit.replace));
+      continue;
+    }
+
+    // Character-for-character failed. Models retype the block and change its
+    // whitespace on the way: four spaces where the file uses two, a trailing
+    // space on every line. The tokens are right and the layout is not, and
+    // discarding the fix for that is discarding the fix.
+    const matches = [...before.matchAll(whitespaceInsensitive(edit.search))];
+    if (matches.length === 0) {
+      problems.push(
+        `${edit.path}: the SEARCH text does not appear in the file. Copy the lines exactly as shown, including their indentation.`,
+      );
+      continue;
+    }
+    if (matches.length > 1) {
+      problems.push(
+        `${edit.path}: the SEARCH text appears ${matches.length} times once whitespace is ignored. Include the enclosing function's signature line so it appears exactly once.`,
+      );
+      continue;
+    }
+    applied.set(edit.path, before.replace(matches[0][0], reindent(matches[0][0], edit.replace)));
   }
   return { applied, problems };
 }
+
+/** The most lines one edit may quote or produce. A patch that restates the
+ *  whole file compiles and is unreviewable, the worst combination. */
+const MAX_AUTOFIX_EDIT_LINES = 25;
 
 async function attemptAutofix(tscOut: string): Promise<void> {
   // NVIDIA belongs here too. `askForPatch` learned about it when the co-pilot
@@ -485,15 +614,19 @@ async function attemptAutofix(tscOut: string): Promise<void> {
     "",
     "Reply with one or more edits, in exactly this form and nothing else:",
     "",
-    "<<<EDIT path/to/file.ts",
-    "<<<SEARCH",
+    "[EDIT path/to/file.ts]",
+    "[SEARCH]",
     "the exact existing lines to replace, copied character for character",
-    "<<<REPLACE",
+    "[REPLACE]",
     "the new lines",
-    ">>>END",
+    "[END]",
+    "",
+    "This is NOT a diff. Never prefix a line with +, -, < or > or any other",
+    "gutter character. Write the lines exactly as they appear in the file.",
     "",
     "The SEARCH text must appear EXACTLY ONCE in the file, copied verbatim including indentation.",
-    "Include a line or two of surrounding context if that is what makes it unique.",
+    "Always include the enclosing function's signature line, so it cannot match",
+    "anywhere else. A one-line SEARCH is almost always ambiguous.",
     "Change nothing the compiler did not complain about.",
     "",
     "=== tsc errors ===",
@@ -502,29 +635,85 @@ async function attemptAutofix(tscOut: string): Promise<void> {
     ...current.map((f) => `=== FILE ${f.path} ===\n${f.content}`),
   ].join("\n");
 
+  // Up to three attempts, each told exactly what was wrong with the last.
+  //
+  // One shot was the real reason this had never landed a patch. The model knows
+  // the fix; what it gets wrong is the shape of the answer, differently every
+  // time: diff gutters on one run, a missing marker on the next, a one-line
+  // SEARCH that matches twice on the one after, the whole file restated on the
+  // one after that. Every one of those is a complaint this code can state
+  // precisely, and a model told precisely what was wrong corrects it next turn.
+  // Bounded at three, so a model that cannot follow the format costs three
+  // calls rather than a loop.
+  const originals = new Map(current.map((f) => [f.path, f.content]));
   let edits: AutofixEdit[] = [];
-  try {
-    edits = parseEdits(await askForPatch(prompt), files);
-  } catch (e) {
-    log(`autofix: model error: ${(e as Error).message}`);
-    return;
-  }
-  if (!edits.length) {
-    log("autofix: model returned no usable edits");
-    return;
+  let applied = new Map<string, string>();
+  let problems: string[] = [];
+  let complaint = "";
+  let proposed: { path: string; content: string }[] = [];
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    let reply: string;
+    try {
+      reply = await askForPatch(
+        complaint
+          ? `${prompt}\n\n=== your last reply could not be used ===\n${complaint}\nAnswer again, in the exact format above.`
+          : prompt,
+      );
+    } catch (e) {
+      log(`autofix: model error: ${(e as Error).message}`);
+      return;
+    }
+    if (process.env.WATCHDOG_DEBUG_REPLY === "1") {
+      log(`autofix: raw reply (${reply.length} chars):\n${reply.slice(0, 1200)}`);
+    }
+
+    edits = parseEdits(reply, files);
+    if (!edits.length) {
+      complaint = "It contained no usable [EDIT path] / [SEARCH] / [REPLACE] / [END] block for any of the files listed above.";
+      log(`autofix: attempt ${attempt}, no usable edits`);
+      continue;
+    }
+
+    const longest = Math.max(
+      ...edits.map((e) => Math.max(e.search.split("\n").length, e.replace.split("\n").length)),
+    );
+    if (longest > MAX_AUTOFIX_EDIT_LINES) {
+      complaint = `One block was ${longest} lines long. Quote only the few lines around the error, never the whole file.`;
+      log(`autofix: attempt ${attempt}, restated too much of the file (${longest} lines)`);
+      continue;
+    }
+
+    ({ applied, problems } = applyEdits(originals, edits));
+    proposed = [...applied]
+      .filter(([path, content]) => content !== originals.get(path))
+      .map(([path, content]) => ({ path, content }));
+
+    // The diff size, measured before a branch exists, so the model can still be
+    // told to try again smaller. A patch that compiles and rewrites the file
+    // passes every correctness check and is useless to a reviewer.
+    const churn = proposed.reduce(
+      (sum, file) => sum + changedLineCount(originals.get(file.path) ?? "", file.content),
+      0,
+    );
+    if (proposed.length && churn > MAX_AUTOFIX_CHURN) {
+      complaint = `That patch changed ${churn} lines. Change only the lines the compiler named, and leave every other line, including its whitespace, exactly as it is.`;
+      log(`autofix: attempt ${attempt}, patch changed ${churn} lines, over the ${MAX_AUTOFIX_CHURN} line budget`);
+      proposed = [];
+      continue;
+    }
+    if (proposed.length) break;
+
+    complaint = problems.join("; ") || "No edit could be applied.";
+    log(`autofix: attempt ${attempt}, nothing applied (${complaint})`);
   }
 
-  const originals = new Map(current.map((f) => [f.path, f.content]));
-  const { applied, problems } = applyEdits(originals, edits);
-  for (const problem of problems) log(`autofix: skipped an edit, ${problem}`);
-  const proposed = [...applied]
-    .filter(([path, content]) => content !== originals.get(path))
-    .map(([path, content]) => ({ path, content }));
+  for (const problem of problems) log(`autofix: ${problem}`);
   if (!proposed.length) {
-    log("autofix: no edit applied cleanly");
+    log("autofix: no edit applied cleanly after 3 attempts");
     return;
   }
-  log(`autofix: ${edits.length - problems.length} edit(s) applied to ${proposed.map((f) => f.path).join(", ")}`);
+  log(`autofix: patched ${proposed.map((f) => f.path).join(", ")}`);
 
   // Work on a throwaway branch so master/working branch is never touched.
   const branch = `watchdog/fix-${Date.now()}`;
