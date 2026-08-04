@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
-import { saveApplicationBasics, type ApplyState } from "@/lib/actions";
+import { useState } from "react";
+import { saveApplicationBasics } from "@/lib/actions";
 import { SubmitButton } from "@/components/forms";
 import { ChoiceGroup, Checkbox } from "@/components/fields";
 import { CITIES } from "@/lib/cities";
@@ -19,6 +19,13 @@ type Defaults = {
   linkedin: string;
   lookingFor: string;
   maxBirthdate: string;
+  /** YYYY-MM-DD, from the row, so a re-render does not blank it. */
+  birthdate: string;
+  /** Already agreed on a previous save. A native re-render reloads the page,
+   *  so without this the box a person already ticked comes back empty and the
+   *  same error repeats forever. */
+  agreed: boolean;
+  smsConsent: boolean;
 };
 
 const GENDER_OPTIONS = [
@@ -35,14 +42,20 @@ const CITY_OPTIONS = CITIES.map((city) => ({ value: city.value, label: city.labe
 export function ApplyBasicsForm({
   defaults,
   photoCount,
+  errors,
 }: {
   defaults: Defaults;
   /** Live count from the uploader above, which posts outside this form. */
   photoCount: number;
+  /** Read off the query string by the page, keyed by field. */
+  errors?: Record<string, string>;
 }) {
-  const [state, formAction] = useActionState<ApplyState, FormData>(saveApplicationBasics, {});
-  const v = state.values ?? {};
-  const e = state.fieldErrors ?? {};
+  // Errors arrive in the query string, not from useActionState, because this
+  // form has to work before React does. Values come back from the row: the
+  // action saves everything valid even on a failed submit, so a native
+  // re-render hands the applicant back their own work.
+  const e = errors ?? {};
+  const v: Record<string, string> = {};
   // Prefer the just-typed value (on a re-render after an error), else the
   // server-provided default.
   const val = (k: keyof Omit<Defaults, "recommenders">) => v[k] ?? defaults[k];
@@ -70,13 +83,13 @@ export function ApplyBasicsForm({
   const [gender, setGender] = useState(val("gender"));
   const [city, setCity] = useState(val("city") || "NYC");
   const [secondCity, setSecondCity] = useState(val("secondCity"));
-  const [agree, setAgree] = useState(false);
-  const [smsConsent, setSmsConsent] = useState(false);
+  const [agree, setAgree] = useState(defaults.agreed);
+  const [smsConsent, setSmsConsent] = useState(defaults.smsConsent);
 
 
 
   return (
-    <form className="mt-8 space-y-5" action={formAction} noValidate>
+    <form className="mt-8 space-y-5" action={saveApplicationBasics} noValidate>
       {photoError && (
         <p role="alert" className="rounded-xl border border-claret/30 bg-panel px-4 py-3 text-sm text-claret">
           {photoError}{" "}
@@ -180,7 +193,7 @@ export function ApplyBasicsForm({
           name="birthdate"
           type="date"
           max={defaults.maxBirthdate}
-          defaultValue={v.birthdate ?? ""}
+          defaultValue={defaults.birthdate}
           aria-invalid={e.birthdate ? true : undefined}
           aria-describedby={e.birthdate ? "birthdate-error" : undefined}
         />

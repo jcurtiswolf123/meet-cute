@@ -20,6 +20,7 @@
     "test:launch:cities": "node --import tsx scripts/test-cities.ts",
     "test:launch:recommendations": "node --env-file-if-exists=.env --import tsx scripts/test-recommendation-gate.ts",
     "test:launch:flywheel": "node --env-file-if-exists=.env --import tsx scripts/test-recommender-flywheel.ts",
+    "test:journey:nativeforms": "node --env-file-if-exists=.env --import tsx scripts/test-native-forms.ts",
     "test:journey:vouch": "node --env-file-if-exists=.env --import tsx scripts/test-vouch-without-account.ts",
     "test:journey:controls": "node --env-file-if-exists=.env --import tsx scripts/test-form-controls.ts",
     "test:journey:application": "node --env-file-if-exists=.env --import tsx scripts/test-member-application.ts",

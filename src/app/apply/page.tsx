@@ -16,7 +16,7 @@ export const metadata = { title: "Apply" };
 export default async function Apply({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; error?: string; from?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string; from?: string; missing?: string }>;
 }) {
   const me = await getCurrentPerson();
   const sp = await searchParams;
@@ -115,11 +115,40 @@ export default async function Apply({
   // Only prefill the name for a returning applicant who has actually applied; a
   // brand-new applicant's name is auto-derived from their email local part, so we
   // leave it blank rather than show them a guessed name to clear.
-  const [first = "", last = ""] = me.appliedAt ? (me.name || "").split(" ") : ["", ""];
+  // Repopulate from the row, not from an echoed form state: the action saves
+  // every valid field even on a failed submit precisely so this page can hand
+  // the applicant back their own work after a native re-render.
+  //
+  // The condition is "have they ever submitted this form", not "did they finish
+  // it". A brand-new applicant's name is auto-derived from their email local
+  // part and showing them that guess to delete is worse than showing nothing;
+  // but someone who submitted and was sent back for one missing field must get
+  // their own name back, or they retype it every time and the error never
+  // clears. gender and birthdate only exist after a real submit.
+  const submittedBefore = !!(me.basicsAt || me.appliedAt || me.gender || me.birthdate);
+  const [first = "", last = ""] = submittedBefore ? (me.name || "").split(" ") : ["", ""];
   // 18+ gate computed at render time so the max date never goes stale. Built
   // from calendar parts rather than toISOString(), which converts a local date
   // to UTC and so shifted the cutoff by a day west of Greenwich.
   const maxBirthdate = maxBirthdateForAge(18);
+  // What the last save could not accept. Named rather than counted, so nobody
+  // has to hunt for the one field that stopped them.
+  const MESSAGES: Record<string, [string, string]> = {
+    first: ["first", "Enter your first name."],
+    email: ["email", "Enter a valid email so we can introduce you to your matches."],
+    phone: ["phone", "That does not look like a valid mobile number. Use a 10-digit number."],
+    birthdate: ["birthdate", "Enter your date of birth."],
+    age: ["birthdate", "You must be 18 or older to join Mutuals."],
+    agree: ["agree", "Please accept the Terms and Privacy Policy to continue."],
+    gender: ["gender", "Tell us how you identify so we can match you."],
+    photos: ["photos", "Add at least one photo. Your matchmaker and your introduction both need a face."],
+  };
+  const errors = Object.fromEntries(
+    (sp.missing ?? "")
+      .split(",")
+      .map((code) => MESSAGES[code])
+      .filter(Boolean) as [string, string][],
+  );
   const photos = await prisma.photo.findMany({
     where: { personId: me.id },
     orderBy: { order: "asc" },
@@ -157,7 +186,11 @@ export default async function Apply({
             linkedin: me.linkedin ?? "",
             lookingFor: me.lookingFor ?? "",
             maxBirthdate,
+            birthdate: me.birthdate ? me.birthdate.toISOString().slice(0, 10) : "",
+            agreed: !!me.agreedTosAt,
+            smsConsent: !!me.smsConsentAt,
           }}
+          errors={errors}
         />
       </div>
     </main>
