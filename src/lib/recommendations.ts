@@ -317,7 +317,7 @@ export async function linkRecommenderSignup(person: {
  */
 export async function recordAnswer(
   token: string,
-  answer: { body?: string | null; relationship?: string | null; endorseOnly?: boolean },
+  answer: { body?: string | null; relationship?: string | null; endorseOnly?: boolean; decline?: boolean },
 ): Promise<
   | { ok: false; reason: "unknown" | "closed" }
   | { ok: true; request: Recommendation; applicant: { id: string; name: string; email: string | null }; alreadyAnswered: boolean }
@@ -332,8 +332,25 @@ export async function recordAnswer(
   const body = answer.body?.trim() ? answer.body.trim().slice(0, 1200) : null;
   const alreadyAnswered = hasAnswered(request.status);
 
+  // Declining. The status existed from the first day and nothing ever wrote it,
+  // so somebody who did not want to vouch was indistinguishable from somebody
+  // who forgot, and got chased three times for it. It counts toward nothing,
+  // and it is deliberately quiet: the applicant is never told who said no.
+  if (answer.decline) {
+    if (alreadyAnswered) return { ok: false, reason: "closed" };
+    const declined = await prisma.recommendation.updateMany({
+      where: { id: request.id, status: "requested" },
+      data: { status: "declined", declinedAt: new Date() },
+    });
+    if (declined.count !== 1) return { ok: false, reason: "closed" };
+    const fresh = await prisma.recommendation.findUniqueOrThrow({ where: { id: request.id } });
+    return { ok: true, request: fresh, applicant: request.applicant, alreadyAnswered: false };
+  }
+
   // Guarded on the statuses this transition is legal from, so two tabs, or a
   // tap racing a reply, cannot both count as the answer.
+  // "declined" is absent from both lists on purpose: saying no is final, and a
+  // reply-by-email arriving afterwards must not quietly undo it.
   const from = body ? ["requested", "endorsed"] : ["requested"];
   const claimed = await prisma.recommendation.updateMany({
     where: { id: request.id, status: { in: from } },

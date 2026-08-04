@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/ui";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -6,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentPerson } from "@/lib/auth";
 import { fastTrackFor } from "@/lib/recommendations";
 import { ApplyFriendsForm } from "./ApplyFriendsForm";
+import { StepShell } from "../StepShell";
+import { STEPS } from "@/lib/application-steps";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Your two friends" };
@@ -35,44 +36,19 @@ export default async function ApplyFriends() {
     <>
       <main id="main-content" className="container-mc min-h-screen py-12">
         <Logo />
-        <div className="mt-10 max-w-xl">
-          {/* Both halves named, and the first one shown as done, so the second
-              reads as the short end of something rather than a new demand. */}
-          <ol className="flex items-center gap-3 text-xs">
-            <li className="flex items-center gap-2">
-              <span className="grid h-6 w-6 place-items-center rounded-full border border-ink bg-ink text-[11px] font-semibold text-cream">
-                1
-              </span>
-              <span className="text-muted">You, saved</span>
-            </li>
-            <span className="h-px w-8 bg-line" />
-            <li className="flex items-center gap-2">
-              <span className="grid h-6 w-6 place-items-center rounded-full border border-ink bg-ink text-[11px] font-semibold text-cream">
-                2
-              </span>
-              <span className="text-ink">Your two friends</span>
-            </li>
-          </ol>
-
-          <h1 className="mt-8 font-display text-4xl font-medium tracking-tight">
-            Now the part that gets you in.
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-muted">
-            {me.name.split(" ")[0]}, everything about you is saved. Nothing here can undo that, and
-            if you stop now you can pick this up from the link we send.
-          </p>
-
-          <ApplyFriendsForm
-            gender={me.gender ?? ""}
-            recommenders={recommenders}
-            fastTrack={fastTrack ? { memberName: fastTrack.member.name } : null}
-          />
-
-          <p className="mt-6 text-center text-xs text-muted">
-            <Link href="/apply" className="underline underline-offset-2">
-              Back to your details
-            </Link>
-          </p>
+        <div className="mt-10">
+          <StepShell
+            index={STEPS.length}
+            back="/apply?step=extras"
+            title="Now the part that gets you in."
+            sub={`${me.name.split(" ")[0]}, everything about you is saved. Nothing here can undo that, and if you stop now you can pick this up from the link we send.`}
+          >
+            <ApplyFriendsForm
+              gender={me.gender ?? ""}
+              recommenders={recommenders}
+              fastTrack={fastTrack ? { memberName: fastTrack.member.name } : null}
+            />
+          </StepShell>
         </div>
       </main>
       <SiteFooter />

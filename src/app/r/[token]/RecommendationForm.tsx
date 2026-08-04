@@ -1,4 +1,4 @@
-import { submitRecommendation, endorseRecommendation } from "@/lib/actions";
+import { declineRecommendation, submitRecommendation, endorseRecommendation } from "@/lib/actions";
 import { SubmitButton } from "@/components/forms";
 
 // The friend writes here. One textarea that matters, one optional line of
@@ -92,6 +92,22 @@ export function RecommendationForm({
           {endorsed ? "Add my words" : "Send my recommendation"}
         </SubmitButton>
       </form>
+
+      {/* Saying no. Quiet, and last, so it is never the easy option, but present:
+          without it somebody who does not want to do this is indistinguishable
+          from somebody who forgot, and gets chased three times for it. Not shown
+          once they have already vouched, because there is nothing to decline. */}
+      {!endorsed && (
+        <form action={declineRecommendation} className="mt-6 border-t border-line pt-5 text-center">
+          <input type="hidden" name="token" value={token} />
+          <SubmitButton className="text-xs text-muted underline underline-offset-4" pendingText="One moment...">
+            I would rather not vouch for {applicantFirst}
+          </SubmitButton>
+          <p className="mt-2 text-xs text-muted">
+            They are not told who declined, and we will not ask you again.
+          </p>
+        </form>
+      )}
     </>
   );
 }

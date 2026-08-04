@@ -35,12 +35,21 @@ export function ApplyFriendsForm({
   const setRecGender = (slot: 1 | 2, value: string) =>
     setRecGenders((prev) => (slot === 1 ? [value, prev[1]] : [prev[0], value]));
 
+  // Single, and said out loud. The people who vouch are the warmest leads
+  // Mutuals ever sees: they know a member personally, they are in the right
+  // city, and they have just spent two minutes thinking about somebody's dating
+  // life. That only turns into members if the person being named is available
+  // to be one, and asking for "two men" got married brothers and colleagues.
+  //
+  // It is guidance, not a check. Nothing here can verify it and nothing tries:
+  // a recommendation from someone who knows you well still counts, and refusing
+  // one because we doubted their marital status would be absurd.
   const rule =
     gender === "woman"
-      ? `Name ${fastTrack ? "one more man" : "two men"} who ${fastTrack ? "knows" : "know"} you well.`
+      ? `Name ${fastTrack ? "one more single man" : "two single men"} who ${fastTrack ? "knows" : "know"} you well.`
       : gender === "man"
-        ? `Name ${fastTrack ? "one more woman" : "two women"} who ${fastTrack ? "knows" : "know"} you well.`
-        : `Name ${fastTrack ? "one more friend" : "two friends"} who ${fastTrack ? "knows" : "know"} you well.`;
+        ? `Name ${fastTrack ? "one more single woman" : "two single women"} who ${fastTrack ? "knows" : "know"} you well.`
+        : `Name ${fastTrack ? "one more single friend" : "two single friends"} who ${fastTrack ? "knows" : "know"} you well.`;
 
   return (
     <form className="mt-8 space-y-5" action={formAction} noValidate>

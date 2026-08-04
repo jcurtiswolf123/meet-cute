@@ -157,7 +157,7 @@ async function walk(browser: Browser, applicant: string, friends: string[]): Pro
 
   // The ask is derived from what he just said about himself. Getting this wrong
   // sends someone to ask the wrong two people, and the gate never opens.
-  await page.getByText("Name two women who know you well.").waitFor();
+  await page.getByText("Name two single women who know you well.").waitFor();
 
   await page.getByLabel("Their name").first().fill("Ada Walk");
   await page.getByRole("group", { name: "They are" }).first().getByText("Woman", { exact: true }).click();
