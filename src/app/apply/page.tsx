@@ -16,7 +16,7 @@ export const metadata = { title: "Apply" };
 export default async function Apply({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; error?: string; from?: string; missing?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string; from?: string; missing?: string; email?: string }>;
 }) {
   const me = await getCurrentPerson();
   const sp = await searchParams;
@@ -80,7 +80,11 @@ export default async function Apply({
               autoComplete="email"
               className="field mt-1.5"
               placeholder="you@email.com"
-              defaultValue={invited?.email ?? ""}
+              // Prefilled either by a recommender's token or by the
+              // unused-link follow-up, which carries the address the person
+              // gave us themselves. Prefilling an email grants nothing: the
+              // link that actually signs anyone in is still emailed to it.
+              defaultValue={invited?.email ?? sp.email ?? ""}
             />
             <button className="btn-primary w-full py-3" type="submit">
               Send me a link

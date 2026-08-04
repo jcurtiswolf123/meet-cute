@@ -20,6 +20,7 @@ import {
   recommendationReceivedEmail,
   recommendationThanksEmail,
   unfinishedApplicationEmail,
+  signInLinkUnusedEmail,
   bareAddress,
 } from "../src/lib/email";
 
@@ -347,6 +348,23 @@ function main() {
     "Never ask again for what they have already given.",
   );
 
+  // 15. The unused sign-in link. The one email in the system sent to somebody
+  // with no Person row at all, so it is also the only one that must not carry
+  // anything that signs a person in.
+  const unused = signInLinkUnusedEmail({
+    email: "maya@example.com",
+    applyUrl: "https://hellomutuals.com/apply?email=maya%40example.com",
+  });
+  assertWellFormed("signInLinkUnused", unused);
+  assertOnBrand("signInLinkUnused", unused);
+  assert.match(unused.subject, /expired/i);
+  assert.match(unused.html, /apply\?email=/, "It sends them back to the form, prefilled.");
+  assert.doesNotMatch(
+    unused.html,
+    /auth\/verify|token=/,
+    "It must never carry a sign-in token: minting a long-lived one into an unproven inbox is how a magic-link system becomes an account-takeover system.",
+  );
+
   // HTML-injection guard: a hostile display name must not break out into markup.
   // The recommendation request carries an applicant-supplied name to a stranger.
   const hostileRequest = recommendationRequestEmail({
@@ -416,7 +434,7 @@ function main() {
   );
 
   console.log(
-    "lifecycle + intake email render checks passed (14 templates, on-brand, escaped, " +
+    "lifecycle + intake email render checks passed (15 templates, on-brand, escaped, " +
       "List-Unsubscribe well formed)",
   );
 }

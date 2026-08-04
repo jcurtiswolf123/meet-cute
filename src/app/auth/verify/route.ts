@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { scheduleUnfinishedApplicationNudge } from "@/lib/actions";
+import { cancelScheduledMail } from "@/lib/delivery";
 import { consumeLoginToken, setSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,10 @@ export async function GET(req: NextRequest) {
       data: { email, name, city: "NYC", status: "applicant" },
     });
   }
+
+  // They came in, so the "your link expired" follow-up is withdrawn before it
+  // can tell somebody who is already signed in that they are not.
+  await cancelScheduledMail("signin_unused", email);
 
   await setSession(person.id, req.headers.get("user-agent") || undefined);
 

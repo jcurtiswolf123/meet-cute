@@ -31,11 +31,13 @@ import {
   recommenderFollowUpEmail,
   vouchBackRequestEmail,
   unfinishedApplicationEmail,
+  signInLinkUnusedEmail,
 } from "./email";
 import {
   FOLLOW_UP_DELAY_MS,
   REMINDER_SCHEDULE_MS,
   REQUIRED_RECOMMENDATIONS,
+  SIGNIN_RECOVERY_DELAY_MS,
   UNFINISHED_DELAY_MS,
   acceptIfRecommended,
   fastTrackFor,
@@ -160,6 +162,37 @@ export async function requestMagicLink(formData: FormData) {
       console.error("[auth] magic link send failed:", result.error);
       outcome = "send";
     }
+    // The last hole in the funnel: an unused link. Queued now, due in three
+    // hours, and withdrawn the moment they sign in. The address is already
+    // ours and they asked for it themselves; until this existed they were
+    // invisible, because a Person row is only created when a link is clicked.
+    //
+    // Keyed on the address alone, so asking for three links in a row still
+    // produces at most one of these, ever.
+    try {
+      const existing = await prisma.person.findUnique({
+        where: { email },
+        select: { appliedAt: true },
+      });
+      if (!existing?.appliedAt) {
+        const msg = signInLinkUnusedEmail({
+          email,
+          applyUrl: `${base}/apply?email=${encodeURIComponent(email)}`,
+        });
+        await queueEmailDelivery({
+          kind: "signin_unused",
+          to: email,
+          subject: msg.subject,
+          html: msg.html,
+          text: msg.text,
+          idempotencyKey: makeDeliveryKey("signin_unused", email),
+          availableAt: new Date(Date.now() + SIGNIN_RECOVERY_DELAY_MS),
+        });
+      }
+    } catch (error) {
+      console.error(`[auth] could not schedule the unused-link follow-up: ${(error as Error).message}`);
+    }
+
     void purgeExpiredAuth();
   }
 

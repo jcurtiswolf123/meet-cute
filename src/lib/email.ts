@@ -988,6 +988,41 @@ export function unfinishedApplicationEmail(args: {
   };
 }
 
+// Sent to someone who asked for a sign-in link and never used it.
+//
+// This was the last hole in the funnel, and the cheapest one to close: the
+// address is already ours, they asked us for it themselves, and until now they
+// were invisible. There is no Person row for them, so nothing in the product
+// knew they existed and nothing ever followed up.
+//
+// It deliberately does not carry a link that signs anyone in. The one we sent
+// expired in fifteen minutes, and minting a fresh long-lived token into an
+// email nobody has proven they can read is how a magic-link system turns into
+// an account-takeover system. It sends them back to the form with their address
+// already filled in, which costs one tap and stays safe.
+export function signInLinkUnusedEmail(args: {
+  email: string;
+  applyUrl: string;
+}): { subject: string; html: string; text: string } {
+  const subject = "Your Mutuals sign-in link expired";
+  const text =
+    `Hi,\n\n` +
+    `You asked for a link to start an application to Mutuals and it went unused. They expire after fifteen minutes, which is deliberate, and it is easy to miss one.\n\n` +
+    `Ask for a fresh one here, your address is already filled in:\n${args.applyUrl}\n\n` +
+    `What happens next is short: a few details, a photo, and the two friends who vouch for you. We ask them, they answer in a couple of sentences or with one tap, and when both have, you are a member.\n\n` +
+    `If you did not ask for this, or you have changed your mind, ignore it and you will not hear from us again.\n\n` +
+    `Warmly,\nMutuals`;
+
+  const inner =
+    h1("That link expired.") +
+    p(`You asked for a link to start an application and it went unused. They expire after fifteen minutes, which is deliberate, and it is easy to miss one.`) +
+    p(`What happens next is short: a few details, a photo, and the two friends who vouch for you. We ask them, they answer in a couple of sentences or with <strong>one tap</strong>, and when both have, you are a member.`) +
+    `<p style="margin:24px 0 0">${emailButton("Send me a fresh link", args.applyUrl)}</p>` +
+    small("If you have changed your mind, ignore this and you will not hear from us again.");
+
+  return { subject, html: emailShell(inner, "Ask for a fresh one, it takes a tap."), text };
+}
+
 export function magicLinkEmail(link: string): { subject: string; html: string; text: string } {
   const subject = "Your Mutuals sign-in link";
   const text = `Sign in to Mutuals:\n${link}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;

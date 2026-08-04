@@ -208,6 +208,19 @@ export const FOLLOW_UP_DELAY_MS = 36 * 60 * 60 * 1000;
 /** How long to leave someone alone before chasing an unfinished application. */
 export const UNFINISHED_DELAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * How long to wait before telling someone their sign-in link went unused.
+ *
+ * The link itself expires in fifteen minutes. Three hours is late enough that
+ * they have clearly not clicked it, and early enough to still be the same day.
+ *
+ * It lives here rather than beside the action that uses it because
+ * src/lib/actions.ts carries "use server", and such a file may only export
+ * async functions. Exporting a number from it compiles, type-checks, lints,
+ * and then returns 500 on every render.
+ */
+export const SIGNIN_RECOVERY_DELAY_MS = 3 * 60 * 60 * 1000;
+
 export type FastTrack = {
   /** The recommendation this person wrote, which is what earns the credit. */
   recommendationId: string;
