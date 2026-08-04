@@ -205,6 +205,9 @@ export const REMINDER_SCHEDULE_MS = [
 /** How long after vouching to ask the friend whether they want this too. */
 export const FOLLOW_UP_DELAY_MS = 36 * 60 * 60 * 1000;
 
+/** How long to leave someone alone before chasing an unfinished application. */
+export const UNFINISHED_DELAY_MS = 24 * 60 * 60 * 1000;
+
 export type FastTrack = {
   /** The recommendation this person wrote, which is what earns the credit. */
   recommendationId: string;

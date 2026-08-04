@@ -2,6 +2,40 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-04 : Nobody has to make an account to do a friend a favour
+
+- Decision: Vouching requires no account, no session, and no sign-in, and a test
+  asserts it three ways rather than leaving it to good intentions.
+- Why it needs guarding: it is the most load-bearing property of the loop and
+  the easiest to lose by accident. Someone adds `requireMemberPage()` to the
+  friend's page for tidiness, or wraps the action in the auth helper every other
+  action uses, and nothing errors. Reply rate just falls to nearly zero, because
+  a friend doing someone a favour will not create an account to do it, and the
+  applicants they were asked about stop getting in.
+- The test checks the vouch surfaces contain no auth helper at all, that the
+  page opens and records a vouch in a browser with no cookies, and that two
+  non-members can accept an applicant without either of them getting a row.
+
+## 2026-08-04 : An unfinished application gets chased once
+
+- Decision: Signing in as an applicant queues one chase, due a day later,
+  withdrawn the moment they submit. Same shape as the recommendation nudges: the
+  outbox `availableAt` is the schedule, so there is no cron and nothing has to
+  go looking for people.
+- Why: on 3 August, 18 people completed an application and 18 signed in and
+  never did. Seven of those had already uploaded photos, so they had done the
+  part most people find hardest and stopped before the part that takes a minute.
+  Not one of them was ever contacted. That is a 50% drop-off with no follow-up
+  at all.
+- Decision: The email names what they already did ("you uploaded 5 photos and
+  they are still saved") and what is actually left, which is short. Someone who
+  was nearly finished is not a lead to re-pitch.
+- Decision: Once. `unfinishedNudgedAt` records it, so a second run of the
+  backfill cannot chase the same person twice.
+- Alternatives rejected: a cron that scans for stale applications (the outbox is
+  already a scheduler); a drip (they signed in once and stopped, which is a
+  signal, not an invitation).
+
 ## 2026-08-03 : Three doors into one vouch, and a tap is an answer
 
 - Decision: A friend can answer by replying to the email, by tapping once, or by

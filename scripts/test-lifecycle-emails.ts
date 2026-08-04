@@ -19,6 +19,7 @@ import {
   recommendationRequestEmail,
   recommendationReceivedEmail,
   recommendationThanksEmail,
+  unfinishedApplicationEmail,
   bareAddress,
 } from "../src/lib/email";
 
@@ -293,6 +294,39 @@ function main() {
     }),
   );
 
+  // 14. The chase for an application that was started and abandoned. It names
+  // what the person already did, because someone who uploaded five photos is
+  // not a lead to re-pitch, they are someone who was nearly finished.
+  const nearly = unfinishedApplicationEmail({
+    name: "Maya Rosen",
+    photos: 5,
+    applyUrl: "https://hellomutuals.com/apply",
+  });
+  assertWellFormed("unfinishedApplication(withPhotos)", nearly);
+  assertOnBrand("unfinishedApplication(withPhotos)", nearly);
+  assert.match(nearly.text, /5 photos/, "It has to name what they already did.");
+  assert.match(nearly.text, /still saved/i, "And say that it was not wasted.");
+  assert.match(nearly.subject, /saved/i);
+
+  const nothingYet = unfinishedApplicationEmail({
+    name: "Maya Rosen",
+    photos: 0,
+    applyUrl: "https://hellomutuals.com/apply",
+  });
+  assertWellFormed("unfinishedApplication(noPhotos)", nothingYet);
+  assert.doesNotMatch(
+    nothingYet.text,
+    /0 photos|photos are still/i,
+    "Nobody is told about the photos they did not upload.",
+  );
+  const singular = unfinishedApplicationEmail({
+    name: "Maya",
+    photos: 1,
+    applyUrl: "https://hellomutuals.com/apply",
+  });
+  assert.match(singular.text, /a photo/, "One photo is a photo, not 1 photos.");
+  assert.doesNotMatch(singular.text, /1 photos/);
+
   // HTML-injection guard: a hostile display name must not break out into markup.
   // The recommendation request carries an applicant-supplied name to a stranger.
   const hostileRequest = recommendationRequestEmail({
@@ -362,7 +396,7 @@ function main() {
   );
 
   console.log(
-    "lifecycle + intake email render checks passed (13 templates, on-brand, escaped, " +
+    "lifecycle + intake email render checks passed (14 templates, on-brand, escaped, " +
       "List-Unsubscribe well formed)",
   );
 }

@@ -30,11 +30,13 @@ import {
   recommendationThanksEmail,
   recommenderFollowUpEmail,
   vouchBackRequestEmail,
+  unfinishedApplicationEmail,
 } from "./email";
 import {
   FOLLOW_UP_DELAY_MS,
   REMINDER_SCHEDULE_MS,
   REQUIRED_RECOMMENDATIONS,
+  UNFINISHED_DELAY_MS,
   acceptIfRecommended,
   fastTrackFor,
   gateState,
@@ -626,6 +628,10 @@ export async function completeApplication(
     },
   });
 
+  // They finished, so the chaser queued when they signed in is withdrawn
+  // before it can ask them to do the thing they have just done.
+  await cancelScheduledMail("application_unfinished", email);
+
   // This applicant may be a recommender who came back. Stamp the rows they
   // wrote with the person they became (the only way the loop is measurable),
   // write the member-to-member Vouch, and stop the follow-up that was going to
@@ -808,6 +814,53 @@ async function queueRecommendationRequests(
     }
   }
   return queued;
+}
+
+/**
+ * Chase an application that was started and never finished.
+ *
+ * Queued the moment somebody signs in as an applicant, due a day later, and
+ * withdrawn the instant they submit. Same shape as the recommendation nudges:
+ * the outbox `availableAt` is the schedule, so there is no cron and no job that
+ * has to go looking for people.
+ *
+ * Sent once. `unfinishedNudgedAt` records it so the studio can see who was
+ * chased and so a second run of the backfill cannot chase them twice.
+ */
+export async function scheduleUnfinishedApplicationNudge(person: {
+  id: string;
+  name: string;
+  email: string | null;
+  appliedAt: Date | null;
+  status: string;
+  unfinishedNudgedAt: Date | null;
+}, options: { delayMs?: number } = {}): Promise<boolean> {
+  if (!person.email || person.appliedAt || person.status !== "applicant") return false;
+  if (person.unfinishedNudgedAt) return false;
+
+  const photos = await prisma.photo.count({
+    where: { personId: person.id, status: "approved" },
+  });
+  const msg = unfinishedApplicationEmail({
+    name: person.name,
+    photos,
+    applyUrl: `${appBaseUrl()}/apply`,
+  });
+  await queueEmailDelivery({
+    kind: "application_unfinished",
+    to: person.email,
+    subject: msg.subject,
+    html: msg.html,
+    text: msg.text,
+    personId: person.id,
+    idempotencyKey: makeDeliveryKey("application_unfinished", person.id),
+    availableAt: new Date(Date.now() + (options.delayMs ?? UNFINISHED_DELAY_MS)),
+  });
+  await prisma.person.update({
+    where: { id: person.id },
+    data: { unfinishedNudgedAt: new Date() },
+  });
+  return true;
 }
 
 /** Applicant-triggered nudge from the waiting page. Rate limited: a friend who
