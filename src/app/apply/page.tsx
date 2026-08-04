@@ -13,7 +13,7 @@ import { CityStep, GenderStep } from "./ChoiceStep";
 import { PhotoStep } from "./PhotoStep";
 import { ExtrasStep } from "./ExtrasStep";
 import { saveApplicationStep } from "@/lib/actions";
-import { STEPS, currentStep, isStepId, splitName, stepIndex } from "@/lib/application-steps";
+import { STEPS, currentStep, isStepId, nameWasGiven, splitName, stepIndex } from "@/lib/application-steps";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Apply" };
@@ -133,7 +133,11 @@ export default async function Apply({
     select: { id: true, url: true, status: true },
   });
   const approved = photos.filter((photo) => photo.status === "approved").length;
-  const nameGiven = !!me.applicationStep;
+  // Not "have they got an applicationStep": that was right for anybody who
+  // started after the form became a sequence of steps and wrong for the 25 who
+  // started before it, 6 of whom had already typed a real name and came back to
+  // an empty field. Ask whether the name on the row is one we invented.
+  const nameGiven = nameWasGiven({ name: me.name, email: me.email });
   const row = {
     name: me.name,
     city: me.city,
