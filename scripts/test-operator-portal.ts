@@ -41,26 +41,33 @@ async function chooseCity(page: Page, label: string) {
   await page.getByRole("listbox", { name: "City" }).getByRole("option", { name: label }).click();
 }
 
-/** The provisioning outcome, read from the database rather than from a client
- *  navigation. Polls because the action commits a moment after the click. */
-async function waitForOperatorRow(email: string) {
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    const row = await prisma.person.findUnique({ where: { email } });
-    if (row) return row;
+/** What a studio action did, read from the database rather than from a client
+ *  navigation.
+ *
+ *  Every one of these steps is a server action followed by a redirect that puts
+ *  the outcome in the query string, and waiting on that redirect is waiting on
+ *  the slowest, least interesting part of it. On a loaded runner it is also the
+ *  part that misses: this file has now failed CI four separate times on a URL
+ *  or a flash that had not landed yet while the row underneath was already
+ *  correct. The row is the thing being tested. Poll it. */
+async function waitForPerson(
+  where: { id: string } | { email: string },
+  done: (row: NonNullable<Awaited<ReturnType<typeof prisma.person.findUnique>>>) => boolean,
+  description: string,
+) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const row = await prisma.person.findUnique({ where });
+    if (row && done(row)) return row;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error(`Adding an operator did not create ${email} within 30s.`);
+  throw new Error(`${description} did not take effect within 60s.`);
 }
 
-/** The promotion this step is actually about, read from the database. */
-async function waitForOperatorPromotion(personId: string) {
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    const row = await prisma.person.findUnique({ where: { id: personId } });
-    if (row?.isOperator) return row;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error(`Promoting ${personId} to operator did not take effect within 30s.`);
-}
+const waitForOperatorRow = (email: string) =>
+  waitForPerson({ email }, () => true, `Adding an operator did not create ${email}`);
+
+const waitForOperatorPromotion = (personId: string) =>
+  waitForPerson({ id: personId }, (row) => row.isOperator, `Promoting ${personId} to operator`);
 
 async function main() {
   await prisma.person.deleteMany({
@@ -327,18 +334,14 @@ async function main() {
     const confirmRevoke = superPage.getByRole("button", { name: "Confirm revoke" });
     await confirmRevoke.waitFor({ state: "visible" });
     await confirmRevoke.click();
-    // Same shape as the invite above: the outcome rides in the query string and
-    // the flash only renders once the redirect lands, so wait on the redirect
-    // rather than on text appearing.
-    await superPage.waitForURL(
-      (url) =>
-        url.searchParams.get("access") === "revoked" &&
-        url.searchParams.get("operator") === ordinaryOperator.name,
-      { timeout: 60_000 },
+    // The revoke itself, read from the row. This used to wait on the redirect
+    // and then on the flash, and it is what failed the build on 4 August while
+    // the page it printed showed the studio rendering perfectly well.
+    await waitForPerson(
+      { id: ordinaryOperator.id },
+      (row) => !row.isOperator,
+      `Revoking studio access for ${ordinaryOperator.name}`,
     );
-    await superPage
-      .getByText(`Studio access was revoked for ${ordinaryOperator.name}.`)
-      .waitFor({ timeout: 60_000 });
     const revoked = await prisma.person.findUniqueOrThrow({
       where: { id: ordinaryOperator.id },
     });
