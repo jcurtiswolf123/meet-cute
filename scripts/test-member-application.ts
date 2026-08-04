@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { createLoginToken } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
 
@@ -39,6 +39,30 @@ async function testPhotoBytes(): Promise<Buffer> {
   })
     .jpeg()
     .toBuffer();
+}
+
+/**
+ * Press "Save and continue" and wait for the half to actually be saved.
+ *
+ * Not for the navigation: the basics form is driven by useActionState, which is
+ * inert until React hydrates, so a press on a cold or loaded runner can post
+ * into nothing and the page simply stays put. The contract is the row, so this
+ * waits for the row and then makes sure the browser is on the second half,
+ * navigating there itself if the client never moved.
+ */
+async function saveBasics(page: Page, email: string, baseUrl: string) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    await page.getByRole("button", { name: "Save and continue" }).click();
+    for (let wait = 0; wait < 10; wait += 1) {
+      const row = await prisma.person.findUnique({ where: { email } });
+      if (row?.basicsAt) {
+        if (!page.url().endsWith("/apply/friends")) await page.goto(`${baseUrl}/apply/friends`);
+        return row;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+  throw new Error(`Saving the first half of ${email} never committed.`);
 }
 
 async function main() {
@@ -141,13 +165,10 @@ async function main() {
     });
     await memberPage.getByRole("button", { name: /Add another/ }).waitFor();
 
-    await memberPage.getByRole("button", { name: "Save and continue" }).click();
-
     // The first half is saved on its own. This is the whole point of the split:
     // stopping here is no longer losing everything, so the row exists with a
     // name, a city and a face before a single friend has been named.
-    await memberPage.waitForURL(/\/apply\/friends$/);
-    const half = await prisma.person.findUniqueOrThrow({ where: { email: memberEmail } });
+    const half = await saveBasics(memberPage, memberEmail, baseUrl);
     assert.ok(half.basicsAt, "The first half must commit on its own.");
     assert.equal(half.appliedAt, null, "And must not count as a completed application.");
     assert.equal(half.name, "Journey Member");
@@ -416,8 +437,7 @@ async function main() {
     ]);
     await adaChooser.setFiles({ name: "ada.jpg", mimeType: "image/jpeg", buffer: await testPhotoBytes() });
     await adaPage.getByRole("button", { name: /Add another/ }).waitFor();
-    await adaPage.getByRole("button", { name: "Save and continue" }).click();
-    await adaPage.waitForURL(/\/apply\/friends$/);
+    await saveBasics(adaPage, firstRecommenderEmail, baseUrl);
 
     // waitFor rather than a one-shot innerText: the page streams behind the
     // Suspense fallback in src/app/loading.tsx, so reading innerText the
