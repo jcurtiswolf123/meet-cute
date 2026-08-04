@@ -15,7 +15,7 @@
 //      wants to change, so minimality is structural rather than a request the
 //      prompt has to make and the model can ignore.
 import assert from "node:assert/strict";
-import { parseEdits, applyEdits } from "./watchdog";
+import { parseEdits, applyEdits, stripGutter, changedLineCount } from "./watchdog";
 
 const ALLOWED = ["src/lib/age.ts", "src/lib/email.ts"];
 const edit = (path: string, search: string, replace: string) =>
@@ -109,7 +109,7 @@ const FILE = 'const a = 1;\nconst n: number = "wrong";\nconst b = 2;\n';
     { path: "src/lib/age.ts", search: "const missing = 0;", replace: "x" },
   ]);
   assert.equal(problems.length, 1);
-  assert.match(problems[0], /not found/);
+  assert.match(problems[0], /does not appear/);
   assert.equal(applied.get("src/lib/age.ts"), FILE, "the file is untouched");
 }
 
@@ -150,6 +150,83 @@ const FILE = 'const a = 1;\nconst n: number = "wrong";\nconst b = 2;\n';
   assert.match(problems[0], /not offered/);
 }
 
+
+// --- the reply shapes a live model actually sends ---------------------------
+//
+// Every case below was captured from a real drill against the funded provider.
+// The old transport rejected all of them, which is why autofix had never once
+// produced a patch in the two months it was enabled: the model knew the fix
+// every time and could not express it in a shape the parser would read.
+
+const LIVE_FILE = ["export function label(age: number): string {", "  return age;", "}", ""].join("\n");
+
+// The format the prompt now asks for.
+{
+  const edits = parseEdits(
+    ["[EDIT src/lib/age.ts]", "[SEARCH]", "  return age;", "[REPLACE]", "  return String(age);", "[END]"].join("\n"),
+    ["src/lib/age.ts"],
+  );
+  assert.equal(edits.length, 1, "bracket markers must parse");
+  assert.equal(edits[0].replace.trim(), "return String(age);");
+}
+
+// [SEARCH] and [END] dropped, which happens about half the time.
+{
+  const edits = parseEdits(
+    ["[EDIT src/lib/age.ts]", "  return age;", "[REPLACE]", "  return String(age);"].join("\n"),
+    ["src/lib/age.ts"],
+  );
+  assert.equal(edits.length, 1, "the shape is unambiguous without the optional markers");
+  assert.equal(edits[0].search.trim(), "return age;");
+}
+
+// Answered as a diff, because <<< and >>> look like diff gutters. This exact
+// reply is what made the old transport a no-op.
+{
+  const edits = parseEdits(
+    ["[EDIT src/lib/age.ts]", "[SEARCH]", "> export function label(age: number): string {", "> }", "[REPLACE]", "> export function label(age: number): string {", "> }"].join("\n"),
+    ["src/lib/age.ts"],
+  );
+  assert.equal(edits.length, 1);
+  assert.ok(!edits[0].search.includes(">"), "a uniform gutter is stripped");
+}
+
+// A gutter that is not uniform is left alone: it might be real code.
+assert.equal(stripGutter("a > b\nc"), "a > b\nc");
+
+// Retyped with different indentation and trailing spaces. The tokens are right,
+// the layout is not, and the fix is still the fix.
+{
+  const { applied, problems } = applyEdits(new Map([["src/lib/age.ts", LIVE_FILE]]), [
+    {
+      path: "src/lib/age.ts",
+      search: "export function label(age: number): string { \n    return age; \n}",
+      replace: "export function label(age: number): string {\n    return String(age);\n}",
+    },
+  ]);
+  assert.equal(problems.length, 0, `whitespace-only differences must not lose the patch: ${problems.join("; ")}`);
+  assert.match(
+    applied.get("src/lib/age.ts")!,
+    /\n {2}return String\(age\);/,
+    "and the replacement takes the file's indentation, so the diff is the change and not a reformat",
+  );
+}
+
+// Tolerance never becomes a guess: two candidate sites is still a refusal,
+// because applying to the wrong one compiles and is quietly wrong.
+{
+  const twice = ["const a = 1;", "const a = 1;"].join("\n");
+  const { problems } = applyEdits(new Map([["f.ts", twice]]), [
+    { path: "f.ts", search: "const   a = 1;", replace: "const a = 2;" },
+  ]);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /appears 2 times/);
+}
+
+// The size guard counts the diff a reviewer would read.
+assert.equal(changedLineCount("a\nb\nc", "a\nb\nc"), 0);
+assert.equal(changedLineCount("a\nb\nc", "a\nB\nc"), 2, "one changed line is one added and one removed");
+
 console.log(
-  "autofix patch parsing passed: verbatim code, unoffered paths refused, ambiguous and missing search text refused",
+  "autofix patch checks passed: verbatim code, unoffered paths refused, ambiguous and missing search refused, and every reply shape a live model actually sent now parses without ever guessing where an edit goes",
 );

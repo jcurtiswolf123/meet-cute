@@ -2,6 +2,37 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-04 : AI autofix works now, and the transport was why it never did
+
+- Context: autofix has been enabled in CI since June and had produced exactly
+  zero patches. A drill in early August found four faults and fixed them, and it
+  still produced zero, because the drill ended at "an edit applied" rather than
+  at "a pull request exists".
+- Root cause, found by reading what the model actually replied: `<<<EDIT` and
+  `>>>END` read as diff gutters. The model answered in diff form every time,
+  prefixing lines with `<` and putting the search text above the SEARCH marker.
+  It knew the correct fix on every attempt and could not say it in a shape the
+  parser would read.
+- Decision: the markers are `[EDIT path]`, `[SEARCH]`, `[REPLACE]`, `[END]`,
+  and the prompt says outright that this is not a diff. The old markers still
+  parse.
+- Decision: tolerate what models reliably get wrong, never what would make an
+  edit ambiguous. A uniform `+`/`-`/`>` gutter is stripped. `[SEARCH]` and
+  `[END]` are optional. A search that fails character-for-character is retried
+  ignoring horizontal whitespace only, and accepted solely when it still matches
+  exactly once. Two candidate sites is still a refusal.
+- Decision: three attempts, each told precisely what was wrong with the last:
+  no usable block, a block that restated the whole file, a search matching twice,
+  a patch over the churn budget. One shot was the real reason this never landed.
+- Decision: the diff size is measured before a branch is created, so an
+  oversized patch becomes feedback rather than a discard.
+- Decision: the replacement takes the file's indentation line by line, so the
+  diff a human reviews is the change and not a reformat.
+- Proved: a live drill against the funded provider produced a correct one-line
+  fix, re-verified by tsc, at 2 changed lines, and opened PR #41. Closed, since
+  the error was deliberate.
+- Every reply shape above is now a case in scripts/test-autofix-patch.ts.
+
 ## 2026-08-04 : An unused sign-in link is followed up once, with no token in it
 
 - Decision: Asking for a sign-in link schedules one follow-up, due three hours
