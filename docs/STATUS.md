@@ -2,7 +2,12 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-03 (AI autofix works for the first time, proved by a live
+Last updated: 2026-08-04 (AI autofix is reliable rather than once-lucky: the
+transport now reads the shape models actually reply in, retries three times with
+a precise complaint, and every one of those shapes is a test. Before that: the
+application asks one question at a time and saves each answer; an unused sign-in
+link gets one follow-up; abandoned applications get chased. Before that:
+AI autofix produced its first patch, proved by a live
 drill; Sentry no longer captures in-app browser noise; every working copy is
 committed. Before that: date ideas are ON: four venues verified against their
 own websites, /studio/venues for the operator, LLM venue proposals that land
@@ -210,6 +215,36 @@ gate, not the ability to take a photo down.
 
 Terms section 8 already said we "may" review content and are "not obligated to
 monitor" it, so nothing there needed changing.
+
+## 2026-08-04: AI autofix worked once, then stopped, and the transport was why
+
+**Re-drilling the same deliberate typecheck error the day after the fix below
+produced zero patches, run after run.** The 2026-08-03 result was real and it
+was also a coin flip. Reading the raw replies showed why: `<<<EDIT` and `>>>END`
+read as diff gutters, so the model answered in diff form, prefixing lines with
+`<` and putting the search text above the SEARCH marker. It knew the correct fix
+every attempt and could not say it in the one shape the parser accepted, and one
+attempt per regression meant a wrong guess at the shape ended the run.
+
+What changed:
+
+- Markers are `[EDIT path]` / `[SEARCH]` / `[REPLACE]` / `[END]`, and the prompt
+  says outright that this is not a diff. The old markers still parse.
+- Tolerate what models get wrong, never what makes an edit ambiguous: uniform
+  `+`/`-`/`>` gutters are stripped, `[SEARCH]` and `[END]` are optional, and a
+  search that fails character-for-character is retried ignoring horizontal
+  whitespace only, accepted solely when it still matches exactly once. Two
+  candidate sites is still a refusal, because editing the wrong one compiles.
+- Three attempts, each told precisely what was wrong with the last.
+- Churn is measured before a branch exists, so an oversized patch is feedback
+  rather than a discard, and the replacement takes the file's own indentation so
+  the diff a reviewer reads is the change and not a reformat.
+
+Proved again end to end on NVIDIA: a correct one-line fix, re-verified by tsc,
+2 changed lines, PR opened and then closed since the error was deliberate. Every
+reply shape above is a case in `scripts/test-autofix-patch.ts`, so the next model
+that answers in diff form fails a test instead of quietly doing nothing for two
+months behind a green workflow. Shipped in #42.
 
 ## 2026-08-03: AI autofix had never worked, and Sentry was 46 events of noise
 

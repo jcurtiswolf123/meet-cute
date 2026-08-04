@@ -2,14 +2,18 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
-## 2026-08-04 : AI autofix works now, and the transport was why it never did
+## 2026-08-04 : AI autofix is reliable now, not just once-lucky
 
-- Context: autofix has been enabled in CI since June and had produced exactly
-  zero patches. A drill in early August found four faults and fixed them, and it
-  still produced zero, because the drill ended at "an edit applied" rather than
-  at "a pull request exists".
+- Correction to the 2026-08-03 entry below, and to commit f1defcc, which both
+  say autofix "had never" produced a patch and "still produced zero" after that
+  day's fixes. Not true: the 2026-08-03 drill did open a PR
+  (`watchdog/fix-1785774233550`). What was true is narrower and worse: it worked
+  once and did not work again. Re-drilling the same deliberate error the next
+  day produced zero patches over repeated runs, because the model chose a
+  different reply shape and one shape was all the parser could read.
 - Root cause, found by reading what the model actually replied: `<<<EDIT` and
-  `>>>END` read as diff gutters. The model answered in diff form every time,
+  `>>>END` read as diff gutters. The model answered in diff form nearly every
+  time,
   prefixing lines with `<` and putting the search text above the SEARCH marker.
   It knew the correct fix on every attempt and could not say it in a shape the
   parser would read.
@@ -23,7 +27,9 @@ _Append-only. Newest at top. Each entry: what was decided, why, and what was rej
   exactly once. Two candidate sites is still a refusal.
 - Decision: three attempts, each told precisely what was wrong with the last:
   no usable block, a block that restated the whole file, a search matching twice,
-  a patch over the churn budget. One shot was the real reason this never landed.
+  a patch over the churn budget. One shot per regression is what made this a
+  coin flip: the model gets the shape wrong differently each run, and every one
+  of those is a complaint this code can now state exactly.
 - Decision: the diff size is measured before a branch is created, so an
   oversized patch becomes feedback rather than a discard.
 - Decision: the replacement takes the file's indentation line by line, so the
@@ -31,7 +37,9 @@ _Append-only. Newest at top. Each entry: what was decided, why, and what was rej
 - Proved: a live drill against the funded provider produced a correct one-line
   fix, re-verified by tsc, at 2 changed lines, and opened PR #41. Closed, since
   the error was deliberate.
-- Every reply shape above is now a case in scripts/test-autofix-patch.ts.
+- Every reply shape above is now a case in scripts/test-autofix-patch.ts, so the
+  next model that answers in diff form is a test failure and not another quiet
+  two months of a green workflow doing nothing.
 
 ## 2026-08-04 : An unused sign-in link is followed up once, with no token in it
 
