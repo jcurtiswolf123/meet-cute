@@ -936,35 +936,54 @@ export function unfinishedApplicationEmail(args: {
   name: string;
   photos: number;
   applyUrl: string;
+  /** They saved the first half and stopped at the friends. That is a different
+   *  email: they are one screen from being a member, not halfway up a form. */
+  basicsSaved?: boolean;
 }): { subject: string; html: string; text: string } {
   const first = (args.name || "there").split(" ")[0];
   const got = args.photos > 0;
-  const subject = got
-    ? `Your ${args.photos === 1 ? "photo is" : "photos are"} saved. One step left`
-    : "You started an application to Mutuals";
 
-  const opener = got
-    ? `You uploaded ${args.photos === 1 ? "a photo" : `${args.photos} photos`} and then the application stopped. ${args.photos === 1 ? "It is" : "They are"} still saved, so nothing you did is lost.`
-    : `You signed in to apply to Mutuals and did not finish. Whatever you filled in is still there.`;
+  const subject = args.basicsSaved
+    ? "Two names and you are a member"
+    : got
+      ? `Your ${args.photos === 1 ? "photo is" : "photos are"} saved. One step left`
+      : "You started an application to Mutuals";
+
+  const opener = args.basicsSaved
+    ? `Everything about you is saved: your details${got ? `, and your ${args.photos === 1 ? "photo" : `${args.photos} photos`}` : ""}. The only thing missing is the two friends who vouch for you.`
+    : got
+      ? `You uploaded ${args.photos === 1 ? "a photo" : `${args.photos} photos`} and then the application stopped. ${args.photos === 1 ? "It is" : "They are"} still saved, so nothing you did is lost.`
+      : `You signed in to apply to Mutuals and did not finish. Whatever you filled in is still there.`;
+
+  const remaining = args.basicsSaved
+    ? `That is two names and two email addresses. We do the asking: they answer in a couple of sentences or with one tap, and the moment both have, you are a member.`
+    : `What is left is short: your city, your date of birth, and the two friends who will vouch for you. We email them, they answer in a couple of sentences or with one tap, and when both have, you are a member.`;
 
   const text =
     `Hi ${first},\n\n` +
     `${opener}\n\n` +
-    `What is left is short: your city, your date of birth, and the two friends who will vouch for you. We email them, they answer in a couple of sentences or with one tap, and when both have, you are a member. There is nobody to impress in between.\n\n` +
+    `${remaining}\n\n` +
     `Pick up where you left off:\n${args.applyUrl}\n\n` +
     `If you have changed your mind, ignore this and you will not hear from us again.\n\n` +
     `Warmly,\nMutuals`;
 
   const inner =
-    h1(got ? "You were nearly done." : "You started an application.") +
+    h1(args.basicsSaved ? "Two names and you are in." : got ? "You were nearly done." : "You started an application.") +
     p(`Hi ${esc(first)}, ${esc(opener)}`) +
-    p(`What is left is short: your city, your date of birth, and the two friends who will vouch for you. We email them, they answer in a couple of sentences or with <strong>one tap</strong>, and when both have, you are a member. There is nobody to impress in between.`) +
-    `<p style="margin:24px 0 0">${emailButton("Pick up where you left off", args.applyUrl)}</p>` +
+    p(esc(remaining)) +
+    `<p style="margin:24px 0 0">${emailButton(args.basicsSaved ? "Name your two friends" : "Pick up where you left off", args.applyUrl)}</p>` +
     small("If you have changed your mind, ignore this and you will not hear from us again.");
 
   return {
     subject,
-    html: emailShell(inner, got ? "Your photos are saved. One step left." : "Pick up where you left off."),
+    html: emailShell(
+      inner,
+      args.basicsSaved
+        ? "Everything else is saved. Two names left."
+        : got
+          ? "Your photos are saved. One step left."
+          : "Pick up where you left off.",
+    ),
     text,
   };
 }

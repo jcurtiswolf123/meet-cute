@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Logo } from "@/components/ui";
 import { SiteFooter } from "@/components/SiteFooter";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +7,6 @@ import { getCurrentPerson } from "@/lib/auth";
 import { requestMagicLink } from "@/lib/actions";
 import { magicLinkErrorMessage } from "@/lib/magic-link-status";
 import { maxBirthdateForAge } from "@/lib/age";
-import { fastTrackFor } from "@/lib/recommendations";
 import { normalizeCity } from "@/lib/cities";
 import { ApplySection } from "./ApplySection";
 
@@ -109,6 +109,8 @@ export default async function Apply({
     );
   }
 
+  if (me.appliedAt) redirect("/apply/thanks");
+
   // Signed in: complete the application (name, age, city, what you want, consent).
   // Only prefill the name for a returning applicant who has actually applied; a
   // brand-new applicant's name is auto-derived from their email local part, so we
@@ -126,13 +128,6 @@ export default async function Apply({
   // Prefill the friends they already named, so a returning applicant who is
   // fixing one field does not have to retype both recommenders. A friend who
   // has already written back is never re-mailed (see saveRecommenders).
-  const fastTrack = await fastTrackFor(me.email, me.gender);
-  const recommenders = await prisma.recommendation.findMany({
-    where: { applicantId: me.id },
-    orderBy: { createdAt: "asc" },
-    take: 2,
-    select: { name: true, email: true, gender: true },
-  });
   return (
     <>
     <main id="main-content" className="container-mc min-h-screen py-12">
@@ -143,9 +138,9 @@ export default async function Apply({
         <p className="mt-3 text-sm leading-relaxed text-muted">
           {/* email is nullable on Person: an operator can create a member record
               without one, and "Signed in as ." reads as a broken sentence. */}
-          {me.email ? `Signed in as ${me.email}. ` : ""}This takes a minute: a few essentials, a
-          photo, and the two friends who will vouch for you. We email them, and their words are what
-          get you in.
+          {me.email ? `Signed in as ${me.email}. ` : ""}Start with you: a few essentials and a
+          photo. We save it when you press the button, so you can stop here and come back. The two
+          friends who vouch for you are the second half, and they are what get you in.
         </p>
 
         <ApplySection
@@ -162,10 +157,6 @@ export default async function Apply({
             linkedin: me.linkedin ?? "",
             lookingFor: me.lookingFor ?? "",
             maxBirthdate,
-            recommenders,
-            fastTrack: fastTrack
-              ? { memberName: fastTrack.member.name, memberGender: fastTrack.member.gender }
-              : null,
           }}
         />
       </div>

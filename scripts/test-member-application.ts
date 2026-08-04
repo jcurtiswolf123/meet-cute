@@ -102,12 +102,6 @@ async function main() {
     await memberPage
       .getByLabel("What you're looking for")
       .fill("A thoughtful relationship with someone curious and kind.");
-    await memberPage.getByLabel("Their name").first().fill("Ada Recommender");
-    await memberPage.getByRole("group", { name: "They are" }).first().getByText("Woman", { exact: true }).click();
-    await memberPage.getByLabel("Their email").first().fill(firstRecommenderEmail);
-    await memberPage.getByLabel("Their name").nth(1).fill("Grace Recommender");
-    await memberPage.getByRole("group", { name: "They are" }).nth(1).getByText("Woman", { exact: true }).click();
-    await memberPage.getByLabel("Their email").nth(1).fill(secondRecommenderEmail);
     // The real checkbox is visually hidden behind the mark we draw, so this
     // presses the mark, which is what a member presses. Not the sentence: it
     // carries the Terms and Privacy links, and a click in the middle of it
@@ -121,10 +115,10 @@ async function main() {
       "Pressing the consent label must actually check the underlying box.",
     );
 
-    // A photo is required now, and the uploader posts on its own rather than
-    // through the form, so the server rejects a submit with none. Submit once
-    // with no photo to prove the gate is real, then add one.
-    await memberPage.getByRole("button", { name: "Submit application" }).click();
+    // A photo is required, and the uploader posts on its own rather than
+    // through the form, so the server rejects a save with none. Save once with
+    // no photo to prove the gate is real, then add one.
+    await memberPage.getByRole("button", { name: "Save and continue" }).click();
     await memberPage
       .getByText("Add at least one photo. Your matchmaker and your introduction both need a face.")
       .waitFor();
@@ -147,7 +141,29 @@ async function main() {
     });
     await memberPage.getByRole("button", { name: /Add another/ }).waitFor();
 
-    await memberPage.getByRole("button", { name: "Submit application" }).click();
+    await memberPage.getByRole("button", { name: "Save and continue" }).click();
+
+    // The first half is saved on its own. This is the whole point of the split:
+    // stopping here is no longer losing everything, so the row exists with a
+    // name, a city and a face before a single friend has been named.
+    await memberPage.waitForURL(/\/apply\/friends$/);
+    const half = await prisma.person.findUniqueOrThrow({ where: { email: memberEmail } });
+    assert.ok(half.basicsAt, "The first half must commit on its own.");
+    assert.equal(half.appliedAt, null, "And must not count as a completed application.");
+    assert.equal(half.name, "Journey Member");
+    assert.equal(half.gender, "man");
+
+    // The ask is specific to what they said about themselves. Getting this
+    // wrong sends someone off to ask the wrong two people.
+    await memberPage.getByText("Name two women who know you well.").waitFor();
+
+    await memberPage.getByLabel("Their name").first().fill("Ada Recommender");
+    await memberPage.getByRole("group", { name: "They are" }).first().getByText("Woman", { exact: true }).click();
+    await memberPage.getByLabel("Their email").first().fill(firstRecommenderEmail);
+    await memberPage.getByLabel("Their name").nth(1).fill("Grace Recommender");
+    await memberPage.getByRole("group", { name: "They are" }).nth(1).getByText("Woman", { exact: true }).click();
+    await memberPage.getByLabel("Their email").nth(1).fill(secondRecommenderEmail);
+    await memberPage.getByRole("button", { name: "Send the asks" }).click();
     await memberPage.waitForURL(/\/apply\/thanks$/);
 
     const member = await prisma.person.findUniqueOrThrow({
@@ -344,7 +360,9 @@ async function main() {
       /Journey Member/,
       "The Studio directory did not render the approved member.",
     );
-    const memberLink = operatorPage.getByRole("link", { name: /Journey Member/ });
+    // By id, not by name: a sandbox that has run this before contains other
+    // Journey Members, and a name match resolves to all of them.
+    const memberLink = operatorPage.locator(`a[href="/studio/person/${member.id}"]`).first();
     await memberLink.waitFor();
     await memberLink.click();
     await operatorPage.waitForURL(new RegExp(`/studio/person/${member.id}$`));
@@ -385,10 +403,25 @@ async function main() {
     await adaPage.goto(`${baseUrl}/auth/verify?token=${encodeURIComponent(adaToken)}`);
     await adaPage.waitForURL(/\/apply$/);
     await adaPage.getByRole("group", { name: "You are" }).getByText("Woman", { exact: true }).click();
+    // She fills in her own half and saves it, exactly like anyone else. The
+    // credit for having vouched shows on the second half, where the friends
+    // are asked for.
+    await adaPage.getByLabel("First name").fill("Ada");
+    await adaPage.getByLabel("Last name").fill("Recommender");
+    await adaPage.getByLabel("Date of birth").fill("1991-02-02");
+    await adaPage.locator('label:has(input[name="agree"])').click({ position: { x: 10, y: 12 } });
+    const [adaChooser] = await Promise.all([
+      adaPage.waitForEvent("filechooser"),
+      adaPage.getByRole("button", { name: /Add a photo/ }).click(),
+    ]);
+    await adaChooser.setFiles({ name: "ada.jpg", mimeType: "image/jpeg", buffer: await testPhotoBytes() });
+    await adaPage.getByRole("button", { name: /Add another/ }).waitFor();
+    await adaPage.getByRole("button", { name: "Save and continue" }).click();
+    await adaPage.waitForURL(/\/apply\/friends$/);
+
     // waitFor rather than a one-shot innerText: the page streams behind the
     // Suspense fallback in src/app/loading.tsx, so reading innerText the
     // instant after a navigation can catch the spinner instead of the form.
-    await adaPage.getByText("One more friend to vouch for you").waitFor();
     await adaPage.getByText(/You vouched for/).waitFor();
     await adaPage.getByText(/Journey Member/).first().waitFor();
     assert.equal(
@@ -400,17 +433,7 @@ async function main() {
     await adaPage.getByLabel("Their name").fill("Ada Friend");
     await adaPage.getByRole("group", { name: "They are" }).getByText("Man", { exact: true }).click();
     await adaPage.getByLabel("Their email").fill(adaFriendEmail);
-    await adaPage.getByLabel("First name").fill("Ada");
-    await adaPage.getByLabel("Last name").fill("Recommender");
-    await adaPage.getByLabel("Date of birth").fill("1991-02-02");
-    await adaPage.locator('label:has(input[name="agree"])').click({ position: { x: 10, y: 12 } });
-    const [adaChooser] = await Promise.all([
-      adaPage.waitForEvent("filechooser"),
-      adaPage.getByRole("button", { name: /Add a photo/ }).click(),
-    ]);
-    await adaChooser.setFiles({ name: "ada.jpg", mimeType: "image/jpeg", buffer: await testPhotoBytes() });
-    await adaPage.getByRole("button", { name: /Add another/ }).waitFor();
-    await adaPage.getByRole("button", { name: "Submit application" }).click();
+    await adaPage.getByRole("button", { name: "Send the ask" }).click();
     await adaPage.waitForURL(/\/apply\/thanks$/);
     await adaContext.close();
 

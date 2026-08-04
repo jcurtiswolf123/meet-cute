@@ -41,6 +41,7 @@ async function main() {
       name: true,
       email: true,
       appliedAt: true,
+      basicsAt: true,
       status: true,
       unfinishedNudgedAt: true,
       createdAt: true,
@@ -57,7 +58,7 @@ async function main() {
   let queued = 0;
   for (const person of stranded) {
     const age = Math.round((Date.now() - person.createdAt.getTime()) / 3_600_000);
-    const line = `${(person.email ?? "").padEnd(34)} ${String(person.photos.length).padStart(2)} photos  ${String(age).padStart(3)}h ago`;
+    const line = `${(person.email ?? "").padEnd(34)} ${String(person.photos.length).padStart(2)} photos  ${String(age).padStart(3)}h ago  ${person.basicsAt ? "stopped at the friends" : "stopped at the details"}`;
     if (!send) {
       console.log(`would  ${line}`);
       queued += 1;

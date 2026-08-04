@@ -94,6 +94,17 @@ model Person {
   coachBio String?
 
   // supply / provenance
+  //
+  // The application is two halves with a real save between them. basicsAt is
+  // the first: name, city, gender, birthdate, a photo. appliedAt is the second
+  // and only lands when the two friends have been named, because that is when
+  // an application is a thing a matchmaker can act on.
+  //
+  // The distinction is the entire point. Before it, someone who filled in
+  // everything about themselves and stopped at the friends step left exactly
+  // the same trace as someone who signed in and closed the tab: nothing. On
+  // 3 August that was 18 people.
+  basicsAt    DateTime?
   appliedAt   DateTime?
   // When we last chased an application that was started and never finished.
   // On 3 August, 18 people signed in and never submitted, seven of them after
