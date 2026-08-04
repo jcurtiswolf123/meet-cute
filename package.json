@@ -26,7 +26,7 @@
     "test:journey:controls": "node --env-file-if-exists=.env --import tsx scripts/test-form-controls.ts",
     "test:journey:application": "node --env-file-if-exists=.env --import tsx scripts/test-member-application.ts",
     "test:journey:email": "node --env-file-if-exists=.env --import tsx scripts/test-match-email-journey.ts",
-    "test:launch": "npm run test:launch:pure && npm run test:launch:actionids && npm run test:launch:seededname && npm run test:launch:reply && npm run test:launch:age && npm run test:launch:ideas && npm run test:launch:eventtime && npm run test:launch:autofix && npm run test:launch:prelude && npm run test:prelude:pipeline && npm run test:prelude:webhook && npm run test:journey:email && npm run test:launch:capacity && npm run test:launch:delivery && npm run test:launch:storage && npm run test:launch:roles && npm run test:launch:emails && npm run test:launch:cities && npm run test:launch:recommendations && npm run test:launch:flywheel && npm run test:race",
+    "test:launch": "npm run test:launch:pure && npm run test:launch:actionids && npm run test:launch:seededname && npm run test:launch:chaser && npm run test:launch:reply && npm run test:launch:age && npm run test:launch:ideas && npm run test:launch:eventtime && npm run test:launch:autofix && npm run test:launch:prelude && npm run test:prelude:pipeline && npm run test:prelude:webhook && npm run test:journey:email && npm run test:launch:capacity && npm run test:launch:delivery && npm run test:launch:storage && npm run test:launch:roles && npm run test:launch:emails && npm run test:launch:cities && npm run test:launch:recommendations && npm run test:launch:flywheel && npm run test:race",
     "test:race": "node --env-file-if-exists=.env --import tsx scripts/test-introduction-race.ts",
     "db:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
@@ -58,13 +58,15 @@
     "test:journey:skew": "node --env-file-if-exists=.env --import tsx scripts/test-deploy-skew.ts",
     "deploy": "flyctl deploy --build-arg NEXT_DEPLOYMENT_ID=\"$(git rev-parse HEAD)\" --build-secret NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=\"$(head -1 ~/.gstack/credentials/meetcute-server-actions-encryption-key.txt)\"",
     "test:launch:actionids": "node --import tsx scripts/test-action-id-stability.ts",
-    "test:launch:seededname": "node --import tsx scripts/test-seeded-name.ts"
+    "test:launch:seededname": "node --import tsx scripts/test-seeded-name.ts",
+    "test:launch:chaser": "node --env-file-if-exists=.env --import tsx scripts/test-chaser-freshness.ts",
+    "photos:backfill": "node --env-file-if-exists=.env --import tsx scripts/backfill-photo-objects.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "@aws-sdk/client-s3": "^3.1103.0",
     "@prisma/client": "^6.1.0",
     "@sentry/nextjs": "^10.67.0",
-    "@vercel/blob": "^2.4.1",
     "ioredis": "^5.11.1",
     "motion": "^12.40.0",
     "next": "^16.2.11",

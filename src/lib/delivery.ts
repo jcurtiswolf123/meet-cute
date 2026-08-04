@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import type { DeliveryJob, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-import { connectionEmail, matchThreadEmail, sendEmail } from "./email";
+import { connectionEmail, matchThreadEmail, sendEmail, unfinishedApplicationEmail } from "./email";
 import { dateIdeasFor } from "./date-ideas";
 import { datePickToken, datePickUrl } from "./date-pick";
 import {
@@ -231,6 +231,59 @@ function smsTemplateField(payload: Record<string, unknown>): SmsTemplate | undef
   };
 }
 
+/**
+ * Re-render an email whose contents went out of date while it sat in the queue.
+ *
+ * The unfinished-application chaser is queued the moment somebody signs in and
+ * sent a day later, and it is rendered at the point it is queued. So it is
+ * written for a person who has just arrived and done nothing, and it is sent to
+ * a person who has had a day to do something. Anyone who fills in the details
+ * within that day, which is the ordinary path, gets an email that tells them
+ * they never started, points them at the beginning of the form, and never
+ * mentions the photos they uploaded.
+ *
+ * That was not one bad send. On 4 August four people were queued to be told
+ * they had not finished when they had already saved everything and uploaded 12
+ * photos between them: each one screen from being a member, each about to be
+ * sent back to the start.
+ *
+ * Rendering here instead is the fix, and keying it off the kind rather than a
+ * flag in the payload means the jobs already sitting in the queue are corrected
+ * too, without touching a single stored row.
+ *
+ * Returns null when there is nothing to re-render, and the stored payload is
+ * used as it was.
+ */
+export async function freshenEmailPayload(
+  job: DeliveryJob,
+): Promise<{ subject: string; html: string; text: string } | null> {
+  if (job.kind !== "application_unfinished" || !job.personId) return null;
+
+  const person = await prisma.person.findUnique({
+    where: { id: job.personId },
+    select: { name: true, appliedAt: true, basicsAt: true },
+  });
+  // Submitting withdraws this job, so reaching here having applied means the
+  // withdrawal was missed. Say nothing rather than chase a member for an
+  // application they have already handed in.
+  if (!person || person.appliedAt) return null;
+
+  const photos = await prisma.photo.count({
+    where: { personId: job.personId, status: "approved" },
+  });
+  const basicsSaved = !!person.basicsAt;
+  const base = (process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "");
+  const msg = unfinishedApplicationEmail({
+    name: person.name,
+    photos,
+    basicsSaved,
+    // Land them on the half they actually stopped at, which is also a thing
+    // that can have changed since this was queued.
+    applyUrl: `${base}${basicsSaved ? "/apply/friends" : "/apply"}`,
+  });
+  return { subject: msg.subject, html: msg.html, text: msg.text };
+}
+
 async function sendDeliveryJob(job: DeliveryJob): Promise<DeliverySendResult> {
   const payload = payloadObject(job);
   if (job.channel === "email") {
@@ -246,11 +299,14 @@ async function sendDeliveryJob(job: DeliveryJob): Promise<DeliverySendResult> {
       payload.headers && typeof payload.headers === "object" && !Array.isArray(payload.headers)
         ? (payload.headers as Record<string, string>)
         : undefined;
+    // Anything queued well ahead of its send is rendered again here, so it
+    // describes the person as they are now rather than as they were.
+    const fresh = await freshenEmailPayload(job);
     return sendEmail({
       to,
-      subject: stringField(payload, "subject"),
-      html: stringField(payload, "html"),
-      text: typeof payload.text === "string" ? payload.text : undefined,
+      subject: fresh ? fresh.subject : stringField(payload, "subject"),
+      html: fresh ? fresh.html : stringField(payload, "html"),
+      text: fresh ? fresh.text : typeof payload.text === "string" ? payload.text : undefined,
       replyTo: typeof payload.replyTo === "string" ? payload.replyTo : undefined,
       headers,
       idempotencyKey: job.idempotencyKey,
