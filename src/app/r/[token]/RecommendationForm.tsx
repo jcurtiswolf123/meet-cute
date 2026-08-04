@@ -1,24 +1,29 @@
-"use client";
-
-import { useActionState } from "react";
-import { submitRecommendation, endorseRecommendation, type RecommendationState } from "@/lib/actions";
+import { submitRecommendation, endorseRecommendation } from "@/lib/actions";
 import { SubmitButton } from "@/components/forms";
 
 // The friend writes here. One textarea that matters, one optional line of
 // context, and no account: everything asked of someone doing a favour costs
 // replies, and replies are the whole product.
+//
+// Deliberately a server component with two ordinary forms. It used to be a
+// client component driven by useActionState, which is inert until React
+// hydrates: a friend who tapped to vouch, typed straight away and pressed the
+// button lost their words, and the page moved on as though it had saved them.
+// Nothing here needs JavaScript, so nothing here waits for it.
 export function RecommendationForm({
   token,
   applicantFirst,
   endorsed,
+  error,
+  defaultBody,
 }: {
   token: string;
   applicantFirst: string;
   /** They have already tapped. The words are the only thing still open. */
   endorsed?: boolean;
+  error?: string;
+  defaultBody?: string;
 }) {
-  const [state, formAction] = useActionState<RecommendationState, FormData>(submitRecommendation, {});
-
   return (
     <>
       {/* The one-tap vouch, above the writing, because most people answering
@@ -40,46 +45,45 @@ export function RecommendationForm({
         </form>
       )}
 
-      <form action={formAction} className="mt-8 space-y-5">
+      <form action={submitRecommendation} className="mt-8 space-y-5">
         <input type="hidden" name="token" value={token} />
 
-      <div>
-        <label className="label" htmlFor="body">
-          What would you say about {applicantFirst}?
-        </label>
-        <textarea
-          id="body"
-          name="body"
-          className="field mt-1.5 min-h-40"
-          defaultValue={state.values?.body ?? ""}
-          placeholder={`What ${applicantFirst} is like, what makes them worth meeting, and anything you would tell a friend before setting them up.`}
-          aria-invalid={state.error ? true : undefined}
-          aria-describedby={state.error ? "body-error" : "body-hint"}
-        />
-        {state.error ? (
-          <p id="body-error" role="alert" className="mt-1 text-xs text-claret">
-            {state.error}
-          </p>
-        ) : (
-          <p id="body-hint" className="mt-1 text-xs text-muted">
-            A few sentences is plenty. This shows on {applicantFirst}&rsquo;s profile in your words,
-            so write it the way you would say it.
-          </p>
-        )}
-      </div>
+        <div>
+          <label className="label" htmlFor="body">
+            What would you say about {applicantFirst}?
+          </label>
+          <textarea
+            id="body"
+            name="body"
+            className="field mt-1.5 min-h-40"
+            defaultValue={defaultBody ?? ""}
+            placeholder={`What ${applicantFirst} is like, what makes them worth meeting, and anything you would tell a friend before setting them up.`}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "body-error" : "body-hint"}
+          />
+          {error ? (
+            <p id="body-error" role="alert" className="mt-1 text-xs text-claret">
+              {error}
+            </p>
+          ) : (
+            <p id="body-hint" className="mt-1 text-xs text-muted">
+              A few sentences is plenty. This shows on {applicantFirst}&rsquo;s profile in your
+              words, so write it the way you would say it.
+            </p>
+          )}
+        </div>
 
-      <div>
-        <label className="label" htmlFor="relationship">
-          How do you know each other? <span className="text-muted">(optional)</span>
-        </label>
-        <input
-          id="relationship"
-          name="relationship"
-          className="field mt-1.5"
-          defaultValue={state.values?.relationship ?? ""}
-          placeholder="Roommates in college, worked together at Stripe, and so on"
-        />
-      </div>
+        <div>
+          <label className="label" htmlFor="relationship">
+            How do you know each other? <span className="text-muted">(optional)</span>
+          </label>
+          <input
+            id="relationship"
+            name="relationship"
+            className="field mt-1.5"
+            placeholder="Roommates in college, worked together at Stripe, and so on"
+          />
+        </div>
 
         <SubmitButton
           className={`${endorsed ? "btn-primary" : "btn-ghost"} w-full py-3`}

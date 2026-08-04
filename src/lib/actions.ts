@@ -817,36 +817,34 @@ export async function nudgeRecommenders(): Promise<void> {
   revalidatePath("/apply/thanks");
 }
 
-export type RecommendationState = {
-  error?: string;
-  values?: { body?: string; relationship?: string };
-};
-
 /**
  * A friend writes the recommendation. No session: the token in the URL is the
  * authorization, and it stops working once answered so a forwarded link cannot
  * overwrite what they wrote.
  */
-export async function submitRecommendation(
-  _prev: RecommendationState,
-  formData: FormData,
-): Promise<RecommendationState> {
+/**
+ * A friend writes their recommendation.
+ *
+ * A plain form action, deliberately, rather than one driven by useActionState.
+ * This page is the single highest-stakes surface in the loop and its submit has
+ * to survive arriving before React does: a friend who taps to vouch, types
+ * immediately, and presses the button on a phone was posting into the void,
+ * because a useActionState form is inert until hydration and the page silently
+ * moved on as though it had saved. An ordinary form posts either way.
+ *
+ * Errors come back through the query string for the same reason.
+ */
+export async function submitRecommendation(formData: FormData): Promise<void> {
   const token = String(formData.get("token") || "");
   const body = String(formData.get("body") || "").trim().slice(0, 1200);
   const relationship = String(formData.get("relationship") || "").trim().slice(0, 160);
-  const values = { body, relationship };
 
-  if (!token) return { error: "This link is not valid any more.", values };
-  if (body.length < 40) {
-    return {
-      error: "A couple of sentences, please. Or use the one-tap vouch above if you would rather not write.",
-      values,
-    };
-  }
+  if (!token) redirect("/");
+  if (body.length < 40) redirect(`/r/${token}?short=1`);
 
   const answer = await recordAnswer(token, { body, relationship });
   if (!answer.ok) {
-    if (answer.reason === "unknown") return { error: "This link is not valid any more.", values };
+    if (answer.reason === "unknown") redirect("/");
     redirect(`/r/${token}?done=1`);
   }
   await afterRecommendationAnswer(token, answer);

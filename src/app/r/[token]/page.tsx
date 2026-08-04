@@ -45,10 +45,14 @@ export default async function WriteRecommendation({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ done?: string; vouched?: string }>;
+  searchParams: Promise<{ done?: string; vouched?: string; short?: string }>;
 }) {
   const { token } = await params;
-  const { done, vouched } = await searchParams;
+  const { done, vouched, short } = await searchParams;
+  const tooShort =
+    short === "1"
+      ? "A couple of sentences, please. Or use the one-tap vouch above if you would rather not write."
+      : undefined;
 
   const request = await prisma.recommendation.findUnique({
     where: { token },
@@ -88,7 +92,12 @@ export default async function WriteRecommendation({
           shows on {applicantFirst}&rsquo;s profile and what the person we introduce them to
           actually reads.
         </p>
-        <RecommendationForm token={token} applicantFirst={applicantFirst} endorsed />
+        <RecommendationForm
+          token={token}
+          applicantFirst={applicantFirst}
+          endorsed
+          error={tooShort}
+        />
       </Shell>
     );
   }
@@ -158,7 +167,7 @@ export default async function WriteRecommendation({
         </div>
       </div>
 
-      <RecommendationForm token={token} applicantFirst={applicantFirst} />
+      <RecommendationForm token={token} applicantFirst={applicantFirst} error={tooShort} />
     </Shell>
   );
 }
