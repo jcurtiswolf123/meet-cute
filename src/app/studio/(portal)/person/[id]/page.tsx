@@ -6,6 +6,7 @@ import { addNote, createSuggestion, hidePhoto } from "@/lib/actions";
 import { candidatesFor } from "@/lib/copilot";
 import { connectionsOf, vouchesFor } from "@/lib/social";
 import { REQUIRED_RECOMMENDATIONS, countsTowardGate } from "@/lib/recommendations";
+import { citiesOf, cityShort } from "@/lib/cities";
 import { Avatar, StageBadge } from "@/components/ui";
 import { SubmitButton, ConfirmActionForm } from "@/components/forms";
 import { IntroComposer } from "../../matchmaking/IntroComposer";
@@ -118,7 +119,7 @@ export default async function PersonPage({
                 neighborhood or gender, which read as a role, not a gap. */}
             <p className="text-sm text-muted">
               {[
-                p.city,
+                citiesOf(p).map(cityShort).join(" + "),
                 p.neighborhood,
                 p.gender ? `${p.gender}, seeking ${p.seeking}` : null,
                 p.isOperator ? "operator" : null,

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { Avatar } from "@/components/ui";
 import { Select as FieldSelect } from "@/components/select";
+import { CITIES, citiesOf, cityShort, cityWhere } from "@/lib/cities";
 import { ApproveApplicant } from "./ApproveApplicant";
 import { retryDeliveryJob, setMemberStatus } from "@/lib/actions";
 import { IntroComposer } from "./matchmaking/IntroComposer";
@@ -25,7 +26,9 @@ export default async function Roster({
       isAmbassador: false,
       isCoach: false,
       status: "active",
-      ...(sp.city ? { city: sp.city } : {}),
+      // Either slot: someone who splits their time is in both markets, and a
+      // filter that only reads the primary hides half of them.
+      ...(sp.city ? cityWhere(sp.city) : {}),
       ...(sp.gender ? { gender: sp.gender } : {}),
     },
     include: {
@@ -178,7 +181,9 @@ export default async function Roster({
                   <Avatar url={a.photos[0]?.url} name={a.name} size={32} />
                   <span>
                     <span className="block text-sm font-medium text-ink">{a.name}{a.age ? `, ${a.age}` : ""}</span>
-                    <span className="block text-xs text-muted">{a.email} · {a.city}</span>
+                    <span className="block text-xs text-muted">
+                      {a.email} · {citiesOf(a).map(cityShort).join(" + ")}
+                    </span>
                     {/* What the gate is waiting on, in the list where the
                         Approve button lives. Approving here is what let two
                         applicants in before their friends wrote. */}
@@ -253,7 +258,12 @@ export default async function Roster({
       </div>
       <form className="mt-6 flex flex-wrap items-center gap-2" action="/studio">
         <input name="q" aria-label="Search directory" defaultValue={sp.q} placeholder="Search name, headline, what they want..." className="field max-w-xs" />
-        <Select label="Filter by city" name="city" value={sp.city} options={[["", "All cities"], ["NYC", "NYC"], ["SF", "SF"]]} />
+        <Select
+          label="Filter by city"
+          name="city"
+          value={sp.city}
+          options={[["", "All cities"], ...CITIES.map((c) => [c.value, c.short] as [string, string])]}
+        />
         <Select label="Filter by gender" name="gender" value={sp.gender} options={[["", "Any"], ["woman", "Women"], ["man", "Men"]]} />
         <Select label="Sort directory" name="sort" value={sp.sort} options={[["name", "A-Z"], ["vouches", "Most vouched"], ["stale", "Stalest"]]} />
         <button className="btn-ghost">Filter</button>
@@ -284,7 +294,10 @@ export default async function Roster({
                     <Avatar url={p.photos[0]?.url} name={p.name} size={36} />
                     <span>
                       <span className="block font-medium text-ink">{p.name}{p.age ? `, ${p.age}` : ""}</span>
-                      <span className="block text-xs text-muted">{p.city} · {p.neighborhood}</span>
+                      <span className="block text-xs text-muted">
+                        {citiesOf(p).map(cityShort).join(" + ")}
+                        {p.neighborhood ? ` · ${p.neighborhood}` : ""}
+                      </span>
                     </span>
                   </Link>
                 </td>

@@ -4,6 +4,7 @@ import { addOperator, removeOperator } from "@/lib/actions";
 import { ConfirmActionForm } from "@/components/forms";
 import { Avatar } from "@/components/ui";
 import { Select } from "@/components/select";
+import { CITIES } from "@/lib/cities";
 
 export const dynamic = "force-dynamic";
 
@@ -99,10 +100,7 @@ export default async function Team({
                 label="City"
                 showLabel
                 defaultValue="NYC"
-                options={[
-                  { value: "NYC", label: "NYC" },
-                  { value: "San Francisco", label: "SF" },
-                ]}
+                options={CITIES.map((c) => ({ value: c.value, label: c.short }))}
               />
             </div>
             <button type="submit" className="btn-primary w-fit whitespace-nowrap">

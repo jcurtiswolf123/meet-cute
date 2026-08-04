@@ -23,7 +23,12 @@ model Person {
   // who signs in via magic link.
   email String? @unique
   phone String? // E.164 (+1...). Primary contact for the SMS intro flow.
-  city  String // "NYC" | "SF"
+  // "NYC" | "SF" | "LA". See lib/cities.ts, which is the only place that knows
+  // what a city is. secondCity is for the people who genuinely split their
+  // time: they were picking one market and becoming invisible to the
+  // matchmaker in the other half of their life.
+  city       String
+  secondCity String?
 
   // role
   isOperator   Boolean @default(false)

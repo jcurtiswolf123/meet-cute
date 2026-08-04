@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { completeApplication, type ApplyState } from "@/lib/actions";
 import { SubmitButton } from "@/components/forms";
 import { ChoiceGroup, Checkbox } from "@/components/fields";
+import { CITIES } from "@/lib/cities";
 
 type Defaults = {
   first: string;
@@ -12,6 +13,7 @@ type Defaults = {
   email: string;
   phone: string;
   city: string;
+  secondCity: string;
   gender: string;
   instagram: string;
   linkedin: string;
@@ -29,10 +31,7 @@ const GENDER_OPTIONS = [
   { value: "nonbinary", label: "Non-binary" },
 ] as const;
 
-const CITY_OPTIONS = [
-  { value: "NYC", label: "New York" },
-  { value: "SF", label: "San Francisco" },
-] as const;
+const CITY_OPTIONS = CITIES.map((city) => ({ value: city.value, label: city.label }));
 
 // The applicant's completion form. A client component so validation problems
 // render inline next to the offending field and nothing they typed is lost on a
@@ -75,7 +74,8 @@ export function ApplyForm({
   // actual requirement ("two men") rather than making someone work out what
   // "opposite" means and then rejecting them for guessing wrong.
   const [gender, setGender] = useState(val("gender"));
-  const [city, setCity] = useState(val("city") === "SF" ? "SF" : "NYC");
+  const [city, setCity] = useState(val("city") || "NYC");
+  const [secondCity, setSecondCity] = useState(val("secondCity"));
   const [agree, setAgree] = useState(false);
   const [smsConsent, setSmsConsent] = useState(false);
   const [recGenders, setRecGenders] = useState<[string, string]>([rec(1, "Gender"), rec(2, "Gender")]);
@@ -170,9 +170,27 @@ export function ApplyForm({
           required
           options={CITY_OPTIONS}
           value={city}
-          onChange={setCity}
+          onChange={(next) => {
+            setCity(next);
+            // Picking a primary that matches the second leaves someone listed
+            // twice in one market rather than present in two.
+            if (next === secondCity) setSecondCity("");
+          }}
         />
       </div>
+      {/* Plenty of people genuinely live in two of these. Picking one made
+          them invisible to the matchmaker in the other half of their life. */}
+      <ChoiceGroup
+        name="secondCity"
+        label="Also there often"
+        options={[
+          { value: "", label: "Just one city" },
+          ...CITY_OPTIONS.filter((option) => option.value !== city),
+        ]}
+        value={secondCity}
+        onChange={setSecondCity}
+        hint="Optional. Pick a second city and your matchmaker can introduce you in both."
+      />
       <ChoiceGroup
         name="gender"
         label="You are"

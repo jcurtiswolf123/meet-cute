@@ -4,6 +4,7 @@ import { requireOperatorPage } from "@/lib/page-auth";
 import { createEvent } from "@/lib/actions";
 import { formatEventWhen, formatEventDay } from "@/lib/event-time";
 import { Select } from "@/components/select";
+import { CITIES } from "@/lib/cities";
 
 export const dynamic = "force-dynamic";
 
@@ -46,10 +47,7 @@ export default async function Events() {
               label="City"
               showLabel
               defaultValue="NYC"
-              options={[
-                { value: "NYC", label: "NYC" },
-                { value: "San Francisco", label: "SF" },
-              ]}
+              options={CITIES.map((c) => ({ value: c.value, label: c.short }))}
             />
             <label className="block">
               <span className="label">Date &amp; time</span>

@@ -7,6 +7,8 @@
 import type { DateIdeas } from "./date-ideas";
 import { dateIdeasBlock, type PickUrlFor } from "./email-date-ideas";
 
+import { cityLabel } from "./cities";
+
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 /** The addr-spec out of either `Name <user@host>` or a bare `user@host`.
@@ -267,7 +269,7 @@ export function applicationReceivedEmail(args: {
   statusUrl?: string;
 }): { subject: string; html: string; text: string } {
   const first = (args.name || "there").split(" ")[0];
-  const place = args.city === "SF" ? "San Francisco" : args.city === "NYC" ? "New York" : null;
+  const place = args.city ? cityLabel(args.city) : null;
   const waiting = (args.recommenders ?? []).filter((r) => r.status !== "submitted");
   const names = waiting.map((r) => r.name.split(" ")[0]).filter(Boolean);
   const nameList =
@@ -333,7 +335,7 @@ export function recommendationRequestEmail(args: {
 }): { subject: string; html: string; text: string } {
   const first = (args.recommenderName || "there").split(" ")[0];
   const applicantFirst = (args.applicantName || "your friend").split(" ")[0];
-  const place = args.applicantCity === "SF" ? "San Francisco" : args.applicantCity === "NYC" ? "New York" : null;
+  const place = args.applicantCity ? cityLabel(args.applicantCity) : null;
   const subject = args.applicantAccepted
     ? `${applicantFirst} is in. Your words are the missing piece`
     : args.reminder
