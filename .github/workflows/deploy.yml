@@ -44,9 +44,17 @@ jobs:
       # checks run against has to be built knowing the URL it will be served on.
       # Built without it, the app has no base URL and the operator invite path
       # silently skips the sign-in link it is supposed to send.
+      # The key is passed here too so the build gate produces the same shape of
+      # artifact production does, and so test:launch:actionids can check the key
+      # actually reached Next rather than only that the plumbing looks right.
       - run: npm run build
         env:
           NEXT_PUBLIC_APP_URL: http://127.0.0.1:3009
+          NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
+      - name: Check server action ids are pinned to the key
+        run: npm run test:launch:actionids
+        env:
+          NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
       - run: npx playwright install --with-deps chromium
       - name: Run operator role browser checks
         run: |
@@ -102,22 +110,36 @@ jobs:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
       # pinned to a commit SHA (supply-chain): superfly/flyctl-actions setup-flyctl
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
-      # NEXT_DEPLOYMENT_ID stamps the build with the commit it came from, so a
-      # page someone is holding from the previous deploy has asset URLs and
-      # request headers that are distinguishable from this one's. Mutuals ships
-      # several times a day, so mid-application skew is routine, not exotic.
+      # Two separate things, both about somebody who is mid-application when we
+      # ship.
+      #
+      # NEXT_SERVER_ACTIONS_ENCRYPTION_KEY is the one that matters: it keeps
+      # server action ids identical from build to build, so a page loaded before
+      # this deploy still submits successfully after it. Without it Next mints a
+      # random key per build and all 58 ids change, which is what stranded an
+      # applicant on 4 August. Refuse to deploy without it rather than ship a
+      # build that silently breaks every open page.
+      #
+      # NEXT_DEPLOYMENT_ID stamps assets with the commit, so each build gets its
+      # own cache entries and a genuine skew is visible rather than a mystery.
       - name: Deploy
         run: |
-          if [ -n "$SENTRY_AUTH_TOKEN" ]; then
-            flyctl deploy --remote-only \
-              --build-arg NEXT_DEPLOYMENT_ID="$GITHUB_SHA" \
-              --build-secret SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"
-          else
-            flyctl deploy --remote-only --build-arg NEXT_DEPLOYMENT_ID="$GITHUB_SHA"
+          if [ -z "$NEXT_SERVER_ACTIONS_ENCRYPTION_KEY" ]; then
+            echo "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY is not set. Deploying without it"
+            echo "would change every server action id and break every page currently open."
+            exit 1
           fi
+          set -- --remote-only \
+            --build-arg NEXT_DEPLOYMENT_ID="$GITHUB_SHA" \
+            --build-secret NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
+          if [ -n "$SENTRY_AUTH_TOKEN" ]; then
+            set -- "$@" --build-secret SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"
+          fi
+          flyctl deploy "$@"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
       - name: Verify production canary
         run: |
           curl --fail --silent --show-error --retry 5 --retry-delay 3 https://hellomutuals.com/healthz

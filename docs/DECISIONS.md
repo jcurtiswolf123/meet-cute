@@ -532,3 +532,36 @@ has, which is why the production logs show none of them. Closing it would mean a
 build-stamp cookie check in front of every request.
 
 `npm run test:journey:skew` pins the behaviour.
+
+## Server action ids are pinned to a fixed key (4 August 2026)
+
+The boundary fix above makes a stale submit recoverable. This makes it rare.
+
+A Next.js server action is addressed by an id derived at build time from the
+action's module and export, salted with an encryption key. Left to itself Next
+generates that key randomly for every build, and the salt dominates: two builds
+of byte-identical source produced two completely disjoint sets of ids, 58 of 58
+changed. That is the real reason an applicant got stranded. It was never that we
+edited the action she was calling. Any deploy at all invalidated every page
+anyone was holding, and we ship several times a day.
+
+With `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` pinned, the ids become a function of
+the code alone. Measured across two clean builds, across an unrelated file
+changing, and across `src/lib/actions.ts` itself changing: identical every time.
+An id minted by the previous build now resolves and runs against the next one,
+verified end to end by posting a captured id from one build to a server running
+the next.
+
+Build time only. Next writes the key it used into
+`.next/server/server-reference-manifest.json` and the running server reads it
+from there, so there is no runtime environment variable and no Fly secret to
+keep in sync. It is a real secret (it encrypts bound arguments that cross to the
+client), so it travels as a BuildKit secret, never a build arg.
+
+The deploy fails closed without it. A build with a random key succeeds, passes
+every check, looks perfect, and quietly breaks every page that is already open,
+which is precisely the failure nobody catches until somebody writes in. Rotating
+the key has the same effect once, so rotate deliberately.
+
+`npm run test:launch:actionids` pins the plumbing and checks the key actually
+reached Next rather than being dropped on the way.

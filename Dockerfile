@@ -28,9 +28,26 @@ ENV SENTRY_DSN=$SENTRY_DSN \
     NEXT_DEPLOYMENT_ID=$NEXT_DEPLOYMENT_ID
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# NEXT_SERVER_ACTIONS_ENCRYPTION_KEY is what keeps server action ids the same
+# from one build to the next. Left unset, Next generates a random key per build
+# and every single action id changes, so every page anyone is currently holding
+# stops working the moment we deploy: measured at 58 of 58 ids changing between
+# two builds of identical source. It is a real secret (it encrypts bound
+# arguments that cross to the client), so it arrives as a BuildKit secret rather
+# than a build arg and never lands in an image layer or `docker history`.
+#
+# Build time only. Next writes the key into
+# .next/server/server-reference-manifest.json and the running server reads it
+# from there, so there is no runtime env var and no Fly secret to keep in sync.
 RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
+    --mount=type=secret,id=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY \
     if [ -f /run/secrets/SENTRY_AUTH_TOKEN ]; then \
       export SENTRY_AUTH_TOKEN="$(cat /run/secrets/SENTRY_AUTH_TOKEN)"; \
+    fi \
+    && if [ -f /run/secrets/NEXT_SERVER_ACTIONS_ENCRYPTION_KEY ]; then \
+      export NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$(cat /run/secrets/NEXT_SERVER_ACTIONS_ENCRYPTION_KEY)"; \
+    else \
+      echo "[build] WARNING: no NEXT_SERVER_ACTIONS_ENCRYPTION_KEY. Server action ids will be random for this build, so every page loaded from the previous deploy will break on its next submit."; \
     fi \
     && npx prisma generate \
     && npx next build
