@@ -215,7 +215,14 @@ async function main() {
           .fill(`Recommendation ${index + 1}: Journey is the person everyone calls first, and has been for years.`);
         await friendPage.getByRole("button", { name: "Send my recommendation" }).click();
       }
-      await friendPage.getByRole("heading", { name: /Thank you,/ }).waitFor();
+      // NOT the heading: "Thank you," is shown by the state after a tap and by
+      // the state after words, so waiting on it resolves before the words have
+      // even been posted and every assertion after it reads stale data. Wait
+      // for the words themselves, which only the saved state can render.
+      await friendPage.getByText(/everyone calls first/).waitFor();
+      const answered = await prisma.recommendation.findUniqueOrThrow({ where: { id: request.id } });
+      assert.equal(answered.status, "submitted", "The words must be saved, not just acknowledged.");
+      assert.match(answered.body ?? "", /everyone calls first/);
       await friendContext.close();
     }
 
