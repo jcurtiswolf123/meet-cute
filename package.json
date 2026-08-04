@@ -54,7 +54,9 @@
     "session:new": "tsx scripts/session.ts new",
     "session:list": "tsx scripts/session.ts list",
     "session:end": "tsx scripts/session.ts end",
-    "test:launch:autofix": "node --import tsx scripts/test-autofix-patch.ts"
+    "test:launch:autofix": "node --import tsx scripts/test-autofix-patch.ts",
+    "test:journey:skew": "node --env-file-if-exists=.env --import tsx scripts/test-deploy-skew.ts",
+    "deploy": "flyctl deploy --build-arg NEXT_DEPLOYMENT_ID=\"$(git rev-parse HEAD)\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

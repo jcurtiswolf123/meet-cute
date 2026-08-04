@@ -27,6 +27,23 @@ const securityHeaders = [
 const nextConfig = {
   output: "standalone",
   typescript: { ignoreBuildErrors: false },
+  // Stamp every build with the commit it came from. Mutuals ships several times
+  // a day onto two always-on machines, so a person mid-application is routinely
+  // holding a page from the previous build. Without a deployment id, that
+  // page's asset URLs are indistinguishable from the new build's, so a browser
+  // or CDN can serve a chunk from one build against a document from another.
+  // With it, Next appends `?dpl=<id>` to asset URLs (each build gets its own
+  // cache entries) and sends `x-deployment-id` on server action and navigation
+  // requests, which is what makes a skew visible rather than a mystery.
+  //
+  // It does NOT make a stale server action recover by itself. Nothing does:
+  // Next's own guidance is to reload, and `src/app/error.tsx` is what carries
+  // that out. This is the half that keeps the assets straight.
+  //
+  // Supplied by the deploy job as a build arg (see Dockerfile and
+  // .github/workflows/deploy.yml). Undefined for a plain local build, which is
+  // the pre-existing behaviour and fine: there is only ever one local build.
+  deploymentId: process.env.NEXT_DEPLOYMENT_ID || undefined,
   // Development only. Next 16 blocks cross-origin requests for dev resources,
   // and it treats 127.0.0.1 as a different origin from localhost: the sandbox
   // server and every browser test address it by IP, so the client bundle was
