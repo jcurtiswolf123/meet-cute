@@ -495,3 +495,40 @@ _Append-only. Newest at top. Each entry: what was decided, why, and what was rej
 - Alternatives considered / rejected:
 - Reversible?:
 -->
+
+## An applicant mid-application when we ship (4 August 2026)
+
+A Next.js server action is addressed by an id minted at build time. Mutuals
+ships several times a day, so a page somebody loaded twenty minutes ago posts an
+id the running build has never heard of. Next refuses it (404,
+`x-nextjs-action-not-found`), the client router throws, and the throw lands on
+the error boundary.
+
+The boundary offered `reset()`, which re-renders the bundle the browser is
+already holding, which sends the same dead id, which fails identically. "Try
+again" was a closed loop. An applicant hit it on 4 August, pressed it several
+times, and stopped applying. Six deploys went out that day.
+
+The recovery is a fresh document, and it is the only one available. Skew
+protection that serves the old build back to an old page is infrastructure
+Vercel provides and Fly does not; Next's `experimental.useSkewCookie` sets a
+`__vdpl` cookie for that infrastructure to read and switches off the asset
+stamping we do get, so it is worse than nothing here.
+
+So: one silent automatic attempt on mount, then a button that does the same
+thing deliberately, both in `src/components/Recovery.tsx`. A reload is lossless
+because the application already saves each answer as it is given, so `/apply`
+redraws the furthest step reached. `deploymentId` is set from the commit SHA so
+each build's assets get their own cache entries and a skew is visible rather
+than a mystery.
+
+Left open, knowingly: a submit made before the page hydrates posts natively, and
+that throw happens inside Next's action handler before any render, so no React
+boundary sees it and the response is a bare "Internal Server Error". A
+`global-error.tsx` does not catch it either; that was measured, not assumed.
+Reaching it needs a deploy to land in the seconds between the page's HTML being
+rendered and the submit, rather than the hours-wide window the hydrated path
+has, which is why the production logs show none of them. Closing it would mean a
+build-stamp cookie check in front of every request.
+
+`npm run test:journey:skew` pins the behaviour.

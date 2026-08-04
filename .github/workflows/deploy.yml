@@ -81,6 +81,7 @@ jobs:
           npm run test:journey:vouch || { dump_server_log journey:vouch; exit 1; }
           npm run test:journey:signin || { dump_server_log journey:signin; exit 1; }
           npm run test:journey:nativeforms || { dump_server_log journey:nativeforms; exit 1; }
+          npm run test:journey:skew || { dump_server_log journey:skew; exit 1; }
 
   deploy:
     needs: ci
@@ -101,12 +102,18 @@ jobs:
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
       # pinned to a commit SHA (supply-chain): superfly/flyctl-actions setup-flyctl
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+      # NEXT_DEPLOYMENT_ID stamps the build with the commit it came from, so a
+      # page someone is holding from the previous deploy has asset URLs and
+      # request headers that are distinguishable from this one's. Mutuals ships
+      # several times a day, so mid-application skew is routine, not exotic.
       - name: Deploy
         run: |
           if [ -n "$SENTRY_AUTH_TOKEN" ]; then
-            flyctl deploy --remote-only --build-secret SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"
+            flyctl deploy --remote-only \
+              --build-arg NEXT_DEPLOYMENT_ID="$GITHUB_SHA" \
+              --build-secret SENTRY_AUTH_TOKEN="$SENTRY_AUTH_TOKEN"
           else
-            flyctl deploy --remote-only
+            flyctl deploy --remote-only --build-arg NEXT_DEPLOYMENT_ID="$GITHUB_SHA"
           fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

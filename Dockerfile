@@ -17,10 +17,15 @@ ARG SENTRY_DSN
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG SENTRY_ORG
 ARG SENTRY_PROJECT
+# Identifies this build to the browser so a page held from an earlier deploy is
+# a detectable mismatch rather than a silent one. See next.config.mjs. Passed by
+# the deploy job as the commit SHA; empty is the old behaviour and builds fine.
+ARG NEXT_DEPLOYMENT_ID=""
 ENV SENTRY_DSN=$SENTRY_DSN \
     NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
     SENTRY_ORG=$SENTRY_ORG \
-    SENTRY_PROJECT=$SENTRY_PROJECT
+    SENTRY_PROJECT=$SENTRY_PROJECT \
+    NEXT_DEPLOYMENT_ID=$NEXT_DEPLOYMENT_ID
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
@@ -31,9 +36,14 @@ RUN --mount=type=secret,id=SENTRY_AUTH_TOKEN \
     && npx next build
 
 FROM base AS run
+# Re-declared because a build ARG does not cross stages. The standalone server
+# reads the id baked into the build, so this only keeps the runtime environment
+# saying the same thing as the bundle rather than nothing at all.
+ARG NEXT_DEPLOYMENT_ID=""
 ENV NODE_ENV=production
 ENV PORT=3009
 ENV HOSTNAME=0.0.0.0
+ENV NEXT_DEPLOYMENT_ID=$NEXT_DEPLOYMENT_ID
 COPY --chown=node:node --from=build /app/.next/standalone ./
 COPY --chown=node:node --from=build /app/.next/static ./.next/static
 COPY --chown=node:node --from=build /app/public ./public
