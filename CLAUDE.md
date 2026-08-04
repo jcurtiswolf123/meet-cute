@@ -94,6 +94,8 @@ If you are the only session, the main checkout is fine and nothing changes.
   against real inboxes
 - `docs/REHEARSAL.md` : walking the whole introduction flow on the live site with
   Jess and two member accounts
+- `docs/APPLICATION-FLOW.md` : every step from /apply to an accepted member,
+  and every email that leaves along the way
 - `docs/DECISIONS.md` : why things are the way they are
 - `docs/TASKS.md` : backlog and in-progress work
 - `docs/BRAND-RENAME.md` : the Meet-Cute to Mutuals rename, which deployment
