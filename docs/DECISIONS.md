@@ -2,6 +2,35 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-04 : One rehearsal runs against the deployed build, not the tree
+
+- Context: the launch suite walks the six application steps and refuses to run
+  against anything but an isolated local database. That guard is right, and it
+  also means nothing has ever exercised what is actually serving traffic. A
+  green CI run proves the tree was good when it was tested. It does not prove
+  the container serves the flow, that the Resend key in it is live, that Vercel
+  Blob took the photo, or that the two asks left the building.
+- Decision: `scripts/prod-application-walk.ts --yes` signs up, answers all six
+  questions, uploads a face, names two friends, opens one ask and vouches, on
+  the live site against the live database, then deletes every row it made.
+- Decision: it only touches addresses it generates under one prefix, and the
+  cleanup asserts that prefix before deleting anything. A destructive script
+  pointed at the live roster gets one filter it cannot be talked out of.
+- Decision: it emails nobody but Josh. Applicant and both recommenders are
+  plus-addresses on his own mailbox.
+- Decision: the seeded row is stood up the way a real sign-in stands one up,
+  name from the email local part and city defaulting to NYC. Seeding the answers
+  would make the commit-per-step assertions pass against a row that was already
+  correct, which is exactly the mistake that once landed people on step three.
+- Decision: it waits for both asks to reach `sent` with a provider id rather
+  than trusting `requestedAt`. That column says the code ran. Only the outbox
+  says a provider accepted the mail.
+- The first run leaked, and the fix came from that: eighteen delivery jobs
+  survived cleanup because an ask is addressed to a friend who has no row here
+  and cleanup deleted by personId. Ten were reminders scheduled to fire two days
+  later. Cleanup now deletes the outbox by recipient too. A rehearsal that
+  leaves future sends behind is not a rehearsal.
+
 ## 2026-08-04 : AI autofix is reliable now, not just once-lucky
 
 - Correction to the 2026-08-03 entry below, and to commit f1defcc, which both
