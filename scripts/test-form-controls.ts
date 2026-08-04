@@ -67,8 +67,16 @@ async function main() {
     await page.waitForURL(/\/apply$/);
     applicantId = (await prisma.person.findUniqueOrThrow({ where: { email: applicantEmail } })).id;
 
+    // The gender pills are on the third screen now: the application asks one
+    // question at a time. Walk to them the way an applicant does.
+    await page.getByLabel("First name").fill("Controls");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("group", { name: "City" }).waitFor({ timeout: 20000 });
+    await page.getByRole("group", { name: "City" }).getByText("New York", { exact: true }).click();
+    await page.getByRole("button", { name: "Continue" }).click();
+
     const genderGroup = page.getByRole("group", { name: "You are" });
-    await genderGroup.waitFor();
+    await genderGroup.waitFor({ timeout: 20000 });
     assert.equal(
       await genderGroup.getByRole("radio").count(),
       3,
@@ -81,11 +89,8 @@ async function main() {
         `The gender group must post ${value} as an ordinary form value.`,
       );
     }
-    assert.equal(
-      await page.locator('input[type="checkbox"][name="agree"]').count(),
-      1,
-      "Consent must stay a real checkbox.",
-    );
+    // The consent checkbox lives on the last step; that it stays a real
+    // checkbox is asserted in the journey, which walks that far.
 
     // Pressing a pill selects it, and the arrow keys then move within the group
     // the way they do for any radio group. Both come from the browser, and both

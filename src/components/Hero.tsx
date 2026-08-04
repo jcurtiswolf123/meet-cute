@@ -10,7 +10,7 @@ export function Hero() {
         <div className="grid gap-10 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-9">
             <p className="public-label text-cream/55">
-              New York &amp; San Francisco
+              New York, San Francisco &amp; Los Angeles
             </p>
             <h1 className="mt-7 max-w-[13ch] font-display text-[3.75rem] font-normal leading-[0.9] tracking-[-0.03em] sm:text-[6rem] lg:text-[7.5rem]">
               Meet your friend&rsquo;s friends.

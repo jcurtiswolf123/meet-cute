@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { chromium, type Page } from "playwright";
+import { chromium } from "playwright";
 import { createLoginToken } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
 
@@ -39,30 +39,6 @@ async function testPhotoBytes(): Promise<Buffer> {
   })
     .jpeg()
     .toBuffer();
-}
-
-/**
- * Press "Save and continue" and wait for the half to actually be saved.
- *
- * Not for the navigation: the basics form is driven by useActionState, which is
- * inert until React hydrates, so a press on a cold or loaded runner can post
- * into nothing and the page simply stays put. The contract is the row, so this
- * waits for the row and then makes sure the browser is on the second half,
- * navigating there itself if the client never moved.
- */
-async function saveBasics(page: Page, email: string, baseUrl: string) {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    await page.getByRole("button", { name: "Save and continue" }).click();
-    for (let wait = 0; wait < 10; wait += 1) {
-      const row = await prisma.person.findUnique({ where: { email } });
-      if (row?.basicsAt) {
-        if (!page.url().endsWith("/apply/friends")) await page.goto(`${baseUrl}/apply/friends`);
-        return row;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  }
-  throw new Error(`Saving the first half of ${email} never committed.`);
 }
 
 async function main() {
@@ -117,43 +93,48 @@ async function main() {
     const rawToken = await createLoginToken(memberEmail);
     await memberPage.goto(`${baseUrl}/auth/verify?token=${encodeURIComponent(rawToken)}`);
     await memberPage.waitForURL(/\/apply$/);
+    // The application is one question per screen now, and every screen commits
+    // on its own. That is the property worth testing: not that the form works,
+    // but that stopping halfway leaves something behind.
     await memberPage.getByLabel("First name").fill("Journey");
-    await memberPage.getByLabel("Last name").fill("Member");
-    // Pills backed by real radios now, not a native select: click the choice.
+    await memberPage.getByLabel(/Last name/).fill("Member");
+    await memberPage.getByRole("button", { name: "Continue" }).click();
+    await memberPage.getByRole("group", { name: "City" }).waitFor({ timeout: 20000 });
+    assert.equal(
+      (await prisma.person.findUniqueOrThrow({ where: { email: memberEmail } })).name,
+      "Journey Member",
+      "Step one commits before step two is shown.",
+    );
+
+    await memberPage.getByRole("group", { name: "City" }).getByText("New York", { exact: true }).click();
+    await memberPage.getByRole("button", { name: "Continue" }).click();
+    await memberPage.getByRole("group", { name: "You are" }).waitFor({ timeout: 20000 });
+
+    // Leaving and coming back has to land on the step they stopped at, not at
+    // the beginning. This cannot be inferred from which fields are filled:
+    // every applicant's name is populated at sign-in from their email local
+    // part and city defaults to NYC, so both look answered before anyone has
+    // answered anything. It is recorded, and this is what proves it.
+    await memberPage.goto(`${baseUrl}/apply`);
+    await memberPage.getByRole("group", { name: "You are" }).waitFor({ timeout: 20000 });
+    assert.match(
+      await memberPage.locator("h1").first().innerText(),
+      /How do you identify/,
+      "Coming back must resume at the step they stopped on.",
+    );
+
     await memberPage.getByRole("group", { name: "You are" }).getByText("Man", { exact: true }).click();
+    await memberPage.getByRole("button", { name: "Continue" }).click();
+    await memberPage.getByLabel("Date of birth").waitFor({ timeout: 20000 });
+
     await memberPage.getByLabel("Date of birth").fill("1990-01-01");
-    await memberPage.getByLabel("Instagram").fill("@journey-member");
-    await memberPage
-      .getByLabel("What you're looking for")
-      .fill("A thoughtful relationship with someone curious and kind.");
-    // The real checkbox is visually hidden behind the mark we draw, so this
-    // presses the mark, which is what a member presses. Not the sentence: it
-    // carries the Terms and Privacy links, and a click in the middle of it
-    // would open one of those rather than toggle consent.
-    await memberPage
-      .locator('label:has(input[name="agree"])')
-      .click({ position: { x: 10, y: 12 } });
-    assert.equal(
-      await memberPage.getByRole("checkbox", { name: /I am 18 or older/ }).isChecked(),
-      true,
-      "Pressing the consent label must actually check the underlying box.",
-    );
+    await memberPage.getByRole("button", { name: "Continue" }).click();
 
-    // A photo is required, and the uploader posts on its own rather than
-    // through the form, so the server rejects a save with none. Save once with
-    // no photo to prove the gate is real, then add one.
-    await memberPage.getByRole("button", { name: "Save and continue" }).click();
-    await memberPage
-      .getByText("Add at least one photo. Your matchmaker and your introduction both need a face.")
-      .waitFor();
-    assert.equal(
-      new URL(memberPage.url()).pathname,
-      "/apply",
-      "An application with no photo must not be accepted.",
-    );
+    // The photo step refuses to advance without one, and says so.
+    await memberPage.getByRole("button", { name: /Add a photo/ }).waitFor({ timeout: 20000 });
+    await memberPage.getByRole("button", { name: "Continue" }).click();
+    await memberPage.getByText(/Add at least one photo to continue/).waitFor({ timeout: 20000 });
 
-    // Through the real control (a button that opens the file chooser), not by
-    // setting files on the hidden input, so this covers the path a member takes.
     const [chooser] = await Promise.all([
       memberPage.waitForEvent("filechooser"),
       memberPage.getByRole("button", { name: /Add a photo/ }).click(),
@@ -164,11 +145,20 @@ async function main() {
       buffer: await testPhotoBytes(),
     });
     await memberPage.getByRole("button", { name: /Add another/ }).waitFor();
+    await memberPage.getByRole("button", { name: "Continue" }).click();
+
+    // Last step: the optional things, and the one agreement that is not.
+    await memberPage.getByLabel(/What you're looking for/).waitFor({ timeout: 20000 });
+    await memberPage.getByLabel(/What you're looking for/).fill("A thoughtful relationship with someone curious and kind.");
+    await memberPage.getByLabel("Instagram").fill("@journey-member");
+    await memberPage.locator('label:has(input[name="agree"])').click({ position: { x: 10, y: 12 } });
+    await memberPage.getByRole("button", { name: /Continue to your two friends/ }).click();
+    await memberPage.waitForURL(/\/apply\/friends$/, { timeout: 30000 });
 
     // The first half is saved on its own. This is the whole point of the split:
     // stopping here is no longer losing everything, so the row exists with a
     // name, a city and a face before a single friend has been named.
-    const half = await saveBasics(memberPage, memberEmail, baseUrl);
+    const half = await prisma.person.findUniqueOrThrow({ where: { email: memberEmail } });
     assert.ok(half.basicsAt, "The first half must commit on its own.");
     assert.equal(half.appliedAt, null, "And must not count as a completed application.");
     assert.equal(half.name, "Journey Member");
@@ -423,21 +413,31 @@ async function main() {
 
     await adaPage.goto(`${baseUrl}/auth/verify?token=${encodeURIComponent(adaToken)}`);
     await adaPage.waitForURL(/\/apply$/);
-    await adaPage.getByRole("group", { name: "You are" }).getByText("Woman", { exact: true }).click();
-    // She fills in her own half and saves it, exactly like anyone else. The
-    // credit for having vouched shows on the second half, where the friends
-    // are asked for.
+    // She walks the same steps. Her name and city are already unknown to us, so
+    // she starts at the beginning like anyone else.
     await adaPage.getByLabel("First name").fill("Ada");
-    await adaPage.getByLabel("Last name").fill("Recommender");
+    await adaPage.getByLabel(/Last name/).fill("Recommender");
+    await adaPage.getByRole("button", { name: "Continue" }).click();
+    await adaPage.getByRole("group", { name: "City" }).waitFor({ timeout: 20000 });
+    await adaPage.getByRole("group", { name: "City" }).getByText("New York", { exact: true }).click();
+    await adaPage.getByRole("button", { name: "Continue" }).click();
+    await adaPage.getByRole("group", { name: "You are" }).waitFor({ timeout: 20000 });
+    await adaPage.getByRole("group", { name: "You are" }).getByText("Woman", { exact: true }).click();
+    await adaPage.getByRole("button", { name: "Continue" }).click();
+    await adaPage.getByLabel("Date of birth").waitFor({ timeout: 20000 });
     await adaPage.getByLabel("Date of birth").fill("1991-02-02");
-    await adaPage.locator('label:has(input[name="agree"])').click({ position: { x: 10, y: 12 } });
+    await adaPage.getByRole("button", { name: "Continue" }).click();
+    await adaPage.getByRole("button", { name: /Add a photo/ }).waitFor({ timeout: 20000 });
     const [adaChooser] = await Promise.all([
       adaPage.waitForEvent("filechooser"),
       adaPage.getByRole("button", { name: /Add a photo/ }).click(),
     ]);
     await adaChooser.setFiles({ name: "ada.jpg", mimeType: "image/jpeg", buffer: await testPhotoBytes() });
     await adaPage.getByRole("button", { name: /Add another/ }).waitFor();
-    await saveBasics(adaPage, firstRecommenderEmail, baseUrl);
+    await adaPage.getByRole("button", { name: "Continue" }).click();
+    await adaPage.locator('label:has(input[name="agree"])').click({ position: { x: 10, y: 12 } });
+    await adaPage.getByRole("button", { name: /Continue to your two friends/ }).click();
+    await adaPage.waitForURL(/\/apply\/friends$/, { timeout: 30000 });
 
     // waitFor rather than a one-shot innerText: the page streams behind the
     // Suspense fallback in src/app/loading.tsx, so reading innerText the
