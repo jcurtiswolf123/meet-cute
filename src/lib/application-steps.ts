@@ -162,3 +162,37 @@ export function stepAfter(step: StepId): StepId | null {
 export function isStepId(value: string | null | undefined): value is StepId {
   return STEPS.some((step) => step.id === value);
 }
+
+/**
+ * The name we invent for somebody at sign-in, from their email local part.
+ *
+ * It exists so a brand-new row is not nameless, and it is not something anybody
+ * typed. Sign-in writes it (src/app/auth/verify/route.ts) and the application
+ * has to be able to recognise it again, because a step that shows it back is
+ * showing a person a name they never gave.
+ */
+export function seededNameFor(email: string | null | undefined): string {
+  const local = String(email ?? "").split("@")[0].replace(/[._-]+/g, " ").trim();
+  return local ? local.replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 60) : "New member";
+}
+
+/**
+ * Did this person actually tell us their name?
+ *
+ * The application used to answer this with "do they have an applicationStep",
+ * which was right for anybody who started after the form became a sequence of
+ * steps and wrong for everybody who started before it. On 4 August that was 25
+ * unfinished applicants, 6 of whom had typed a real name into the old one-page
+ * form: they came back to an empty first-name field, and to a surname that had
+ * meanwhile become required, so the form asked them for something it already
+ * had.
+ *
+ * Comparing against the seeded name answers the actual question. It also
+ * catches the case the old test never could: "john.smith@" seeds "John Smith",
+ * which has a surname and looks completely real.
+ */
+export function nameWasGiven(row: { name: string | null; email: string | null }): boolean {
+  const name = String(row.name ?? "").trim();
+  if (!name) return false;
+  return name.toLowerCase() !== seededNameFor(row.email).toLowerCase();
+}

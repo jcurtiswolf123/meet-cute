@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { seededNameFor } from "@/lib/application-steps";
 import { prisma } from "@/lib/prisma";
 import { scheduleUnfinishedApplicationNudge } from "@/lib/actions";
 import { cancelScheduledMail } from "@/lib/delivery";
@@ -28,8 +29,9 @@ export async function GET(req: NextRequest) {
   if (!person) {
     // Public signup: a brand-new email becomes an applicant who completes their
     // profile at /apply. Never created as active; vetting promotes them.
-    const local = email.split("@")[0].replace(/[._-]+/g, " ").trim();
-    const name = local ? local.replace(/\b\w/g, (c) => c.toUpperCase()).slice(0, 60) : "New member";
+    // Shared with the application, which has to be able to tell this invented
+    // name apart from one somebody actually typed.
+    const name = seededNameFor(email);
     person = await prisma.person.create({
       data: { email, name, city: "NYC", status: "applicant" },
     });
