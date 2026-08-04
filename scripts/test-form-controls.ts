@@ -22,6 +22,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { chromium, type BrowserContext } from "playwright";
 import { createLoginToken } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
+import { answered, waitForRow } from "./journey-waits";
 
 const baseUrl = process.env.MEMBER_E2E_BASE_URL || "http://127.0.0.1:3009";
 const databaseUrl = process.env.DATABASE_URL;
@@ -48,24 +49,6 @@ async function signIn(context: BrowserContext, personId: string) {
       sameSite: "Lax",
     },
   ]);
-}
-
-/** A step of the application, read from the row rather than from the screen it
- *  unlocks. Every step is a server action plus a redirect, so the control this
- *  test wants appears strictly after the commit; asserting the commit first
- *  means a slow round trip fails as a slow round trip and not as a control that
- *  is not there. */
-async function waitForStep(
-  email: string,
-  done: (row: NonNullable<Awaited<ReturnType<typeof prisma.person.findUnique>>>) => boolean,
-  description: string,
-): Promise<void> {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    const row = await prisma.person.findUnique({ where: { email } });
-    if (row && done(row)) return;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error(`${description} of the application did not commit within 60s.`);
 }
 
 async function main() {
@@ -95,11 +78,11 @@ async function main() {
     // reads as a missing control, which is what failed the build on 4 August.
     // The row says whether the step actually happened; the group is then a
     // formality with room to render.
-    await waitForStep(applicantEmail, (row) => row.name === "Controls Tester", "Step one");
+    await waitForRow({ email: applicantEmail }, (row) => row.name === "Controls Tester", "step one commits the name");
     await page.getByRole("group", { name: "City" }).waitFor({ timeout: 60000 });
     await page.getByRole("group", { name: "City" }).getByText("New York", { exact: true }).click();
     await page.getByRole("button", { name: "Continue" }).click();
-    await waitForStep(applicantEmail, (row) => row.applicationStep === "city", "Step two");
+    await waitForRow({ email: applicantEmail }, answered("city"), "step two commits the city");
 
     const genderGroup = page.getByRole("group", { name: "You are" });
     await genderGroup.waitFor({ timeout: 60000 });

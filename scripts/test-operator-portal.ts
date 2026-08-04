@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { chromium, type Page } from "playwright";
 import { prisma } from "../src/lib/prisma";
+import { waitForRow } from "./journey-waits";
 
 const baseUrl = process.env.ROLE_E2E_BASE_URL || "http://127.0.0.1:3009";
 const testDomain = "roles-e2e.test";
@@ -41,33 +42,14 @@ async function chooseCity(page: Page, label: string) {
   await page.getByRole("listbox", { name: "City" }).getByRole("option", { name: label }).click();
 }
 
-/** What a studio action did, read from the database rather than from a client
- *  navigation.
- *
- *  Every one of these steps is a server action followed by a redirect that puts
- *  the outcome in the query string, and waiting on that redirect is waiting on
- *  the slowest, least interesting part of it. On a loaded runner it is also the
- *  part that misses: this file has now failed CI four separate times on a URL
- *  or a flash that had not landed yet while the row underneath was already
- *  correct. The row is the thing being tested. Poll it. */
-async function waitForPerson(
-  where: { id: string } | { email: string },
-  done: (row: NonNullable<Awaited<ReturnType<typeof prisma.person.findUnique>>>) => boolean,
-  description: string,
-) {
-  for (let attempt = 0; attempt < 120; attempt += 1) {
-    const row = await prisma.person.findUnique({ where });
-    if (row && done(row)) return row;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error(`${description} did not take effect within 60s.`);
-}
-
+/** Studio actions are the same shape as the application steps: a server action,
+ *  a redirect, and an outcome that lands on the row before the flash renders.
+ *  See scripts/journey-waits.ts for why none of these wait on a URL. */
 const waitForOperatorRow = (email: string) =>
-  waitForPerson({ email }, () => true, `Adding an operator did not create ${email}`);
+  waitForRow({ email }, () => true, `Adding an operator did not create ${email}`);
 
 const waitForOperatorPromotion = (personId: string) =>
-  waitForPerson({ id: personId }, (row) => row.isOperator, `Promoting ${personId} to operator`);
+  waitForRow({ id: personId }, (row) => row.isOperator, `Promoting ${personId} to operator`);
 
 async function main() {
   await prisma.person.deleteMany({
@@ -337,7 +319,7 @@ async function main() {
     // The revoke itself, read from the row. This used to wait on the redirect
     // and then on the flash, and it is what failed the build on 4 August while
     // the page it printed showed the studio rendering perfectly well.
-    await waitForPerson(
+    await waitForRow(
       { id: ordinaryOperator.id },
       (row) => !row.isOperator,
       `Revoking studio access for ${ordinaryOperator.name}`,
