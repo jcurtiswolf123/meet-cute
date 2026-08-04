@@ -13,7 +13,7 @@ import { CityStep, GenderStep } from "./ChoiceStep";
 import { PhotoStep } from "./PhotoStep";
 import { ExtrasStep } from "./ExtrasStep";
 import { saveApplicationStep } from "@/lib/actions";
-import { STEPS, currentStep, isStepId, stepIndex } from "@/lib/application-steps";
+import { STEPS, currentStep, isStepId, splitName, stepIndex } from "@/lib/application-steps";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Apply" };
@@ -21,7 +21,7 @@ export const metadata = { title: "Apply" };
 export default async function Apply({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; error?: string; from?: string; missing?: string; email?: string; step?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string; from?: string; missing?: string; email?: string; step?: string; first?: string; last?: string }>;
 }) {
   const me = await getCurrentPerson();
   const sp = await searchParams;
@@ -148,6 +148,7 @@ export default async function Apply({
 
   const MESSAGES: Record<string, [string, string]> = {
     first: ["first", "Enter your first name."],
+    last: ["last", "Enter your last name. It stays private until you and a match have both said yes."],
     city: ["city", "Pick a city."],
     gender: ["gender", "Pick one so we can match you."],
     birthdate: ["birthdate", "Enter your date of birth."],
@@ -160,7 +161,16 @@ export default async function Apply({
     (sp.missing ?? "").split(",").map((code) => MESSAGES[code]).filter(Boolean) as [string, string][],
   );
 
-  const [first = "", last = ""] = nameGiven ? (me.name || "").split(" ") : ["", ""];
+  // Everything after the first space is the surname. Destructuring a plain
+  // split on every space dropped the last word of any three-part name each
+  // time this page redrew, which now also means dropping a required field.
+  //
+  // A rejected step echoes what was typed, because it cannot be stored: half a
+  // name is not a name, and the row's seeded value (the email local part) has
+  // to stay distinguishable from something a person actually wrote.
+  const stored = nameGiven ? splitName(me.name) : { first: "", last: "" };
+  const first = sp.first ?? stored.first;
+  const last = sp.last ?? stored.last;
 
   return (
     <>
@@ -186,10 +196,16 @@ export default async function Apply({
                     <StepError message={errors.first} />
                   </div>
                   <div>
-                    <label className="label" htmlFor="last">
-                      Last name <span className="text-muted">(optional)</span>
-                    </label>
-                    <input id="last" name="last" className="field mt-1.5" defaultValue={last} autoComplete="family-name" />
+                    <label className="label" htmlFor="last">Last name</label>
+                    <input
+                      id="last"
+                      name="last"
+                      className="field mt-1.5"
+                      defaultValue={last}
+                      autoComplete="family-name"
+                      aria-invalid={errors.last ? true : undefined}
+                    />
+                    <StepError message={errors.last} />
                   </div>
                 </div>
                 <SubmitButton className="btn-primary w-full py-3" pendingText="Saving...">
@@ -234,6 +250,7 @@ export default async function Apply({
             {step === "extras" && (
               <ExtrasStep
                 defaults={{
+                  email: me.email ?? "",
                   phone: me.phone ?? "",
                   instagram: me.instagram ?? "",
                   linkedin: me.linkedin ?? "",

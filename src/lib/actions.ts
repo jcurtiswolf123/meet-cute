@@ -552,12 +552,28 @@ export async function saveApplicationStep(formData: FormData): Promise<void> {
 
   const data: Prisma.PersonUpdateInput = {};
   const problems: string[] = [];
+  // Values to hand back on a rejected step. The row cannot carry these: a name
+  // is one column and half of one is not a name, and the seeded local part
+  // ("josh" from josh@) has to stay distinguishable from something typed.
+  const echo = new URLSearchParams();
 
   if (step === "name") {
     const first = String(formData.get("first") || "").trim().slice(0, 60);
     const last = String(formData.get("last") || "").trim().slice(0, 60);
     if (!first) problems.push("first");
-    else data.name = `${first} ${last}`.trim();
+    // A surname is required now. It is never shown before two people have both
+    // said yes, and it is what makes an introduction land as a real person
+    // rather than a handle: the matchmaker, the studio, and the introduction
+    // email all had to work around half a name.
+    if (!last) problems.push("last");
+    if (first && last) data.name = `${first} ${last}`;
+    else {
+      // Rejected. Give back exactly what they typed: being asked for a surname
+      // is a small enough thing that having your first name wiped in exchange
+      // is the part people actually leave over.
+      if (first) echo.set("first", first);
+      if (last) echo.set("last", last);
+    }
   }
 
   if (step === "city") {
@@ -621,7 +637,11 @@ export async function saveApplicationStep(formData: FormData): Promise<void> {
     await prisma.person.update({ where: { id: me!.id }, data });
   }
 
-  if (problems.length > 0) redirect(`/apply?step=${step}&missing=${problems.join(",")}`);
+  if (problems.length > 0) {
+    echo.set("step", step);
+    echo.set("missing", problems.join(","));
+    redirect(`/apply?${echo.toString()}`);
+  }
 
   const next = stepAfter(step as StepId);
   redirect(next ? `/apply?step=${next}` : "/apply/friends");

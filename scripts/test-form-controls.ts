@@ -88,13 +88,14 @@ async function main() {
     // The gender pills are on the third screen now: the application asks one
     // question at a time. Walk to them the way an applicant does.
     await page.getByLabel("First name").fill("Controls");
+    await page.getByLabel("Last name").fill("Tester");
     await page.getByRole("button", { name: "Continue" }).click();
     // Wait for the step to commit before waiting for the screen it unlocks.
     // Waiting only on the City group means a slow round trip on a loaded runner
     // reads as a missing control, which is what failed the build on 4 August.
     // The row says whether the step actually happened; the group is then a
     // formality with room to render.
-    await waitForStep(applicantEmail, (row) => row.name === "Controls", "Step one");
+    await waitForStep(applicantEmail, (row) => row.name === "Controls Tester", "Step one");
     await page.getByRole("group", { name: "City" }).waitFor({ timeout: 60000 });
     await page.getByRole("group", { name: "City" }).getByText("New York", { exact: true }).click();
     await page.getByRole("button", { name: "Continue" }).click();

@@ -43,7 +43,7 @@ export const STEPS: { id: StepId; title: (row: ApplicationRow) => string; sub: s
   {
     id: "name",
     title: () => "What should we call you?",
-    sub: "First name is plenty. Your surname stays private until you and a match have both said yes.",
+    sub: "Your surname stays private until you and a match have both said yes. Nobody sees it before that.",
   },
   {
     id: "city",
@@ -72,11 +72,33 @@ export const STEPS: { id: StepId; title: (row: ApplicationRow) => string; sub: s
   },
 ];
 
+/** A name is only an answer once it carries a surname. Stored as one column,
+ *  because that is what the roster, the studio, and every email read. */
+export function hasFullName(name: string | null | undefined): boolean {
+  const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean);
+  return parts.length >= 2;
+}
+
+/** Split a stored name the way the form collects it: everything after the
+ *  first space is the surname. Splitting on every space and taking two drops
+ *  the last word of "Mary Anne Smith" every time the form is redrawn. */
+export function splitName(name: string | null | undefined): { first: string; last: string } {
+  const trimmed = String(name ?? "").trim();
+  if (!trimmed) return { first: "", last: "" };
+  const space = trimmed.search(/\s/);
+  if (space === -1) return { first: trimmed, last: "" };
+  return { first: trimmed.slice(0, space), last: trimmed.slice(space + 1).trim() };
+}
+
 /** Whether this step has been answered, read from the row itself. */
 export function isStepDone(step: StepId, row: ApplicationRow, photoCount: number): boolean {
   switch (step) {
     case "name":
-      return !!row.name?.trim();
+      // Both parts. A row seeded at sign-in carries the email local part as a
+      // one-word name, and before the surname was required that read as an
+      // answered step, which is how somebody could reach the friends page
+      // having never typed their own name.
+      return hasFullName(row.name);
     case "city":
       return !!row.city;
     case "gender":

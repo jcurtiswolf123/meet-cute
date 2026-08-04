@@ -2,6 +2,41 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-04 : A surname is required, and the one-page form is audited into the stepper
+
+- Decision: last name is required. It is still never shown before two people
+  have both said yes, and the step copy now says that instead of calling the
+  surname optional.
+- A name is one column, so requiring the second half made the split the
+  dangerous part. It ran on every redraw and dropped the last word of any
+  three-part name: "Mary Anne Smith" came back as "Mary Anne". splitName takes
+  everything after the first space, and the round trip is asserted lossless.
+- isStepDone("name") now wants both parts, because a row seeded at sign-in
+  carries the email local part as a one-word name. That looked like an answered
+  step, which is how somebody could reach the friends page having never typed
+  their own name. On the live roster this is 21 people, all of whom had
+  applicationStep null and were being asked anyway, so nobody is newly stopped.
+- Anyone already past the first half keeps their one-word name. Requiring a
+  surname today is not a reason to stop someone who answered that screen
+  yesterday. Three members are in that position: Nicole, Kim, Michael.
+- A rejected step now hands back what was typed, in the query string. It cannot
+  go on the row: half a name is not a name, and the seeded local part has to
+  stay distinguishable from something a person actually wrote. Without this,
+  being asked for a surname also wiped the first name, which is the part people
+  actually leave over.
+- Audited every field on the pre-stepper one-page form against the six steps.
+  All thirteen inputs survived the split. Two pieces of copy had not:
+  - The email the application belongs to was shown nowhere once signed in, so
+    somebody who signed in on a work laptop had no way to notice they were
+    applying as their work address until the first introduction arrived there.
+    It is back on the last step, read-only.
+  - "Prefer not to? Leave this unchecked. You will still be introduced to your
+    matches by email." That line is what makes the SMS box read as genuinely
+    optional, which is the thing CTIA and A2P 10DLC care about.
+- The 18-plus line and the reason gender is asked were not lost. They moved into
+  the step subtitles, which is why the audit was worth doing field by field
+  rather than by reading the diff.
+
 ## 2026-08-04 : One rehearsal runs against the deployed build, not the tree
 
 - Context: the launch suite walks the six application steps and refuses to run

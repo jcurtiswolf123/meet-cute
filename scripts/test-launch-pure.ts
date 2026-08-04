@@ -9,6 +9,7 @@ import {
 } from "../src/lib/auth";
 import { LIVE_INTRO_STAGES, introReturnPath } from "../src/lib/introductions";
 import { introNotice } from "../src/app/studio/(portal)/matchmaking/intro-notice";
+import { currentStep, hasFullName, splitName } from "../src/lib/application-steps";
 
 assert.equal(uploadStorageMode({ production: true, blobToken: "" }), "database");
 assert.equal(uploadStorageMode({ production: true, blobToken: "configured" }), "blob");
@@ -97,5 +98,50 @@ assert.equal(introReturnPath("/app"), "/studio");
 assert.equal(introReturnPath(""), "/studio");
 assert.equal(introReturnPath(undefined), "/studio");
 assert.equal(introReturnPath(null), "/studio");
+
+// --- the name step, which is now two required fields in one column ---------
+//
+// A surname is required, and the form has always stored both halves in one
+// `name`. That makes the split the dangerous part: it runs every time the page
+// redraws, and it used to drop the last word of a three-part name.
+assert.deepEqual(splitName("Mary Anne Smith"), { first: "Mary", last: "Anne Smith" });
+assert.deepEqual(splitName("Ada Lovelace"), { first: "Ada", last: "Lovelace" });
+assert.deepEqual(splitName("  Ada   Lovelace  "), { first: "Ada", last: "Lovelace" });
+assert.deepEqual(splitName("josh"), { first: "josh", last: "" });
+assert.deepEqual(splitName(""), { first: "", last: "" });
+assert.deepEqual(splitName(null), { first: "", last: "" });
+// Round trip: whatever the form shows must be what the row already holds, or
+// resuming an application quietly edits somebody's name.
+for (const name of ["Mary Anne Smith", "Ada Lovelace", "Jean-Luc de la Cruz"]) {
+  const { first, last } = splitName(name);
+  assert.equal(`${first} ${last}`, name, `Splitting and rejoining ${name} must be lossless.`);
+}
+
+assert.equal(hasFullName("Ada Lovelace"), true);
+assert.equal(hasFullName("Mary Anne Smith"), true);
+// The name a row carries after sign-in is the email local part. It looks like
+// an answer and is not one, which is how somebody reached the friends page
+// having never typed their own name.
+assert.equal(hasFullName("josh"), false);
+assert.equal(hasFullName("  josh  "), false);
+assert.equal(hasFullName(""), false);
+assert.equal(hasFullName(null), false);
+
+// A half-answered name sends them back to the first step and leaves everything
+// else they answered alone.
+const seeded = {
+  name: "josh",
+  city: "SF",
+  gender: "man",
+  birthdate: new Date("1990-01-01"),
+  agreedTosAt: null,
+  basicsAt: null,
+  applicationStep: "gender" as const,
+};
+assert.equal(currentStep(seeded, 1), "name");
+assert.equal(currentStep({ ...seeded, name: "Josh Wolf" }, 1), "extras");
+// Anyone already through the first half is left alone: requiring a surname
+// today is not a reason to stop someone who answered that screen yesterday.
+assert.equal(currentStep({ ...seeded, basicsAt: new Date() }, 1), "extras");
 
 console.log("launch pure checks passed");

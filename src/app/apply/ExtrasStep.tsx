@@ -12,7 +12,7 @@ export function ExtrasStep({
   defaults,
   errors,
 }: {
-  defaults: { phone: string; instagram: string; linkedin: string; lookingFor: string; agreed: boolean; smsConsent: boolean };
+  defaults: { email: string; phone: string; instagram: string; linkedin: string; lookingFor: string; agreed: boolean; smsConsent: boolean };
   errors: Record<string, string>;
 }) {
   const [agree, setAgree] = useState(defaults.agreed);
@@ -21,6 +21,19 @@ export function ExtrasStep({
   return (
     <form action={saveApplicationStep} className="space-y-5" noValidate>
       <input type="hidden" name="step" value="extras" />
+
+      {/* The address every introduction goes to. The one-page form showed this
+          and the stepper showed it nowhere, so somebody who signed in on a work
+          laptop had no way to notice they were applying as their work address
+          until the first introduction arrived there. Read-only: changing it is
+          changing which account this is. */}
+      <div>
+        <label className="label" htmlFor="email">Email</label>
+        <input id="email" className="field mt-1.5" type="email" defaultValue={defaults.email} readOnly />
+        <p className="mt-1 text-xs text-muted">
+          How we reach you, and how you and a match are introduced once you have both said yes.
+        </p>
+      </div>
 
       <div>
         <label className="label" htmlFor="lookingFor">
@@ -85,6 +98,9 @@ export function ExtrasStep({
           mobile number above. Message and data rates may apply; message frequency varies. Consent is
           not a condition of joining. Reply STOP to cancel, HELP for help.
         </Checkbox>
+        <p className="mt-2 pl-8 text-xs text-muted">
+          Prefer not to? Leave this unchecked. You will still be introduced to your matches by email.
+        </p>
       </div>
 
       <SubmitButton className="btn-primary w-full py-3" pendingText="Saving...">
