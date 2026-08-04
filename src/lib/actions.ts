@@ -476,10 +476,24 @@ export type ApplyState = {
  * matchmaker can act on once the two friends have been named, and appliedAt
  * powers the accept-rate metric.
  */
-export async function saveApplicationBasics(
-  _prev: ApplyState,
-  formData: FormData,
-): Promise<ApplyState> {
+/**
+ * The first half: everything about you, saved on its own.
+ *
+ * A plain form action rather than one driven by useActionState, for the same
+ * reason the friend's page is: a useActionState form is inert until React
+ * hydrates, so pressing Save the instant the page paints on a slow phone posted
+ * into nothing and the page just sat there. The people most likely to hit that
+ * are the same people this whole split exists to keep, so the form works
+ * whether or not JavaScript has arrived.
+ *
+ * When something is wrong, the valid fields are saved ANYWAY and only the
+ * problems come back in the query string. That is not a shortcut: this page's
+ * entire promise is that it keeps what you gave it, and a native re-render has
+ * no other way to give someone back what they typed. `basicsAt` is still only
+ * stamped when the whole half is right, so a half-typed row is never mistaken
+ * for a finished one.
+ */
+export async function saveApplicationBasics(formData: FormData): Promise<void> {
   const me = await getCurrentPerson();
   if (!me) redirect("/login");
 
@@ -492,77 +506,56 @@ export async function saveApplicationBasics(
   const email = me.email ?? "";
   const phoneRaw = String(formData.get("phone") || "");
   const phone = normalizePhone(phoneRaw);
-  const linkedinRaw = String(formData.get("linkedin") || "");
-  const instagramRaw = String(formData.get("instagram") || "");
-  const linkedin = normalizeLinkedin(linkedinRaw);
-  const instagram = normalizeInstagram(instagramRaw);
+  const linkedin = normalizeLinkedin(String(formData.get("linkedin") || ""));
+  const instagram = normalizeInstagram(String(formData.get("instagram") || ""));
   const birthdateRaw = String(formData.get("birthdate") || "");
   const agreed = formData.get("agree") === "on";
   const smsConsent = formData.get("smsConsent") === "on";
   const gender = String(formData.get("gender") || "").trim();
 
-  const values: Record<string, string> = {
-    first,
-    last,
-    email,
-    city,
-    secondCity: secondCity ?? "",
-    gender,
-    lookingFor,
-    phone: phoneRaw,
-    linkedin: linkedinRaw,
-    instagram: instagramRaw,
-    birthdate: birthdateRaw,
-  };
+  const problems: string[] = [];
+  if (!first) problems.push("first");
+  if (!email.includes("@") || email.length > 254) problems.push("email");
+  if (smsConsent && !phoneRaw.trim()) problems.push("phone");
+  else if (phoneRaw.trim() && !isTextablePhone(phone)) problems.push("phone");
 
-  const fieldErrors: Record<string, string> = {};
-  if (!first) fieldErrors.first = "Enter your first name.";
-  if (!email.includes("@") || email.length > 254) {
-    fieldErrors.email = "Enter a valid email so we can introduce you to your matches.";
-  }
-  if (smsConsent && !phoneRaw.trim()) {
-    fieldErrors.phone = "Add a mobile number to receive text introductions, or uncheck that option.";
-  } else if (phoneRaw.trim() && !isTextablePhone(phone)) {
-    fieldErrors.phone = "That does not look like a valid mobile number. Use a 10-digit number.";
-  }
   const birthParts = birthdateRaw ? parseCalendarDate(birthdateRaw) : null;
   const birthdate = birthParts ? new Date(Date.UTC(birthParts.y, birthParts.m - 1, birthParts.d)) : null;
-  if (!birthParts || !birthdate) {
-    fieldErrors.birthdate = "Enter your date of birth.";
-  } else if (calendarAge(birthParts) < 18) {
-    fieldErrors.birthdate = "You must be 18 or older to join Mutuals.";
-  }
-  if (!agreed) fieldErrors.agree = "Please accept the Terms and Privacy Policy to continue.";
-  if (!isGender(gender)) fieldErrors.gender = "Tell us how you identify so we can match you.";
+  if (!birthParts || !birthdate) problems.push("birthdate");
+  else if (calendarAge(birthParts) < 18) problems.push("age");
+
+  if (!agreed) problems.push("agree");
+  if (!isGender(gender)) problems.push("gender");
 
   const photoCount = await prisma.photo.count({
     where: { personId: me!.id, status: "approved" },
   });
-  if (photoCount === 0) {
-    fieldErrors.photos = "Add at least one photo. Your matchmaker and your introduction both need a face.";
-  }
+  if (photoCount === 0) problems.push("photos");
 
-  if (Object.keys(fieldErrors).length > 0) return { fieldErrors, values };
-
+  // Everything valid is written either way, so a native re-render hands the
+  // applicant back their own work instead of an empty form.
   await prisma.person.update({
     where: { id: me!.id },
     data: {
-      name: `${first} ${last}`.trim() || me!.name,
+      ...(first ? { name: `${first} ${last}`.trim() } : {}),
       city,
       secondCity,
-      gender,
+      ...(isGender(gender) ? { gender } : {}),
       lookingFor,
       phone,
       linkedin,
       instagram,
-      birthdate,
-      age: calendarAge(birthParts!),
-      agreedTosAt: new Date(),
+      ...(birthdate && birthParts && calendarAge(birthParts) >= 18
+        ? { birthdate, age: calendarAge(birthParts) }
+        : {}),
+      ...(agreed ? { agreedTosAt: me!.agreedTosAt ?? new Date() } : {}),
       smsConsentAt: smsConsent && isTextablePhone(phone) ? new Date() : null,
-      basicsAt: me!.basicsAt ?? new Date(),
+      // Only a complete half counts as a saved half.
+      ...(problems.length === 0 ? { basicsAt: me!.basicsAt ?? new Date() } : {}),
     },
   });
 
+  if (problems.length > 0) redirect(`/apply?missing=${problems.join(",")}`);
   redirect("/apply/friends");
 }
 

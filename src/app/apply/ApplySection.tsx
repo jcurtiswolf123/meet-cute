@@ -14,9 +14,11 @@ type Photo = { id: string; url: string; status: string };
 export function ApplySection({
   photos,
   defaults,
+  errors,
 }: {
   photos: Photo[];
   defaults: React.ComponentProps<typeof ApplyBasicsForm>["defaults"];
+  errors?: Record<string, string>;
 }) {
   const [photoCount, setPhotoCount] = useState(photos.length);
 
@@ -25,7 +27,7 @@ export function ApplySection({
       <div className="mt-8">
         <PhotoUpload initial={photos} onCountChange={setPhotoCount} />
       </div>
-      <ApplyBasicsForm defaults={defaults} photoCount={photoCount} />
+      <ApplyBasicsForm defaults={defaults} photoCount={photoCount} errors={errors} />
     </>
   );
 }
