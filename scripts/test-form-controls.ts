@@ -101,10 +101,11 @@ async function main() {
     await page.keyboard.press("ArrowRight");
     assert.equal(await page.locator('input[name="gender"][value="nonbinary"]').isChecked(), true);
 
-    // The rule copy under the group reads off the applicant's own answer, so a
-    // wrong reading here sends someone off to ask the wrong two friends.
+    // The rule copy that reads off this answer now lives on the second half of
+    // the application, so it is asserted in the journey where that page is
+    // already open rather than here, where the subject is the control itself.
     await genderGroup.getByText("Man", { exact: true }).click();
-    await page.getByText("Name two women who know you well.").waitFor();
+    assert.equal(await page.locator('input[name="gender"][value="man"]').isChecked(), true);
     await context.close();
 
     // --- Select, from the keyboard only ------------------------------------

@@ -2,6 +2,31 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-04 : The application is two halves with a real save between them
+
+- Decision: `/apply` saves everything about the applicant on its own and stamps
+  `basicsAt`. `/apply/friends` names the two friends and stamps `appliedAt`,
+  creates the recommendation rows, and sends the asks.
+- Why: leaving used to cost everything. On 3 August, 18 people completed an
+  application and 18 signed in and never did, seven of them after uploading
+  photos, and every one of those left exactly the same trace as somebody who
+  closed the tab immediately: none. Now a person who stops is a person with a
+  name, a city and a face, which is somebody you can write to.
+- Decision: `basicsAt` and `appliedAt` are different fields on purpose.
+  `appliedAt` still means "completed an application a matchmaker can act on"
+  and still powers the accept-rate metric, so half-finished people never appear
+  in the review queue or inflate the denominator.
+- Decision: the studio shows them separately, as "Stopped at the friends", with
+  what they have and whether they have been chased. They are not to-review and
+  they are not noise.
+- Decision: the chase email reads the half they reached. Someone who saved their
+  details is told two names are all that is left and is landed on
+  `/apply/friends`, not sent back to the beginning to retype what they gave.
+- Alternatives rejected: setting `appliedAt` at the halfway point (it would
+  break the metric and put unreviewable people in the queue); a draft table
+  (the Person row is the draft, and a second store means two sources of truth
+  for the same person).
+
 ## 2026-08-04 : Nobody has to make an account to do a friend a favour
 
 - Decision: Vouching requires no account, no session, and no sign-in, and a test

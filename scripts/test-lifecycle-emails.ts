@@ -327,6 +327,26 @@ function main() {
   assert.match(singular.text, /a photo/, "One photo is a photo, not 1 photos.");
   assert.doesNotMatch(singular.text, /1 photos/);
 
+  // Someone who saved their details and stopped at the friends is one screen
+  // from being a member. Telling them to "pick up where you left off" as though
+  // they were halfway up a form is both wrong and less compelling.
+  const halfway = unfinishedApplicationEmail({
+    name: "Maya Rosen",
+    photos: 4,
+    basicsSaved: true,
+    applyUrl: "https://hellomutuals.com/apply/friends",
+  });
+  assertWellFormed("unfinishedApplication(basicsSaved)", halfway);
+  assertOnBrand("unfinishedApplication(basicsSaved)", halfway);
+  assert.match(halfway.text, /Everything about you is saved/);
+  assert.match(halfway.text, /two names and two email addresses/i);
+  assert.match(halfway.html, /apply\/friends/, "It has to land them on the half they stopped at.");
+  assert.doesNotMatch(
+    halfway.text,
+    /your city, your date of birth/,
+    "Never ask again for what they have already given.",
+  );
+
   // HTML-injection guard: a hostile display name must not break out into markup.
   // The recommendation request carries an applicant-supplied name to a stranger.
   const hostileRequest = recommendationRequestEmail({

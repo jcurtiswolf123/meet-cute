@@ -24,6 +24,22 @@ sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
 
+## 2026-08-04: the application saves halfway
+
+Prototype B from the local lab, built for real. `/apply` is now everything about
+you and saves on its own; `/apply/friends` is the two friends and is what
+submits the application.
+
+Leaving used to cost everything: on 3 August, 18 people completed an application
+and 18 signed in and never did, seven of those after uploading photos, and every
+one left the same trace as somebody who closed the tab. A person who stops now
+has a name, a city and a face on file, and the studio lists them under "Stopped
+at the friends" with whether they have been chased.
+
+`basicsAt` and `appliedAt` are deliberately separate, so half-finished people
+never enter the review queue or the accept-rate denominator. The chase email
+reads the half someone reached and lands them there.
+
 ## 2026-08-03: three ways to vouch, and nudges that do not need chasing
 
 The friend step was the whole bottleneck: open a page, write forty characters,

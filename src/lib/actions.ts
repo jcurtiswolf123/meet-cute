@@ -462,7 +462,21 @@ export type ApplyState = {
   values?: Record<string, string>;
 };
 
-export async function completeApplication(
+/**
+ * The first half: everything about you.
+ *
+ * Saved on its own, which is the whole point. Before this, an application was
+ * one submit and leaving cost everything: on 3 August, 18 people signed in and
+ * never finished, seven of them after uploading photos, and every one of them
+ * left exactly the same trace as somebody who closed the tab immediately, which
+ * is to say none. Now the first half commits, so a person who stops is a person
+ * with a name, a city and a face who can be written to.
+ *
+ * It deliberately does NOT set appliedAt. An application is only something a
+ * matchmaker can act on once the two friends have been named, and appliedAt
+ * powers the accept-rate metric.
+ */
+export async function saveApplicationBasics(
   _prev: ApplyState,
   formData: FormData,
 ): Promise<ApplyState> {
@@ -472,11 +486,8 @@ export async function completeApplication(
   const first = String(formData.get("first") || "").trim();
   const last = String(formData.get("last") || "").trim();
   const city = normalizeCity(String(formData.get("city") || ""));
-  // Empty means one city, and a second that equals the first is one city too.
   const secondRaw = String(formData.get("secondCity") || "").trim();
   const secondCity = secondRaw && normalizeCity(secondRaw) !== city ? normalizeCity(secondRaw) : null;
-  // One short line on what they want; the fast signup intentionally drops the
-  // long free-form profile fields (headline/bio/deal-breakers).
   const lookingFor = String(formData.get("lookingFor") || "").trim().slice(0, 280);
   const email = me.email ?? "";
   const phoneRaw = String(formData.get("phone") || "");
@@ -487,31 +498,9 @@ export async function completeApplication(
   const instagram = normalizeInstagram(instagramRaw);
   const birthdateRaw = String(formData.get("birthdate") || "");
   const agreed = formData.get("agree") === "on";
-  // SMS opt-in is separate and optional; only meaningful with a textable number.
   const smsConsent = formData.get("smsConsent") === "on";
-  // Gender is what the opposite-gender recommendation rule is checked against,
-  // and it is also the field the matchmaker filters on. It was never collected
-  // here: every one of the 25 people on the roster had a null gender.
   const gender = String(formData.get("gender") || "").trim();
-  // One line from the applicant, carried into the ask. A note from the person
-  // themselves converts better than any system copy, because it is the only
-  // part of that email they wrote.
-  const applicantNote = String(formData.get("applicantNote") || "").trim().slice(0, 200);
-  // Someone who has already vouched for a member needs one new friend, not two:
-  // the member they vouched for counts as the other. That credit is what makes
-  // a recommender worth converting, and it is checked on the server rather than
-  // trusted from the form.
-  const fastTrack = await fastTrackFor(email, gender);
-  const needed = requiredNewRecommenders(fastTrack);
 
-  // The friends who have to write back before this application is accepted.
-  const recommenders = [1, 2].slice(0, needed).map((slot) => ({
-    name: String(formData.get(`rec${slot}Name`) || "").trim().slice(0, 120),
-    email: String(formData.get(`rec${slot}Email`) || "").trim().toLowerCase().slice(0, 254),
-    gender: String(formData.get(`rec${slot}Gender`) || "").trim(),
-  }));
-
-  // Echo the entered values back so a re-render preserves them.
   const values: Record<string, string> = {
     first,
     last,
@@ -524,22 +513,13 @@ export async function completeApplication(
     linkedin: linkedinRaw,
     instagram: instagramRaw,
     birthdate: birthdateRaw,
-    applicantNote,
   };
-  recommenders.forEach((r, i) => {
-    values[`rec${i + 1}Name`] = r.name;
-    values[`rec${i + 1}Email`] = r.email;
-    values[`rec${i + 1}Gender`] = r.gender;
-  });
 
   const fieldErrors: Record<string, string> = {};
   if (!first) fieldErrors.first = "Enter your first name.";
-  // Email is the baseline channel: it is how a match and you are introduced.
   if (!email.includes("@") || email.length > 254) {
     fieldErrors.email = "Enter a valid email so we can introduce you to your matches.";
   }
-  // Phone is optional. It is only required when the applicant opts in to SMS
-  // introductions, and it must be a real, textable mobile number when present.
   if (smsConsent && !phoneRaw.trim()) {
     fieldErrors.phone = "Add a mobile number to receive text introductions, or uncheck that option.";
   } else if (phoneRaw.trim() && !isTextablePhone(phone)) {
@@ -555,10 +535,6 @@ export async function completeApplication(
   if (!agreed) fieldErrors.agree = "Please accept the Terms and Privacy Policy to continue.";
   if (!isGender(gender)) fieldErrors.gender = "Tell us how you identify so we can match you.";
 
-  // A photo is required. It used to be encouraged, and 10 of the 25 people on
-  // the roster had none, so half the introductions went out with initials where
-  // a face should be. The check is here rather than only in the browser because
-  // the uploader posts to /api/photos on its own, outside this form.
   const photoCount = await prisma.photo.count({
     where: { personId: me!.id, status: "approved" },
   });
@@ -566,8 +542,65 @@ export async function completeApplication(
     fieldErrors.photos = "Add at least one photo. Your matchmaker and your introduction both need a face.";
   }
 
-  // Two friends of the opposite gender. This is the gate: naming them is what
-  // an application IS now, so the errors have to be specific enough to fix.
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors, values };
+
+  await prisma.person.update({
+    where: { id: me!.id },
+    data: {
+      name: `${first} ${last}`.trim() || me!.name,
+      city,
+      secondCity,
+      gender,
+      lookingFor,
+      phone,
+      linkedin,
+      instagram,
+      birthdate,
+      age: calendarAge(birthParts!),
+      agreedTosAt: new Date(),
+      smsConsentAt: smsConsent && isTextablePhone(phone) ? new Date() : null,
+      basicsAt: me!.basicsAt ?? new Date(),
+    },
+  });
+
+  redirect("/apply/friends");
+}
+
+/**
+ * The second half: the two friends, which is what actually gets someone in.
+ *
+ * Reached with the first half already saved, so nothing here can lose it. This
+ * is where appliedAt lands, where the recommendation rows are created, and
+ * where the asks go out.
+ */
+export async function submitApplicationFriends(
+  _prev: ApplyState,
+  formData: FormData,
+): Promise<ApplyState> {
+  const me = await getCurrentPerson();
+  if (!me) redirect("/login");
+  if (!me.basicsAt) redirect("/apply");
+
+  const email = me.email ?? "";
+  const gender = me.gender ?? "";
+  const applicantNote = String(formData.get("applicantNote") || "").trim().slice(0, 200);
+
+  const fastTrack = await fastTrackFor(email, gender);
+  const needed = requiredNewRecommenders(fastTrack);
+  const recommenders = [1, 2].slice(0, needed).map((slot) => ({
+    name: String(formData.get(`rec${slot}Name`) || "").trim().slice(0, 120),
+    email: String(formData.get(`rec${slot}Email`) || "").trim().toLowerCase().slice(0, 254),
+    gender: String(formData.get(`rec${slot}Gender`) || "").trim(),
+  }));
+
+  const values: Record<string, string> = { applicantNote };
+  recommenders.forEach((r, i) => {
+    values[`rec${i + 1}Name`] = r.name;
+    values[`rec${i + 1}Email`] = r.email;
+    values[`rec${i + 1}Gender`] = r.gender;
+  });
+
+  const fieldErrors: Record<string, string> = {};
   const seen = new Set<string>();
   recommenders.forEach((person, i) => {
     const slot = i + 1;
@@ -582,9 +615,6 @@ export async function completeApplication(
     seen.add(person.email);
     if (!isGender(person.gender)) fieldErrors[`rec${slot}Gender`] = "Pick one.";
   });
-  // The opposite-gender rule, checked once both slots are otherwise valid.
-  // Nonbinary applicants have no opposite to require, so they need the two
-  // recommendations and nothing more.
   if (isGender(gender) && (gender === "woman" || gender === "man")) {
     const wanted = gender === "woman" ? "man" : "woman";
     recommenders.forEach((person, i) => {
@@ -598,55 +628,22 @@ export async function completeApplication(
     });
   }
 
-  if (Object.keys(fieldErrors).length > 0) {
-    return { fieldErrors, values };
-  }
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors, values };
 
-  const age = calendarAge(birthParts!);
-  const name = `${first} ${last}`.trim() || me!.name;
   await prisma.person.update({
     where: { id: me!.id },
-    // appliedAt stamps a genuine, completed application: it powers the operator's
-    // accept-rate metric and separates real applicants from people who only
-    // clicked a magic link and never finished.
-    data: {
-      name,
-      city,
-      secondCity,
-      gender,
-      lookingFor,
-      phone,
-      linkedin,
-      instagram,
-      birthdate,
-      age,
-      agreedTosAt: new Date(),
-      // SMS opt-in is stamped only when they actually checked the separate box and
-      // gave a textable number. Unchecking (or no number) leaves it null.
-      smsConsentAt: smsConsent && isTextablePhone(phone) ? new Date() : null,
-      appliedAt: me!.appliedAt ?? new Date(),
-    },
+    data: { appliedAt: me!.appliedAt ?? new Date() },
   });
 
-  // They finished, so the chaser queued when they signed in is withdrawn
-  // before it can ask them to do the thing they have just done.
+  // They finished, so the chaser queued when they signed in is withdrawn.
   await cancelScheduledMail("application_unfinished", email);
 
-  // This applicant may be a recommender who came back. Stamp the rows they
-  // wrote with the person they became (the only way the loop is measurable),
-  // write the member-to-member Vouch, and stop the follow-up that was going to
-  // ask them to do the thing they have now done.
   const convertedFrom = await linkRecommenderSignup({ id: me!.id, email });
   if (convertedFrom > 0) await cancelScheduledMail("recommender_follow_up", email);
 
-  // Ask the friends. Queued, like every other send, so a provider hiccup
-  // retries rather than stranding an application nobody can complete.
   const saved = await saveRecommenders(me!.id, recommenders as RecommenderInput[], applicantNote);
-  await queueRecommendationRequests(saved, name, city);
+  await queueRecommendationRequests(saved, me!.name, me!.city);
 
-  // The credited half: the member they vouched for is asked to vouch back. It
-  // is a real request with a real token, so it shows on the waiting page and
-  // counts toward the gate exactly like any other.
   if (fastTrack) {
     const already = await prisma.recommendation.findUnique({
       where: { applicantId_email: { applicantId: me!.id, email: fastTrack.member.email ?? "" } },
@@ -665,7 +662,7 @@ export async function completeApplication(
       try {
         const msg = vouchBackRequestEmail({
           memberName: request.name,
-          applicantName: name,
+          applicantName: me!.name,
           link: recommendationUrl(request.token),
         });
         await queueEmailDelivery({
@@ -683,14 +680,11 @@ export async function completeApplication(
     }
   }
 
-  // Confirm receipt. Queued rather than sent inline so a provider hiccup retries
-  // instead of silently dropping the applicant's only confirmation. The
-  // application itself is already committed above, so this never blocks it.
   if (email.includes("@")) {
     try {
       const msg = applicationReceivedEmail({
-        name,
-        city,
+        name: me!.name,
+        city: me!.city,
         recommenders: saved.map((r) => ({ name: r.name, status: r.status })),
         statusUrl: `${appBaseUrl()}/apply/thanks`,
       });
@@ -832,6 +826,7 @@ export async function scheduleUnfinishedApplicationNudge(person: {
   name: string;
   email: string | null;
   appliedAt: Date | null;
+  basicsAt: Date | null;
   status: string;
   unfinishedNudgedAt: Date | null;
 }, options: { delayMs?: number } = {}): Promise<boolean> {
@@ -841,10 +836,13 @@ export async function scheduleUnfinishedApplicationNudge(person: {
   const photos = await prisma.photo.count({
     where: { personId: person.id, status: "approved" },
   });
+  // Land them on the half they stopped at, not back at the beginning.
+  const basicsSaved = !!person.basicsAt;
   const msg = unfinishedApplicationEmail({
     name: person.name,
     photos,
-    applyUrl: `${appBaseUrl()}/apply`,
+    basicsSaved,
+    applyUrl: `${appBaseUrl()}${basicsSaved ? "/apply/friends" : "/apply"}`,
   });
   await queueEmailDelivery({
     kind: "application_unfinished",

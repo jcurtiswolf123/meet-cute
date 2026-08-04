@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
-import { completeApplication, type ApplyState } from "@/lib/actions";
+import { saveApplicationBasics, type ApplyState } from "@/lib/actions";
 import { SubmitButton } from "@/components/forms";
 import { ChoiceGroup, Checkbox } from "@/components/fields";
 import { CITIES } from "@/lib/cities";
@@ -19,10 +19,6 @@ type Defaults = {
   linkedin: string;
   lookingFor: string;
   maxBirthdate: string;
-  recommenders: { name: string; email: string; gender: string }[];
-  /** Set when this applicant has already vouched for a member, in which case
-   *  that member counts as one of their two and the form asks for one friend. */
-  fastTrack: { memberName: string; memberGender: string | null } | null;
 };
 
 const GENDER_OPTIONS = [
@@ -36,7 +32,7 @@ const CITY_OPTIONS = CITIES.map((city) => ({ value: city.value, label: city.labe
 // The applicant's completion form. A client component so validation problems
 // render inline next to the offending field and nothing they typed is lost on a
 // failed submit (the server action echoes the values back through state).
-export function ApplyForm({
+export function ApplyBasicsForm({
   defaults,
   photoCount,
 }: {
@@ -44,14 +40,12 @@ export function ApplyForm({
   /** Live count from the uploader above, which posts outside this form. */
   photoCount: number;
 }) {
-  const [state, formAction] = useActionState<ApplyState, FormData>(completeApplication, {});
+  const [state, formAction] = useActionState<ApplyState, FormData>(saveApplicationBasics, {});
   const v = state.values ?? {};
   const e = state.fieldErrors ?? {};
   // Prefer the just-typed value (on a re-render after an error), else the
   // server-provided default.
   const val = (k: keyof Omit<Defaults, "recommenders">) => v[k] ?? defaults[k];
-  const rec = (slot: 1 | 2, field: "Name" | "Email" | "Gender") =>
-    v[`rec${slot}${field}`] ?? defaults.recommenders[slot - 1]?.[field.toLowerCase() as "name" | "email" | "gender"] ?? "";
 
   // The uploader posts to /api/photos on its own, so the missing-photo error
   // comes back attached to this form rather than to the thing it is about. It
@@ -78,31 +72,8 @@ export function ApplyForm({
   const [secondCity, setSecondCity] = useState(val("secondCity"));
   const [agree, setAgree] = useState(false);
   const [smsConsent, setSmsConsent] = useState(false);
-  const [recGenders, setRecGenders] = useState<[string, string]>([rec(1, "Gender"), rec(2, "Gender")]);
-  const setRecGender = (slot: 1 | 2, value: string) =>
-    setRecGenders((prev) => (slot === 1 ? [value, prev[1]] : [prev[0], value]));
 
-  // One friend instead of two when the applicant has already vouched for a
-  // member. The server decides this; the form only renders what it was told,
-  // so nobody can talk their way into a shorter gate by editing the page.
-  const slots = defaults.fastTrack ? [1] : [1, 2];
 
-  const vouchRule =
-    gender === "woman"
-      ? "Name two men who know you well."
-      : gender === "man"
-        ? "Name two women who know you well."
-        : gender === "nonbinary"
-          ? "Name two friends who know you well."
-          : "Name two friends of the opposite gender who know you well.";
-  const vouchRuleSingle =
-    gender === "woman"
-      ? "Name one more man who knows you well."
-      : gender === "man"
-        ? "Name one more woman who knows you well."
-        : gender === "nonbinary"
-          ? "Name one more friend who knows you well."
-          : "Name one more friend of the opposite gender who knows you well.";
 
   return (
     <form className="mt-8 space-y-5" action={formAction} noValidate>
@@ -241,115 +212,6 @@ export function ApplyForm({
         />
       </div>
 
-      {/* The gate. Two friends of the opposite gender have to write back before
-          this application is accepted, so this is not a reference section at
-          the bottom of a form - it is the application. The copy says exactly
-          what happens next, because the applicant is about to put two friends'
-          names into a stranger's website. */}
-      <fieldset className="space-y-4 rounded-xl border border-line bg-panel p-4">
-        <legend className="label px-1">
-          {defaults.fastTrack ? "One more friend to vouch for you" : "Two friends who will vouch for you"}
-        </legend>
-        {defaults.fastTrack ? (
-          <div className="-mt-1 space-y-2">
-            <p className="rounded-lg border border-claret/25 bg-claret/[0.05] px-3 py-2 text-xs leading-relaxed text-ink">
-              You vouched for <strong>{defaults.fastTrack.memberName}</strong>, so they count as one
-              of your two. We have asked them to write one back for you.
-            </p>
-            <p className="text-xs leading-relaxed text-muted">
-              {vouchRuleSingle} We email them, they write a few sentences about you, and once both
-              are in you are a member. What they say goes on your profile.
-            </p>
-          </div>
-        ) : (
-          <p className="-mt-1 text-xs leading-relaxed text-muted">
-            {vouchRule} We email them, they write a few sentences about you, and the moment both
-            write back you are in. What they say goes on your profile.
-          </p>
-        )}
-
-        {slots.map((slot) => {
-          const s = slot as 1 | 2;
-          return (
-            <div key={slot} className="space-y-3 border-t border-line pt-4 first:border-t-0 first:pt-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                {defaults.fastTrack ? "Your friend" : `Friend ${slot}`}
-              </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label" htmlFor={`rec${slot}Name`}>Their name</label>
-                  <input
-                    id={`rec${slot}Name`}
-                    className="field mt-1.5"
-                    name={`rec${slot}Name`}
-                    defaultValue={rec(s, "Name")}
-                    placeholder="Full name"
-                    autoComplete="off"
-                    aria-invalid={e[`rec${slot}Name`] ? true : undefined}
-                    aria-describedby={e[`rec${slot}Name`] ? `rec${slot}Name-error` : undefined}
-                  />
-                  {e[`rec${slot}Name`] && (
-                    <p id={`rec${slot}Name-error`} className="mt-1 text-xs text-claret">{e[`rec${slot}Name`]}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="label" htmlFor={`rec${slot}Email`}>Their email</label>
-                  <input
-                    id={`rec${slot}Email`}
-                    className="field mt-1.5"
-                    name={`rec${slot}Email`}
-                    type="email"
-                    inputMode="email"
-                    autoComplete="off"
-                    defaultValue={rec(s, "Email")}
-                    placeholder="them@email.com"
-                    aria-invalid={e[`rec${slot}Email`] ? true : undefined}
-                    aria-describedby={e[`rec${slot}Email`] ? `rec${slot}Email-error` : undefined}
-                  />
-                  {e[`rec${slot}Email`] && (
-                    <p id={`rec${slot}Email-error`} className="mt-1 text-xs text-claret">{e[`rec${slot}Email`]}</p>
-                  )}
-                </div>
-              </div>
-              {/* Full width rather than in the two-column grid: three pills in
-                  half a column wrap onto a second row and the choice stops
-                  reading as one row of options. */}
-              <ChoiceGroup
-                name={`rec${slot}Gender`}
-                label="They are"
-                required
-                options={GENDER_OPTIONS}
-                value={recGenders[slot - 1]}
-                onChange={(next) => setRecGender(s, next)}
-                error={e[`rec${slot}Gender`]}
-              />
-            </div>
-          );
-        })}
-
-        <div>
-          <label className="label" htmlFor="applicantNote">
-            Anything you want us to say to them? <span className="text-muted">(optional)</span>
-          </label>
-          <input
-            id="applicantNote"
-            className="field mt-1.5"
-            name="applicantNote"
-            defaultValue={v.applicantNote ?? ""}
-            maxLength={200}
-            placeholder="One line, in your words. It goes at the top of the email they get."
-          />
-        </div>
-
-        <p className="text-xs text-muted">
-          We email them, and nudge them twice if they forget. They can reply to that email or tap
-          once to vouch, with no account. We do not add them to anything, and they never hear from
-          us again if they do not answer.
-        </p>
-      </fieldset>
-
-      {/* Required agreement: age + Terms + Privacy. This is the only box needed
-          to join. */}
       <Checkbox name="agree" checked={agree} onChange={setAgree} error={e.agree}>
         I am 18 or older and I agree to the{" "}
         <Link href="/terms" className="text-claret underline" target="_blank">
@@ -379,13 +241,13 @@ export function ApplyForm({
       </div>
 
       <div>
-        <SubmitButton className="btn-primary w-full py-3" pendingText="Submitting...">
-          Submit application
+        <SubmitButton className="btn-primary w-full py-3" pendingText="Saving...">
+          Save and continue
         </SubmitButton>
         <p className="mt-2 text-center text-xs text-muted">
           {photoCount === 0
-            ? `Add a photo above, then submit. We email your ${defaults.fastTrack ? "friend" : "two friends"} the moment you do.`
-            : `We email your ${defaults.fastTrack ? "friend" : "two friends"} the moment you submit.`}
+            ? "Add a photo above, then save. Nothing is sent yet."
+            : "Saved as soon as you press this. Next is the two friends who vouch for you, and you can come back to it."}
         </p>
       </div>
     </form>

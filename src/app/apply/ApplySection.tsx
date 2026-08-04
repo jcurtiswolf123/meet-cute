@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ApplyForm } from "./ApplyForm";
+import { ApplyBasicsForm } from "./ApplyBasicsForm";
 import { PhotoUpload } from "./PhotoUpload";
 
 type Photo = { id: string; url: string; status: string };
@@ -16,7 +16,7 @@ export function ApplySection({
   defaults,
 }: {
   photos: Photo[];
-  defaults: React.ComponentProps<typeof ApplyForm>["defaults"];
+  defaults: React.ComponentProps<typeof ApplyBasicsForm>["defaults"];
 }) {
   const [photoCount, setPhotoCount] = useState(photos.length);
 
@@ -25,7 +25,7 @@ export function ApplySection({
       <div className="mt-8">
         <PhotoUpload initial={photos} onCountChange={setPhotoCount} />
       </div>
-      <ApplyForm defaults={defaults} photoCount={photoCount} />
+      <ApplyBasicsForm defaults={defaults} photoCount={photoCount} />
     </>
   );
 }

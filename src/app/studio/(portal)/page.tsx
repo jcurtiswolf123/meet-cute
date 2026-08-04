@@ -89,10 +89,10 @@ export default async function Roster({
   ]);
   const stageCount = (s: string) => byStage.find((b) => b.stage === s)?._count ?? 0;
 
-  // New applicants awaiting review. Gate on appliedAt so only people who actually
-  // completed the application show up here. A bare magic-link click creates an
-  // "applicant" row with no appliedAt; surfacing those would bury the operator in
-  // half-finished signups.
+  // New applicants awaiting review. Gate on appliedAt so only people who
+  // actually completed the application show up here. A bare magic-link click
+  // creates an "applicant" row with no appliedAt; surfacing those would bury
+  // the operator in half-finished signups.
   const pendingApplicants = await prisma.person.findMany({
     where: {
       isOperator: false,
@@ -103,6 +103,31 @@ export default async function Roster({
     },
     include: { photos: true, recommendationsReceived: { orderBy: { createdAt: "asc" } } },
     orderBy: { appliedAt: "desc" },
+  });
+
+  // People who saved the first half and stopped at the friends. Before the
+  // application was split they left no trace at all, which is why 18 of them
+  // went unnoticed on 3 August. They are not "to review" (there is nothing to
+  // review yet) and they are not noise either: they gave a name, a city and a
+  // face, and one of them is a member as soon as two friends are named.
+  const halfFinished = await prisma.person.findMany({
+    where: {
+      isOperator: false,
+      status: "applicant",
+      basicsAt: { not: null },
+      appliedAt: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      city: true,
+      secondCity: true,
+      basicsAt: true,
+      unfinishedNudgedAt: true,
+      photos: { select: { id: true } },
+    },
+    orderBy: { basicsAt: "desc" },
   });
   const [failedDeliveryCount, failedDeliveries] = await Promise.all([
     prisma.deliveryJob.count({ where: { status: "failed" } }),
@@ -170,6 +195,31 @@ export default async function Roster({
           </ul>
         </section>
       )}
+      {halfFinished.length > 0 && (
+        <div className="mt-6 rounded-xl2 border border-line bg-panel p-5">
+          <p className="label !text-ink">
+            Stopped at the friends ({halfFinished.length})
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Details and photos saved, no friends named yet. Each is one screen from being a member.
+          </p>
+          <ul className="mt-3 space-y-1.5">
+            {halfFinished.map((person) => (
+              <li key={person.id} className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+                <Link href={`/studio/person/${person.id}`} className="font-medium text-ink hover:underline">
+                  {person.name}
+                </Link>
+                <span className="text-xs text-muted">
+                  {person.email} · {citiesOf(person).map(cityShort).join(" + ")} ·{" "}
+                  {person.photos.length} photo{person.photos.length === 1 ? "" : "s"} ·{" "}
+                  {person.unfinishedNudgedAt ? "chased" : "not chased yet"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {pendingApplicants.length > 0 && (
         <div className="mt-6 rounded-xl2 border border-studio-line border-l-2 border-l-ink bg-studio-subtle p-5">
           <p className="label !text-ink">New applicants ({pendingApplicants.length})</p>
