@@ -96,8 +96,21 @@ async function main() {
     // The application is one question per screen now, and every screen commits
     // on its own. That is the property worth testing: not that the form works,
     // but that stopping halfway leaves something behind.
+    // A surname is required. Try to pass without one first: this is the only
+    // required field on the screen that a person can plausibly skip, and the
+    // whole point of the step committing on its own is that it must not commit
+    // half an answer.
     await memberPage.getByLabel("First name").fill("Journey");
-    await memberPage.getByLabel(/Last name/).fill("Member");
+    await memberPage.getByRole("button", { name: "Continue" }).click();
+    await memberPage.getByText(/Enter your last name/).waitFor({ timeout: 20000 });
+    assert.equal(
+      (await prisma.person.findUniqueOrThrow({ where: { email: memberEmail } })).applicationStep,
+      null,
+      "A rejected step must not record itself as answered.",
+    );
+
+    await memberPage.getByLabel("First name").fill("Journey");
+    await memberPage.getByLabel("Last name").fill("Member");
     await memberPage.getByRole("button", { name: "Continue" }).click();
     await memberPage.getByRole("group", { name: "City" }).waitFor({ timeout: 20000 });
     assert.equal(
