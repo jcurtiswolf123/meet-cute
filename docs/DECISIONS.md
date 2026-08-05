@@ -597,3 +597,30 @@ the key has the same effect once, so rotate deliberately.
 
 `npm run test:launch:actionids` pins the plumbing and checks the key actually
 reached Next rather than being dropped on the way.
+
+## Photos are written twice (4 August 2026)
+
+`writeUpload` used to choose a backend and return bytes for exactly one of them,
+so in production Postgres held the only copy of every member photo. The schema
+calls `PhotoAsset` a "fallback", which it could never be while nothing else had
+the bytes. 125 photos, 24 MB, one copy, with the form about to go out again.
+
+Postgres serves: same region as the app, shared by every instance, already
+proven, and an ordinary photo view never leaves the datacentre. A private Tigris
+bucket on the same host takes the second copy, written on every upload and
+allowed to fail, because a bucket having a bad day must never be why an
+applicant cannot finish. A failed mirror logs and raises to Sentry, and
+`npm run photos:backfill` sweeps up anything that only reached Postgres.
+
+Reads fall back to the bucket, so a row whose bytes went missing is recoverable
+rather than a 404.
+
+Vercel Blob was the other branch and is gone. That account is past its usage
+threshold and its one store is suspended, so it could not have held a copy of
+anything. Removing it also dropped the vulnerable `undici` it pulled in.
+
+Credentials are bucket-scoped and `fly storage create` prints them once, so they
+live in `~/.gstack/credentials/meetcute-tigris-photos.txt` as well as in the Fly
+secrets. Recreating the bucket does not re-set the app secrets; it says so and
+leaves the old ones in place, which is worth knowing because the app then points
+at a bucket that no longer exists and the mirror silently fails.
