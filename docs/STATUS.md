@@ -2,7 +2,11 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-04 (AI autofix is reliable rather than once-lucky: the
+Last updated: 2026-08-05 (an applicant can change an answer after applying:
+"Edit your application" had pointed at `/apply`, which sent anybody carrying
+`appliedAt` straight back to the waiting page, so the button was a loop for the
+whole stretch between applying and being accepted, and the profile editor is
+members-only. Before that: AI autofix is reliable rather than once-lucky: the
 transport now reads the shape models actually reply in, retries three times with
 a precise complaint, and every one of those shapes is a test. Before that: the
 application asks one question at a time and saves each answer; an unused sign-in
@@ -28,6 +32,31 @@ a suggested pair can be introduced; the database is healthy, the latency cost is
 sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
+
+## 2026-08-05: applying is not the last edit
+
+`/apply/thanks` offers "Edit your application". It pointed at `/apply`, and
+`/apply` redirected anybody carrying `appliedAt` back to `/apply/thanks`. The
+button was a loop, and it was a loop for exactly the stretch an applicant spends
+looking at it: from submitting until two friends write back. The profile editor
+is members-only, so somebody who spotted a wrong city, a photo they hated, or a
+name typed in a hurry had no route anywhere in the product.
+
+Naming a step is the way back in. Every step already committed on its own, so
+the walk needed nothing new: forward navigation still reaches all six answers,
+"Done editing" and the last step both land back on the waiting page, and
+`/apply` with no named step still belongs there. The friends page is deliberately
+not part of the walk in this mode, because sending somebody already waiting on
+two friends to name two friends is how a corrected first name produces a second
+pair of asks.
+
+Found from a live applicant who finished her application at 19:10 PT and was
+still stuck. Her row was clean; the product had nowhere for her to go. Proven on
+production by `scripts/prod-application-walk.ts`, which now walks the edit too.
+
+Still open: an applicant cannot correct a mistyped friend's address, and
+`seeking` is collected nowhere, so a studio profile can read "woman, seeking
+null".
 
 ## 2026-08-04: the application saves halfway
 

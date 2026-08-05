@@ -176,6 +176,19 @@ async function walk(browser: Browser, applicant: string, friends: string[]): Pro
     "Submitting the form still accepts nobody. Two friends writing back does.",
   );
 
+  // Applying is not the last edit. Until 5 August this button was a loop:
+  // it pointed at /apply, and /apply sent anybody carrying appliedAt straight
+  // back here, for the whole stretch between applying and being accepted.
+  await page.getByRole("link", { name: "Edit your application" }).click();
+  await page.waitForURL(/\/apply\?step=name$/);
+  assert.equal(
+    await page.getByLabel("First name").inputValue(),
+    "Walk",
+    "An edit opens on what they gave us, not on an empty field.",
+  );
+  await page.getByRole("link", { name: "Done editing" }).click();
+  await page.waitForURL(/\/apply\/thanks$/);
+
   const asks = await prisma.recommendation.findMany({
     where: { applicantId: applied.id },
     orderBy: { createdAt: "asc" },
