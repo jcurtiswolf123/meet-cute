@@ -644,6 +644,12 @@ export async function saveApplicationStep(formData: FormData): Promise<void> {
   }
 
   const next = stepAfter(step as StepId);
+  // The walk ends at the friends page, and for somebody who has already applied
+  // that is the wrong end: they are waiting on two friends already, and asking
+  // them to name two more is how a correction to a first name produces a second
+  // pair of asks. Their answers are saved either way, so they land back where
+  // the wait is shown.
+  if (!next && me!.appliedAt) redirect("/apply/thanks");
   redirect(next ? `/apply?step=${next}` : "/apply/friends");
 }
 

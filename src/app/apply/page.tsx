@@ -118,7 +118,16 @@ export default async function Apply({
     );
   }
 
-  if (me.appliedAt) redirect("/apply/thanks");
+  // Applying is not the last time somebody wants to change their application.
+  // It used to be treated as such: once appliedAt landed, /apply bounced here
+  // forever, and the "Edit your application" link on the page it bounced to
+  // pointed straight back at /apply. An applicant who noticed a wrong city, a
+  // typo in a friend's address or a photo they hated had no way in at all,
+  // because the profile editor is members-only and they are not a member until
+  // two friends write back. Naming a step is the way back in, and every step
+  // still saves on its own.
+  const editing = !!me.appliedAt;
+  if (editing && !isStepId(sp.step)) redirect("/apply/thanks");
 
   // Signed in. Which step they are on is derived from the row, so returning on
   // another device, or from the email we send a day later, lands them exactly
@@ -181,7 +190,7 @@ export default async function Apply({
       <main id="main-content" className="container-mc min-h-screen py-12">
         <Logo />
         <div className="mt-10">
-          <StepShell step={step} title={definition.title(row)} sub={definition.sub}>
+          <StepShell step={step} title={definition.title(row)} sub={definition.sub} editing={editing}>
             {step === "name" && (
               <form action={saveApplicationStep} className="space-y-5" noValidate>
                 <input type="hidden" name="step" value="name" />
@@ -263,6 +272,7 @@ export default async function Apply({
                   smsConsent: !!me.smsConsentAt,
                 }}
                 errors={errors}
+                editing={editing}
               />
             )}
           </StepShell>

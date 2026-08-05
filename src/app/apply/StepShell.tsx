@@ -22,6 +22,7 @@ export function StepShell({
   back: backOverride,
   title,
   sub,
+  editing,
   children,
 }: {
   step?: StepId;
@@ -31,6 +32,9 @@ export function StepShell({
   back?: string;
   title: string;
   sub: string;
+  /** Already applied, and back to change one answer. They need a way out that
+   *  is not the next question: the walk they are on has already been walked. */
+  editing?: boolean;
   children: React.ReactNode;
 }) {
   const index = indexOverride ?? (step ? stepIndex(step) : 0);
@@ -67,6 +71,14 @@ export function StepShell({
           </Link>
         ) : (
           <span />
+        )}
+        {editing && (
+          <Link
+            href="/apply/thanks"
+            className="text-sm text-muted underline underline-offset-4"
+          >
+            Done editing
+          </Link>
         )}
         <p className="ml-auto text-xs text-muted">Saved as you go.</p>
       </div>

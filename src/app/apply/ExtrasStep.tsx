@@ -11,9 +11,13 @@ import { Checkbox } from "@/components/fields";
 export function ExtrasStep({
   defaults,
   errors,
+  editing,
 }: {
   defaults: { email: string; phone: string; instagram: string; linkedin: string; lookingFor: string; agreed: boolean; smsConsent: boolean };
   errors: Record<string, string>;
+  /** Already applied and back to change an answer. Their friends were named
+   *  long ago, so promising them the friends page next would be a lie. */
+  editing?: boolean;
 }) {
   const [agree, setAgree] = useState(defaults.agreed);
   const [smsConsent, setSmsConsent] = useState(defaults.smsConsent);
@@ -104,7 +108,7 @@ export function ExtrasStep({
       </div>
 
       <SubmitButton className="btn-primary w-full py-3" pendingText="Saving...">
-        Continue to your two friends
+        {editing ? "Save these answers" : "Continue to your two friends"}
       </SubmitButton>
     </form>
   );

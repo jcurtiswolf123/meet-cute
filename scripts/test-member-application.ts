@@ -229,6 +229,49 @@ async function main() {
     });
     assert.equal(requests.length, 2, "Both friends must have a request row.");
     assert.ok(requests.every((r) => r.requestedAt), "Both requests must be sent, not just recorded.");
+
+    // --- applying is not the last edit --------------------------------------
+    // "Edit your application" pointed at /apply, and /apply bounced anybody who
+    // had applied straight back here, so the button did nothing for the entire
+    // stretch somebody spends waiting on their friends. The profile editor is
+    // members-only, so that was every route they had.
+    await memberPage.getByRole("link", { name: "Edit your application" }).click();
+    await memberPage.waitForURL(/\/apply\?step=name$/);
+    assert.equal(
+      await memberPage.getByLabel("First name").inputValue(),
+      "Journey",
+      "An edit opens on what they gave us, not on an empty field.",
+    );
+
+    // Every step is still reachable, because "one wrong answer" is as likely to
+    // be the city as the name.
+    await memberPage.getByRole("button", { name: "Continue" }).click();
+    await memberPage.waitForURL(/\/apply\?step=city$/);
+    await memberPage.getByRole("group", { name: "Also there often" }).getByText("San Francisco", { exact: true }).click();
+    await memberPage.getByRole("button", { name: "Continue" }).click();
+    await memberPage.waitForURL(/\/apply\?step=gender$/);
+    const editedCity = await prisma.person.findUniqueOrThrow({ where: { email: memberEmail } });
+    assert.equal(editedCity.secondCity, "SF", "The edit must be saved.");
+
+    // There is a way out that is not the next question.
+    await memberPage.getByRole("link", { name: "Done editing" }).click();
+    await memberPage.waitForURL(/\/apply\/thanks$/);
+
+    // The last step ends here too, not at the friends page: asking somebody who
+    // is already waiting on two friends to name two friends is how a correction
+    // to a first name produces a second pair of asks.
+    await memberPage.goto(`${baseUrl}/apply?step=extras`);
+    await memberPage.getByRole("button", { name: "Save these answers" }).click();
+    await memberPage.waitForURL(/\/apply\/thanks$/);
+    assert.equal(
+      await prisma.recommendation.count({ where: { applicantId: member.id } }),
+      2,
+      "Editing must not produce another pair of asks.",
+    );
+
+    // Without a named step it still belongs here: the walk itself is over.
+    await memberPage.goto(`${baseUrl}/apply`);
+    await memberPage.waitForURL(/\/apply\/thanks$/);
     await memberContext.close();
 
     // --- the friends answer, with no account and no session -----------------
