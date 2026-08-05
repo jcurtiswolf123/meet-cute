@@ -28,18 +28,21 @@ async function main() {
     );
   }
 
-  // Only rows that have bytes and no key yet. A row with a key already has its
-  // second copy; a row with no bytes has nothing to copy and is a separate
-  // problem this script must not paper over.
-  const photos = await prisma.photo.findMany({
-    where: { storageUrl: null },
-    select: { id: true, personId: true, asset: { select: { bytes: true } } },
-    orderBy: { id: "asc" },
-  });
+  // Sizes first, never the bytes. Asking Postgres for every photo at once is
+  // 24 MB in one result set over a pooled connection, which is how the first
+  // version of this managed to hang on a dry run that writes nothing.
+  const rows = await prisma.$queryRaw<{ id: string; bytes: number | null }[]>`
+    select p.id, octet_length(a.bytes) as bytes
+    from meetcute."Photo" p
+    left join meetcute."PhotoAsset" a on a."photoId" = p.id
+    where p."storageUrl" is null
+    order by p.id
+  `;
 
-  const withBytes = photos.filter((p) => p.asset?.bytes);
-  const without = photos.length - withBytes.length;
-  console.log(`\n${photos.length} photo(s) with no second copy, ${withBytes.length} of them have bytes to copy`);
+  const withBytes = rows.filter((r) => r.bytes && r.bytes > 0);
+  const without = rows.length - withBytes.length;
+  const totalMb = withBytes.reduce((n, r) => n + (r.bytes ?? 0), 0) / 1e6;
+  console.log(`\n${rows.length} photo(s) with no second copy, ${withBytes.length} of them have bytes to copy (${totalMb.toFixed(1)} MB)`);
   if (without > 0) {
     console.log(`WARNING: ${without} row(s) have neither bytes nor an object. Those are already lost and this cannot recover them.`);
   }
@@ -48,23 +51,30 @@ async function main() {
     return;
   }
   if (!send) {
-    console.log(`would copy ${withBytes.length} photo(s), ${(withBytes.reduce((n, p) => n + (p.asset?.bytes?.length ?? 0), 0) / 1e6).toFixed(1)} MB`);
+    console.log(`would copy ${withBytes.length} photo(s), ${totalMb.toFixed(1)} MB`);
     console.log("nothing was written. re-run with --send");
     return;
   }
 
   let done = 0;
   const failed: { id: string; error: string }[] = [];
-  for (const photo of withBytes) {
+  // One photo's bytes in memory at a time. 636 KB is the largest here, but the
+  // cap is 5 MB and the count only goes up.
+  for (const row of withBytes) {
     try {
-      const key = await putObject(photo.id, STORED_EXT, Buffer.from(photo.asset!.bytes));
+      const asset = await prisma.photoAsset.findUnique({
+        where: { photoId: row.id },
+        select: { bytes: true },
+      });
+      if (!asset?.bytes) throw new Error("bytes vanished between the count and the copy");
+      const key = await putObject(row.id, STORED_EXT, Buffer.from(asset.bytes));
       // Recorded only after the put succeeds, so a row never claims a copy that
       // is not there. That claim is what readUpload trusts.
-      await prisma.photo.update({ where: { id: photo.id }, data: { storageUrl: key } });
+      await prisma.photo.update({ where: { id: row.id }, data: { storageUrl: key } });
       done += 1;
-      if (done % 25 === 0) console.log(`  ${done}/${withBytes.length}`);
+      if (done % 10 === 0) console.log(`  ${done}/${withBytes.length}`);
     } catch (error) {
-      failed.push({ id: photo.id, error: (error as Error).message });
+      failed.push({ id: row.id, error: (error as Error).message });
     }
   }
 
