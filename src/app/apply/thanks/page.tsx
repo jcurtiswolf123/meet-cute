@@ -102,7 +102,11 @@ export default async function Thanks() {
         <ShareLink url={`${appBase()}/apply`} />
       </div>
       <div className="mt-10 flex gap-3">
-        <Link href="/apply" className="btn-ghost px-7 py-3">Edit your application</Link>
+        {/* Naming the step is what gets an applied applicant back in. Plain
+            "/apply" bounced straight back to this page, so this button did
+            nothing at all from the moment somebody applied until they were a
+            member, which is exactly the stretch they spend looking at it. */}
+        <Link href="/apply?step=name" className="btn-ghost px-7 py-3">Edit your application</Link>
         <Link href="/dinners" className="btn-ghost px-7 py-3">See upcoming dinners</Link>
       </div>
     </main>

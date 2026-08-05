@@ -111,6 +111,26 @@ After each answer:
 | `recommendation_received` | The applicant | The gate is not yet satisfied. Says "wrote" or "vouched" truthfully |
 | `recommender_follow_up` | The friend, 36h later | They are not already a member. This is the growth ask |
 
+## 4a. Changing an answer after applying
+
+An applicant waiting on their friends can still edit the six steps. "Edit your
+application" on `/apply/thanks` opens `/apply?step=name`, every step saves on
+its own as it always did, "Done editing" and the last step both return to
+`/apply/thanks`, and `/apply` with no named step still belongs on the waiting
+page. The friends page is deliberately not part of the walk in this mode:
+sending somebody who is already waiting on two friends back to name two friends
+is how a corrected first name turns into a second pair of asks.
+
+This was closed on 5 August. Before it, `appliedAt` made `/apply` redirect to
+`/apply/thanks`, and the "Edit your application" button on that page pointed
+back at `/apply`, so it did nothing at all for the entire stretch between
+applying and being accepted. The profile editor is members-only, so an applicant
+who wanted to fix a city, a photo or a typo had no route anywhere.
+
+**Still open:** the two friends themselves cannot be changed. A mistyped
+recommender address is unrecoverable without an operator, and the ask has
+already left for the wrong address.
+
 ## 5. Acceptance
 
 **The second qualifying answer accepts automatically.** No operator involved.
@@ -145,6 +165,10 @@ to answer.
   the whole loop multiplies through.
 - **Nobody is retroactively asked for a surname.** Members who applied before it
   was required keep a one-word name.
+- **A mistyped friend's address cannot be corrected by the applicant.** See 4a.
+- **`seeking` is never collected.** The studio profile renders "woman, seeking
+  null" because no step and no editor ever asks who somebody wants to meet;
+  `lookingFor` is a free-text sentence and is all there is.
 
 ## How to check any of this yourself
 
