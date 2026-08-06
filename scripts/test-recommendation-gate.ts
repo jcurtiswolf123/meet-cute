@@ -1,11 +1,15 @@
-// The recommendation gate: two friends of the opposite gender have to write
-// back before an applicant is accepted.
+// The recommendation gate: any two friends have to write back before an
+// applicant is accepted.
+//
+// It was two friends OF THE OPPOSITE GENDER until 2026-08-06, and this file
+// still checks the shape of that removal, because the interesting cases are the
+// ones the old rule silently failed: two friends of the same gender as the
+// applicant are now two answers and an acceptance.
 //
 // This exercises the rule and the state transition directly against the
 // database, because the parts that can actually go wrong are concurrency (two
-// friends submitting at once must accept once, not twice), idempotency (a
-// re-submitted application must not re-mail a friend who already answered), and
-// the opposite-gender rule itself.
+// friends submitting at once must accept once, not twice) and idempotency (a
+// re-submitted application must not re-mail a friend who already answered).
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -13,11 +17,11 @@ import { prisma } from "../src/lib/prisma";
 import {
   REQUIRED_RECOMMENDATIONS,
   acceptIfRecommended,
-  countsTowardGate,
   gateState,
   hasAnswered,
   recordAnswer,
   remainingRequired,
+  requiredNewRecommenders,
   syncLeadRecommendation,
   saveRecommenders,
 } from "../src/lib/recommendations";
@@ -28,57 +32,35 @@ if (!databaseUrl || !["127.0.0.1", "localhost"].includes(new URL(databaseUrl).ho
 }
 
 function pure() {
-  // A woman needs two men, a man needs two women.
-  assert.equal(countsTowardGate("woman", "man"), true);
-  assert.equal(countsTowardGate("woman", "woman"), false);
-  assert.equal(countsTowardGate("man", "woman"), true);
-  assert.equal(countsTowardGate("man", "man"), false);
-  // Nonbinary applicants have no opposite to require, so any two friends count.
-  // Locking them out, or making them mislabel a friend to get in, is not a
-  // rule - it is a bug with a policy attached.
-  assert.equal(countsTowardGate("nonbinary", "woman"), true);
-  assert.equal(countsTowardGate("nonbinary", "nonbinary"), true);
-  // An applicant with no gender on file (every one of the 25 people on the
-  // roster before this change) is not blocked by a rule they were never asked.
-  assert.equal(countsTowardGate(null, "man"), true);
-
-  assert.equal(remainingRequired("man", []), REQUIRED_RECOMMENDATIONS);
+  assert.equal(remainingRequired([]), REQUIRED_RECOMMENDATIONS);
   assert.equal(
-    remainingRequired("man", [
-      { status: "submitted", gender: "woman" },
-      { status: "requested", gender: "woman" },
-    ]),
+    remainingRequired([{ status: "submitted" }, { status: "requested" }]),
     1,
   );
-  assert.equal(
-    remainingRequired("man", [
-      { status: "submitted", gender: "woman" },
-      { status: "submitted", gender: "woman" },
-    ]),
-    0,
-  );
-  // Two men vouching for a man is two recommendations and zero progress.
-  assert.equal(
-    remainingRequired("man", [
-      { status: "submitted", gender: "man" },
-      { status: "submitted", gender: "man" },
-    ]),
-    REQUIRED_RECOMMENDATIONS,
-  );
+  assert.equal(remainingRequired([{ status: "submitted" }, { status: "submitted" }]), 0);
   // A tap answers. Words answer and can be quoted. Nothing else counts.
   assert.equal(hasAnswered("endorsed"), true);
   assert.equal(hasAnswered("submitted"), true);
   assert.equal(hasAnswered("requested"), false);
   assert.equal(hasAnswered("declined"), false);
   assert.equal(
-    remainingRequired("man", [
-      { status: "endorsed", gender: "woman" },
-      { status: "submitted", gender: "woman" },
-    ]),
+    remainingRequired([{ status: "endorsed" }, { status: "submitted" }]),
     0,
     "A tap and a written recommendation together are two answers.",
   );
-  console.log("  pure: opposite-gender rule, tap counting, and remaining count");
+
+  // How many names the form asks for. Two credits exist and they stack: a vouch
+  // written for a member, and a recommendation already on the row (which is how
+  // a nomination lands). Neither can take the ask below one unless the gate is
+  // genuinely already satisfied, because the fast-track credit is a promise to
+  // ask somebody rather than an answer.
+  const fastTrack = { recommendationId: "x", member: { id: "m", name: "M", email: null, gender: null } };
+  assert.equal(requiredNewRecommenders(null), REQUIRED_RECOMMENDATIONS);
+  assert.equal(requiredNewRecommenders(fastTrack), 1);
+  assert.equal(requiredNewRecommenders(null, 1), 1);
+  assert.equal(requiredNewRecommenders(fastTrack, 1), 1, "Two credits still leave one real name.");
+  assert.equal(requiredNewRecommenders(null, 2), 0, "Two answers already on the row ask for nobody.");
+  console.log("  pure: any-two-friends counting, tap counting, and how many names to ask for");
 }
 
 async function makeApplicant(gender: string) {
@@ -171,23 +153,29 @@ async function main() {
       "Concurrent submissions must accept the applicant exactly once.",
     );
 
-    // --- the rule bites: two men cannot vouch a man in ----------------------
+    // --- two men vouching for a man is two answers, and he is in ------------
+    //
+    // This is the case the old opposite-gender rule failed silently: both
+    // friends wrote, the applicant saw two recommendations on their page, and
+    // nothing opened. People were stopping at the friends step saying they had
+    // nobody of the right description to name, so Jess killed the rule on
+    // 2026-08-06 and this assertion is the inverse of the one it replaced.
     const sameGender = await makeApplicant("man");
     created.push(sameGender.id);
     const sameRecs = await saveRecommenders(sameGender.id, [
       { name: "Bob Vouch", email: `bob-${randomUUID()}@example.test`, gender: "man" },
       { name: "Carl Vouch", email: `carl-${randomUUID()}@example.test`, gender: "man" },
     ]);
-    await Promise.all(sameRecs.map((r) => write(r.id, "A perfectly nice recommendation that does not count.")));
+    await Promise.all(sameRecs.map((r) => write(r.id, "A perfectly nice recommendation, which now counts.")));
     const sameOutcome = await acceptIfRecommended(sameGender.id);
-    assert.equal(sameOutcome.accepted, false, "Two same-gender recommendations do not open the door.");
+    assert.equal(sameOutcome.accepted, true, "Any two friends accept the applicant.");
     assert.equal(
       (await prisma.person.findUniqueOrThrow({ where: { id: sameGender.id } })).status,
-      "applicant",
+      "active",
     );
     const sameState = await gateState(sameGender.id);
-    assert.equal(sameState.submitted.length, 2, "Both recommendations are still recorded.");
-    assert.equal(sameState.qualifying.length, 0, "Neither counts toward the gate.");
+    assert.equal(sameState.submitted.length, 2, "Both recommendations are recorded.");
+    assert.equal(sameState.qualifying.length, 2, "And both count toward the gate.");
 
     // --- a nonbinary applicant needs two friends and no gender arithmetic ---
     const nb = await makeApplicant("nonbinary");
@@ -391,7 +379,7 @@ async function main() {
     );
 
     console.log(
-      "recommendation gate passed: opposite-gender rule, one-tap vouches that count without inventing a quote, words upgrading a tap, one-shot acceptance under concurrency, edit-safe requests, no revival of a declined applicant, and a friend who says no counting toward nothing and never being revived",
+      "recommendation gate passed: any two friends accept an applicant, one-tap vouches count without inventing a quote, words upgrade a tap, acceptance fires once under concurrency, requests survive an edit, a declined applicant is never revived, and a friend who says no counts toward nothing",
     );
   } finally {
     await prisma.person.deleteMany({ where: { id: { in: created } } });

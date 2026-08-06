@@ -1063,6 +1063,104 @@ export function signInLinkUnusedEmail(args: {
   return { subject, html: emailShell(inner, "Ask for a fresh one, it takes a tap."), text };
 }
 
+// Sent to somebody a friend put forward through /refer, who has never heard of
+// us. It is one email and there is no sequence behind it.
+//
+// The person's name in the first line is the whole email: nobody opens "you
+// have been invited to join a matchmaking service", and everybody opens "Ana
+// put you forward". Where the friend wrote a couple of sentences, those are
+// quoted, because they are the only part of this that was not written by a
+// company, and they are also the thing that makes applying cheap: the words are
+// already one of the two recommendations.
+export function nominationInviteEmail(args: {
+  name: string;
+  nominatorName: string;
+  note?: string | null;
+  applyUrl: string;
+  /** The note is long enough to stand as a recommendation, so applying is one
+   *  friend rather than two. Says so plainly, because it is the offer. */
+  counts: boolean;
+  /** They already have an application open. This is a nudge on something they
+   *  started, not an introduction to something new. */
+  existingApplicant?: boolean;
+}): { subject: string; html: string; text: string } {
+  const first = (args.name || "there").split(" ")[0];
+  const fromFirst = (args.nominatorName || "a friend").split(" ")[0];
+  const note = args.note?.trim();
+  const subject = args.existingApplicant
+    ? `${fromFirst} vouched for you`
+    : `${args.nominatorName} thinks you should meet someone`;
+
+  const offer = args.counts
+    ? args.existingApplicant
+      ? `That counts as one of the two recommendations you need, so you are one friend away.`
+      : `What ${fromFirst} wrote counts as one of the two recommendations you would need, so you would only have to ask one friend.`
+    : `Getting in takes two friends who will say something about you. That is the whole review: no interview, no waiting list.`;
+
+  const what = args.existingApplicant
+    ? `You have an application open with us already.`
+    : `Mutuals is curated matchmaking: a matchmaker introduces you to one person at a time, by email, and you decide for yourself. No profile to maintain, no feed, no swiping.`;
+
+  const text =
+    `Hi ${first},\n\n` +
+    `${args.nominatorName} put you forward for Mutuals.\n\n` +
+    (note ? `${fromFirst} says: "${note}"\n\n` : "") +
+    `${what}\n\n` +
+    `${offer}\n\n` +
+    `${args.applyUrl}\n\n` +
+    `If this is not for you, ignore this and you will not hear from us again.\n\n` +
+    `Warmly,\nMutuals`;
+
+  const inner =
+    h1(`${fromFirst} put you forward.`) +
+    p(`Hi ${esc(first)}, <strong>${esc(args.nominatorName)}</strong> put your name forward for Mutuals.`) +
+    (note
+      ? `<p style="margin:0 0 16px;padding:12px 16px;border-left:2px solid ${BRAND.oxblood};font-family:${SERIF};font-size:16px;font-style:italic;line-height:1.55;color:${BRAND.ink}">${esc(fromFirst)} says: &ldquo;${esc(note)}&rdquo;</p>`
+      : "") +
+    p(esc(what)) +
+    p(esc(offer)) +
+    `<p style="margin:24px 0 0">${emailButton(args.existingApplicant ? "Finish your application" : "See what this is", args.applyUrl)}</p>` +
+    small("One email. If this is not for you, ignore it and you will not hear from us again.");
+
+  return {
+    subject,
+    html: emailShell(inner, note ? `"${note.slice(0, 90)}"` : `${fromFirst} put your name forward.`),
+    text,
+  };
+}
+
+// Sent to whoever did the recommending, so a form submission is not a void.
+// Deliberately says nothing about whether the person is already a member: that
+// is theirs to tell, not ours, and this form takes an address from a stranger.
+export function nominationReceiptEmail(args: {
+  nominatorName: string;
+  name: string;
+  counts: boolean;
+  referUrl: string;
+}): { subject: string; html: string; text: string } {
+  const first = (args.nominatorName || "there").split(" ")[0];
+  const theirFirst = (args.name || "your friend").split(" ")[0];
+  const subject = `Thank you for putting ${theirFirst} forward`;
+  const words = args.counts
+    ? `What you wrote goes with it, and if ${theirFirst} applies it stands as one of the two recommendations they need.`
+    : `If you want to add a couple of sentences about them, reply to this email and we will put it with the invitation.`;
+
+  const text =
+    `Hi ${first},\n\n` +
+    `We have your recommendation for ${args.name}, and we have written to them once.\n\n` +
+    `${words}\n\n` +
+    `Know somebody else worth introducing? ${args.referUrl}\n\n` +
+    `Warmly,\nMutuals`;
+
+  const inner =
+    h1(`Thank you for that.`) +
+    p(`Hi ${esc(first)}, we have your recommendation for <strong>${esc(args.name)}</strong> and we have written to them once.`) +
+    p(esc(words)) +
+    `<p style="margin:24px 0 0">${emailButton("Recommend somebody else", args.referUrl)}</p>`;
+
+  return { subject, html: emailShell(inner, `We have written to ${theirFirst} once.`), text };
+}
+
 export function magicLinkEmail(link: string): { subject: string; html: string; text: string } {
   const subject = "Your Mutuals sign-in link";
   const text = `Sign in to Mutuals:\n${link}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;

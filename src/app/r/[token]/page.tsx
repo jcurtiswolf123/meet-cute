@@ -158,6 +158,16 @@ export default async function WriteRecommendation({
             only have to ask one friend.
           </p>
         </div>
+        {/* The other thing somebody in this state often wants, and the reason
+            /refer exists: they have just been reminded they know exactly who
+            should be here, and it is not them. */}
+        <p className="mt-6 text-sm leading-relaxed text-muted">
+          Or somebody else you know?{" "}
+          <Link href="/refer" className="text-claret underline">
+            Put them forward
+          </Link>{" "}
+          and we will write to them, saying it came from you.
+        </p>
       </Shell>
     );
   }

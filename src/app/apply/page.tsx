@@ -14,6 +14,7 @@ import { PhotoStep } from "./PhotoStep";
 import { ExtrasStep } from "./ExtrasStep";
 import { saveApplicationStep } from "@/lib/actions";
 import { STEPS, currentStep, isStepId, nameWasGiven, splitName, stepIndex } from "@/lib/application-steps";
+import { nominationByToken, nominationCounts } from "@/lib/nominations";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Apply" };
@@ -21,7 +22,7 @@ export const metadata = { title: "Apply" };
 export default async function Apply({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; error?: string; from?: string; missing?: string; email?: string; step?: string; first?: string; last?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string; from?: string; ref?: string; missing?: string; email?: string; step?: string; first?: string; last?: string }>;
 }) {
   const me = await getCurrentPerson();
   const sp = await searchParams;
@@ -39,6 +40,12 @@ export default async function Apply({
           select: { name: true, email: true, applicant: { select: { name: true } } },
         })
       : null;
+    // Arriving from a nomination: somebody put them forward, and if that person
+    // wrote a couple of sentences those are already one of the two
+    // recommendations. Said here, before anything is asked of them, because it
+    // is the reason to keep going.
+    const nomination = sp.ref ? await nominationByToken(sp.ref) : null;
+    const nominatorFirst = (nomination?.nominatorName ?? "").split(" ")[0];
     return (
       <>
       <main id="main-content" className="container-mc min-h-screen py-12">
@@ -46,13 +53,24 @@ export default async function Apply({
         <div className="mt-10 max-w-xl">
           <p className="label mb-3">Application</p>
           <h1 className="font-display text-4xl font-medium tracking-tight">
-            {invited ? `Welcome, ${invited.name.split(" ")[0]}.` : "Start your application."}
+            {invited
+              ? `Welcome, ${invited.name.split(" ")[0]}.`
+              : nomination
+                ? `${nominatorFirst} put you forward.`
+                : "Start your application."}
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-muted">
             {invited
               ? `You vouched for ${invited.applicant.name.split(" ")[0]}, so they already count as one of the two recommendations you need. Confirm your email and we will send a one-time link to begin.`
-              : "Enter your email and we will send a one-time link to begin. A real person reads every application, and you will hear back either way."}
+              : nomination
+                ? `${nominationCounts(nomination.note) ? `What ${nominatorFirst} wrote counts as one of the two recommendations you need, so you will only have to ask one friend.` : `Getting in takes two friends who will say something about you. That is the whole review.`} Confirm your email and we will send a one-time link to begin.`
+                : "Enter your email and we will send a one-time link to begin. A real person reads every application, and you will hear back either way."}
           </p>
+          {nomination?.note && nominationCounts(nomination.note) && (
+            <blockquote className="mt-6 border-l-2 border-claret pl-4 font-display text-lg italic leading-relaxed text-ink">
+              &ldquo;{nomination.note}&rdquo;
+            </blockquote>
+          )}
 
           {/* This page used to redirect back to itself after a request and render
               the identical empty form, so an applicant had no way to tell whether
@@ -85,11 +103,11 @@ export default async function Apply({
               autoComplete="email"
               className="field mt-1.5"
               placeholder="you@email.com"
-              // Prefilled either by a recommender's token or by the
-              // unused-link follow-up, which carries the address the person
-              // gave us themselves. Prefilling an email grants nothing: the
-              // link that actually signs anyone in is still emailed to it.
-              defaultValue={invited?.email ?? sp.email ?? ""}
+              // Prefilled by a recommender's token, a nomination, or the
+              // unused-link follow-up, each of which carries an address
+              // somebody already gave us. Prefilling an email grants nothing:
+              // the link that actually signs anyone in is still emailed to it.
+              defaultValue={invited?.email ?? nomination?.email ?? sp.email ?? ""}
             />
             <button className="btn-primary w-full py-3" type="submit">
               Send me a link

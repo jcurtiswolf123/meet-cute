@@ -15,10 +15,19 @@ _Lightweight backlog. Move items between sections as they progress._
 - [ ] Backfill gender for the existing roster (28 members). It was never
   collected before 2026-08-03, so the studio gender filter matches nothing for
   anyone who joined earlier.
+- [ ] A studio view of nominations. They are recorded and attributed
+  (`Nomination.personId`), and a converted one is marked "put them forward" on
+  the person page, but there is nowhere to see who is referring whom.
 - [ ] Automated photo pre-screening before high upload volume
 - [ ] Retire unused legacy Fly volumes during a maintenance window
 - [ ] Community admissions voting (V2)
 - [ ] Extend Sentry context with match/person metadata for error triage
+
+## Done (2026-08-06)
+- [x] Any two friends accept an applicant: the opposite-gender rule and the
+  "single" wording are gone from the gate, the form, and the copy
+- [x] `/refer`: put somebody forward before they apply, with the words counting
+  as one of their two recommendations when they do
 
 ## Done (2026-06-30 polish)
 - [x] Set prod Sentry env (Fly secrets) - verified all five secrets present

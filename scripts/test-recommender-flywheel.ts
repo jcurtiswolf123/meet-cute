@@ -1,8 +1,8 @@
 // The growth loop: a friend who vouches becomes a member, and brings one more.
 //
 // The parts worth asserting are the ones that quietly stop working. The credit
-// has to be earned (you vouched for a real member of the opposite gender) and
-// nothing else can earn it. The attribution has to be written or the funnel is
+// has to be earned (you vouched for a real member) and nothing else can earn
+// it. The attribution has to be written or the funnel is
 // unmeasurable and nobody notices for months. And the two scheduled messages
 // have to be withdrawn when the thing they were going to ask about has already
 // happened, because a nudge sent to someone who already replied is the fastest
@@ -57,24 +57,32 @@ async function main() {
     ]);
 
     assert.equal(
-      await fastTrackFor(friendEmail, "man"),
+      await fastTrackFor(friendEmail),
       null,
       "A request nobody has answered yet earns nothing.",
     );
 
     await wrote(request.id);
-    const credit = await fastTrackFor(friendEmail, "man");
-    assert.ok(credit, "Vouching for a member of the opposite gender earns the credit.");
+    const credit = await fastTrackFor(friendEmail);
+    assert.ok(credit, "Vouching for a live member earns the credit.");
     assert.equal(credit!.member.id, member.id);
     assert.equal(requiredNewRecommenders(credit), REQUIRED_RECOMMENDATIONS - 1);
     assert.equal(requiredNewRecommenders(null), REQUIRED_RECOMMENDATIONS);
 
-    // Same gender as the person they vouched for: the opposite-gender rule is
-    // not suspended just because someone did us a favour.
-    assert.equal(
-      await fastTrackFor(friendEmail, "woman"),
-      null,
-      "Vouching for a woman does not count toward a woman's two men.",
+    // Gender used to decide whether the credit survived, because the gate was
+    // an opposite-gender rule: a woman who vouched for a woman was told to find
+    // two men anyway. Any two friends count since 2026-08-06, so vouching for a
+    // member of the same gender earns exactly the same credit.
+    const sameGenderMember = await person("woman", "active");
+    created.push(sameGenderMember.id);
+    const sisterEmail = `flywheel-sister-${randomUUID()}@example.test`;
+    const [sisterRequest] = await saveRecommenders(sameGenderMember.id, [
+      { name: "Her Friend", email: sisterEmail, gender: "woman" },
+    ]);
+    await wrote(sisterRequest.id);
+    assert.ok(
+      await fastTrackFor(sisterEmail),
+      "The credit no longer depends on who is which gender.",
     );
 
     // --- vouching for someone who never got in earns nothing ---------------
@@ -86,7 +94,7 @@ async function main() {
     ]);
     await wrote(bystander.id);
     assert.equal(
-      await fastTrackFor(bystanderEmail, "man"),
+      await fastTrackFor(bystanderEmail),
       null,
       "Vouching for someone who was declined is not a credential.",
     );
@@ -114,12 +122,12 @@ async function main() {
     );
 
     // --- an address that never vouched for anyone --------------------------
-    assert.equal(await fastTrackFor(`stranger-${randomUUID()}@example.test`, "man"), null);
-    assert.equal(await fastTrackFor(null, "man"), null);
-    assert.equal(await fastTrackFor("", "man"), null);
+    assert.equal(await fastTrackFor(`stranger-${randomUUID()}@example.test`), null);
+    assert.equal(await fastTrackFor(null), null);
+    assert.equal(await fastTrackFor(""), null);
 
     console.log(
-      "flywheel checks passed: the credit is earned only by vouching for a live member of the opposite gender, signups are attributed back to the recommendation, and linking is idempotent",
+      "flywheel checks passed: the credit is earned only by vouching for a live member, signups are attributed back to the recommendation, and linking is idempotent",
     );
   } finally {
     // Vouch has no cascade (deleteAccount deletes them by hand for the same

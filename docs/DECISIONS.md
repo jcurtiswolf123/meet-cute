@@ -2,6 +2,41 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-06 : Any two friends, and a way to put somebody forward
+
+Both from Jess, off what people were actually replying with.
+
+- **The gate is any two friends.** It was two friends of the opposite gender,
+  and the form asked for them by name: "two single men", or two single women.
+  People were stopping on the last screen of the application saying they did not
+  have two single friends of the right description to name. An applicant who
+  cannot name anybody does not become a better member, they become no member at
+  all, so both qualifiers are gone: `countsTowardGate` is deleted, the form
+  rejects nothing on gender, and the copy is "Name any two friends who know you
+  well."
+- **Gender is still asked for each friend and still stored.** It says who the
+  warmest leads in this network are, which is worth knowing. It decides nothing,
+  and `Recommendation.gender` is nullable now because a nomination never asks.
+- **Rejected: changing the copy alone.** "Any two friends" on a form whose gate
+  still counted only the opposite gender would have been worse than the old
+  rule: the applicant names two people, both write, and nothing opens, with
+  nobody able to say why.
+- **`/refer` puts somebody forward who has not applied.** Everything else in
+  this product starts with an applicant naming friends; the thing people say
+  first, unprompted, is "you should meet my friend". It needs no account, for
+  the same reason vouching needs none.
+- **A nomination with real words (40 characters, the same floor the
+  recommendation form uses) becomes an answered recommendation when the nominee
+  applies**, so they are asked for one friend instead of two. It is not a
+  discount: somebody who knows them wrote about them before being asked, which
+  is exactly what the gate is for. Two nominations with words accept somebody
+  outright on submit.
+- **One email to the nominee, ever.** Their address came from a third party.
+  There is no nudge schedule behind it, unlike every other ask in this system.
+- **The receipt to the nominator never says whether the person is already a
+  member**, and an existing member is recorded and not emailed. Whether somebody
+  is in Mutuals is theirs to tell.
+
 ## 2026-08-04 : Single, said out loud. And a friend can finally say no
 
 - The ask is now "Name two single men who know you well", or two single women,
@@ -315,7 +350,8 @@ _Append-only. Newest at top. Each entry: what was decided, why, and what was rej
   That is the number the whole gate depends on and it is not worth trading.
 - Decision: Someone who has already vouched for a member needs one new friend,
   not two. The member they vouched for counts as the other, and is asked to
-  vouch back. The opposite-gender rule still applies to the credit, and vouching
+  vouch back. (The opposite-gender rule applied to the credit until 2026-08-06;
+  any live member earns it now.) Vouching
   for someone who was declined earns nothing.
 - Why: it is the honest version of an incentive. Someone a member's own circle
   vouched for is exactly who this network wants, and the evidence already

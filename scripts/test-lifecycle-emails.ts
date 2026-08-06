@@ -22,6 +22,8 @@ import {
   recommenderFollowUpEmail,
   unfinishedApplicationEmail,
   signInLinkUnusedEmail,
+  nominationInviteEmail,
+  nominationReceiptEmail,
   bareAddress,
 } from "../src/lib/email";
 
@@ -445,6 +447,64 @@ function main() {
     "It must never carry a sign-in token: minting a long-lived one into an unproven inbox is how a magic-link system becomes an account-takeover system.",
   );
 
+  // 16. The nomination invite, sent to somebody who has never heard of us
+  // because a friend put them forward. Every word in it came from a third
+  // party, which makes it the other template where escaping is not optional.
+  const nominated = nominationInviteEmail({
+    name: "Ana Mehta",
+    nominatorName: "Jess Wolf",
+    note: "She is the person everybody calls first, and she has been single for as long as she has been busy.",
+    applyUrl: "https://hellomutuals.com/apply?ref=tok3n",
+    counts: true,
+  });
+  assertWellFormed("nominationInvite(withWords)", nominated);
+  assertOnBrand("nominationInvite(withWords)", nominated);
+  assert.match(nominated.subject, /Jess Wolf/, "The name of who sent it is the whole subject line.");
+  assert.match(nominated.text, /calls first/, "Their words are quoted, not paraphrased.");
+  assert.match(nominated.text, /only have to ask one friend/i, "Which is also the offer.");
+  assert.match(nominated.html, /apply\?ref=tok3n/);
+
+  const bareInvite = nominationInviteEmail({
+    name: "Ana Mehta",
+    nominatorName: "Jess Wolf",
+    note: null,
+    applyUrl: "https://hellomutuals.com/apply?ref=tok3n",
+    counts: false,
+  });
+  assertWellFormed("nominationInvite(noWords)", bareInvite);
+  assert.doesNotMatch(
+    bareInvite.text,
+    /only have to ask one friend/i,
+    "Nothing was written, so nothing is credited and nothing is promised.",
+  );
+
+  const receipt = nominationReceiptEmail({
+    nominatorName: "Jess Wolf",
+    name: "Ana Mehta",
+    counts: true,
+    referUrl: "https://hellomutuals.com/refer",
+  });
+  assertWellFormed("nominationReceipt", receipt);
+  assertOnBrand("nominationReceipt", receipt);
+  assert.doesNotMatch(
+    receipt.text,
+    /already a member|not a member/i,
+    "Whether the person they named is already with us is not ours to disclose.",
+  );
+
+  // The nomination invite is the only email whose every field was typed by a
+  // stranger about somebody else, and it lands in an inbox that never asked us
+  // for anything.
+  const hostileNomination = nominationInviteEmail({
+    name: '<script>alert(1)</script>',
+    nominatorName: '<img src=x onerror="alert(1)">',
+    note: '<img src=x onerror="alert(1)">',
+    applyUrl: "https://hellomutuals.com/apply?ref=tok3n",
+    counts: true,
+  });
+  assert.ok(!hostileNomination.html.includes("<script>alert(1)</script>"), "nomination: unescaped name");
+  assert.ok(!hostileNomination.html.includes("<img"), "nomination: hostile tag rendered live");
+
   // HTML-injection guard: a hostile display name must not break out into markup.
   // The recommendation request carries an applicant-supplied name to a stranger.
   const hostileRequest = recommendationRequestEmail({
@@ -514,7 +574,7 @@ function main() {
   );
 
   console.log(
-    "lifecycle + intake email render checks passed (15 templates, on-brand, escaped, " +
+    "lifecycle + intake email render checks passed (17 templates, on-brand, escaped, " +
       "List-Unsubscribe well formed)",
   );
 }

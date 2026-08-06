@@ -1,9 +1,16 @@
 // The recommendation gate.
 //
 // An application is not accepted because a form was submitted. It is accepted
-// when two friends of the opposite gender to the applicant write back about
-// them. The applicant names the friends; Mutuals emails them; their words land
-// on the applicant's profile and the second reply lets the applicant in.
+// when two friends write back about them. The applicant names the friends;
+// Mutuals emails them; their words land on the applicant's profile and the
+// second reply lets the applicant in.
+//
+// It used to be two friends OF THE OPPOSITE GENDER, and the form asked for them
+// by that name ("two single men"). Jess killed both qualifiers on 2026-08-06:
+// people were being blocked at the last screen of the application because they
+// did not have two single friends of the right gender to name, and an applicant
+// who cannot name anyone is not a stricter member, they are no member at all.
+// It is any two friends now, and nothing in this file reads gender any more.
 //
 // Two reasons it works this way. The obvious one: a stranger's own description
 // of themselves is worth less than two people who know them. The other one is
@@ -29,35 +36,15 @@ export function isGender(value: string): value is Gender {
   return (GENDERS as readonly string[]).includes(value);
 }
 
-/**
- * Whether a recommender counts toward the applicant's two.
- *
- * "Two friends of the opposite gender" is the rule Joshua asked for, and for a
- * woman or a man it means exactly what it says. For a nonbinary applicant there
- * is no opposite to require, and inventing one would either lock them out or
- * force them to misdescribe a friend, so the count still applies and the gender
- * constraint does not. This is the only place that judgement lives.
- */
-export function countsTowardGate(applicantGender: string | null, recommenderGender: string): boolean {
-  if (applicantGender === "woman") return recommenderGender === "man";
-  if (applicantGender === "man") return recommenderGender === "woman";
-  return true;
-}
-
-/** The recommenders still needed, given who has already written back. */
 /** An answer, either kind. A tap is an answer; only a body is a quote. */
 export function hasAnswered(status: string): boolean {
   return status === "endorsed" || status === "submitted";
 }
 
-export function remainingRequired(
-  applicantGender: string | null,
-  recommendations: Pick<Recommendation, "status" | "gender">[],
-): number {
-  const qualifying = recommendations.filter(
-    (r) => hasAnswered(r.status) && countsTowardGate(applicantGender, r.gender),
-  ).length;
-  return Math.max(0, REQUIRED_RECOMMENDATIONS - qualifying);
+/** The recommenders still needed, given who has already written back. */
+export function remainingRequired(recommendations: Pick<Recommendation, "status">[]): number {
+  const answered = recommendations.filter((r) => hasAnswered(r.status)).length;
+  return Math.max(0, REQUIRED_RECOMMENDATIONS - answered);
 }
 
 export function newRecommendationToken(): string {
@@ -144,7 +131,9 @@ export type GateState = {
   applicantGender: string | null;
   recommendations: Recommendation[];
   submitted: Recommendation[];
-  /** Submitted AND counting toward the gate (the opposite-gender rule). */
+  /** Answered, which is now the whole rule: any two friends. Kept as its own
+   *  field because every caller reads it, and because a gate that stops
+   *  qualifying answers is a change to make here rather than in eight pages. */
   qualifying: Recommendation[];
   outstanding: Recommendation[];
   written: Recommendation[];
@@ -162,7 +151,7 @@ export async function gateState(applicantId: string): Promise<GateState> {
   });
   const recommendations = applicant?.recommendationsReceived ?? [];
   const submitted = recommendations.filter((r) => hasAnswered(r.status));
-  const qualifying = submitted.filter((r) => countsTowardGate(applicant?.gender ?? null, r.gender));
+  const qualifying = submitted;
   const remaining = Math.max(0, REQUIRED_RECOMMENDATIONS - qualifying.length);
   return {
     applicantGender: applicant?.gender ?? null,
@@ -238,14 +227,12 @@ export type FastTrack = {
  * that already exists. Halving the work is what raises the one number the loop
  * depends on: how many recommenders become members.
  *
- * The opposite-gender rule still applies to the credit. A man who vouched for a
- * man has not satisfied half of "two women", so he gets no credit and is asked
- * for two, the same as anyone else.
+ * The gender of the member they vouched for used to decide whether the credit
+ * was earned, because the gate itself was an opposite-gender rule. Any two
+ * friends count now, so vouching for any live member earns it, and this takes
+ * an address and nothing else.
  */
-export async function fastTrackFor(
-  email: string | null | undefined,
-  applicantGender: string | null,
-): Promise<FastTrack | null> {
+export async function fastTrackFor(email: string | null | undefined): Promise<FastTrack | null> {
   const address = String(email ?? "").trim().toLowerCase();
   if (!address) return null;
   const written = await prisma.recommendation.findFirst({
@@ -260,13 +247,27 @@ export async function fastTrackFor(
   // Only a member counts. Vouching for someone who was declined, or who never
   // got in, is not a credential.
   if (written.applicant.status !== "active") return null;
-  if (!countsTowardGate(applicantGender, written.applicant.gender ?? "")) return null;
   return { recommendationId: written.id, member: written.applicant };
 }
 
-/** How many friends this applicant has to name on the form. */
-export function requiredNewRecommenders(fastTrack: FastTrack | null): number {
-  return fastTrack ? REQUIRED_RECOMMENDATIONS - 1 : REQUIRED_RECOMMENDATIONS;
+/**
+ * How many friends this applicant still has to name on the form.
+ *
+ * Two credits now exist and they stack: the vouch they wrote for a member, and
+ * any recommendation already sitting on their row, which is how a nomination
+ * arrives (someone put them forward and wrote the words before they ever
+ * applied). Somebody carrying both is asked for nobody, and applying is the
+ * last thing standing between them and being a member.
+ */
+export function requiredNewRecommenders(fastTrack: FastTrack | null, alreadyAnswered = 0): number {
+  // Already satisfied: two people have written about them and there is nothing
+  // left to ask for.
+  if (alreadyAnswered >= REQUIRED_RECOMMENDATIONS) return 0;
+  const credited = (fastTrack ? 1 : 0) + Math.max(0, alreadyAnswered);
+  // Never zero otherwise. The fast-track credit is a promise (the member is
+  // asked to vouch back) rather than an answer on the row, so somebody holding
+  // both credits still needs one real name or the gate would never close.
+  return Math.max(1, REQUIRED_RECOMMENDATIONS - credited);
 }
 
 /**
@@ -389,7 +390,7 @@ export async function recordAnswer(
 export async function syncLeadRecommendation(applicantId: string): Promise<boolean> {
   const person = await prisma.person.findUnique({
     where: { id: applicantId },
-    select: { gender: true, recommendation: true, voucherName: true },
+    select: { recommendation: true, voucherName: true },
   });
   if (!person) return false;
   if (person.recommendation?.trim() && person.voucherName?.trim()) return false;
@@ -399,7 +400,6 @@ export async function syncLeadRecommendation(applicantId: string): Promise<boole
     orderBy: { submittedAt: "asc" },
   });
   if (!written?.body?.trim()) return false;
-  if (!countsTowardGate(person.gender, written.gender)) return false;
 
   await prisma.person.update({
     where: { id: applicantId },

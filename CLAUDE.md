@@ -65,10 +65,15 @@ If you are the only session, the main checkout is fine and nothing changes.
 - Production has two Fly machines. Uploads use Vercel Blob when configured and
   otherwise use Postgres, so no upload depends on one machine.
 - Demo login is local development only.
-- An application is accepted by two friends of the opposite gender writing
-  recommendations, not by submitting the form. See `src/lib/recommendations.ts`
-  and `docs/DECISIONS.md`. Operator approval still works and is now the
-  exception. A photo is required to apply.
+- An application is accepted by **any two friends** writing recommendations, not
+  by submitting the form. It was two friends of the opposite gender until
+  2026-08-06; nothing reads gender as a gate now. See
+  `src/lib/recommendations.ts` and `docs/DECISIONS.md`. Operator approval still
+  works and is now the exception. A photo is required to apply.
+- Somebody can also be put forward by a friend at `/refer` before they have
+  applied. A nomination carrying real words becomes an answered recommendation
+  when the nominee applies, so they are asked for one friend rather than two.
+  See `src/lib/nominations.ts`.
 - Every select and checkbox on a form driven by `useActionState` must be
   controlled. Uncontrolled ones reset on the re-render after a failed submit.
 - No native `<select>` anywhere: its popup is OS chrome. Two to five options use
