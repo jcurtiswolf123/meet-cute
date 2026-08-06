@@ -5,7 +5,7 @@ import { ShareLink } from "@/components/ShareLink";
 import { SubmitButton } from "@/components/forms";
 import { getCurrentPerson } from "@/lib/auth";
 import { nudgeRecommenders } from "@/lib/actions";
-import { REQUIRED_RECOMMENDATIONS, countsTowardGate, gateState } from "@/lib/recommendations";
+import { gateState } from "@/lib/recommendations";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Application received" };
@@ -21,7 +21,9 @@ function appBase(): string {
 // application by hand and is the wrong one now.
 //
 // Jess's ask, 2026-08-02, still holds underneath: the thing to do after
-// applying is bring your single friends, not wait.
+// applying is bring your friends, not wait. Since 2026-08-06 there are two ways
+// to do that, and they are different asks: send somebody the application, or
+// put a specific person forward yourself at /refer.
 export default async function Thanks() {
   const me = await getCurrentPerson();
   if (!me) redirect("/login");
@@ -48,7 +50,6 @@ export default async function Thanks() {
           <ul className="mt-8 w-full max-w-xl space-y-3">
             {state.recommendations.map((rec) => {
               const written = rec.status === "submitted";
-              const counts = countsTowardGate(state.applicantGender, rec.gender);
               return (
                 <li key={rec.id} className="rounded-xl border border-line bg-panel p-4">
                   <div className="flex items-baseline justify-between gap-4">
@@ -62,12 +63,6 @@ export default async function Thanks() {
                     <blockquote className="mt-3 border-l-2 border-claret pl-3 font-display text-base italic leading-relaxed text-ink">
                       &ldquo;{rec.body}&rdquo;
                     </blockquote>
-                  )}
-                  {written && !counts && (
-                    <p className="mt-2 text-xs text-muted">
-                      This one does not count toward your {REQUIRED_RECOMMENDATIONS}. Mutuals asks
-                      for two friends of the opposite gender.
-                    </p>
                   )}
                 </li>
               );
@@ -95,12 +90,19 @@ export default async function Thanks() {
       )}
 
       <p className="mt-10 max-w-[48ch] text-lg text-ink">
-        In the meantime, send this link to your single friends. The more mutuals, the better the
-        matches.
+        In the meantime, send this link to your friends. The more mutuals, the better the matches.
       </p>
       <div className="mt-5 w-full max-w-xl">
         <ShareLink url={`${appBase()}/apply`} />
       </div>
+      <p className="mt-6 max-w-[52ch] text-sm text-muted">
+        Or put somebody specific forward and we will write to them ourselves, saying it came from
+        you.{" "}
+        <Link href="/refer" className="text-claret underline">
+          Recommend someone
+        </Link>
+        .
+      </p>
       <div className="mt-10 flex gap-3">
         {/* Naming the step is what gets an applied applicant back in. Plain
             "/apply" bounced straight back to this page, so this button did

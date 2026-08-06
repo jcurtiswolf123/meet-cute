@@ -5,7 +5,7 @@ import { requireOperatorPage } from "@/lib/page-auth";
 import { addNote, createSuggestion, hidePhoto } from "@/lib/actions";
 import { candidatesFor } from "@/lib/copilot";
 import { connectionsOf, vouchesFor } from "@/lib/social";
-import { REQUIRED_RECOMMENDATIONS, countsTowardGate } from "@/lib/recommendations";
+import { REQUIRED_RECOMMENDATIONS } from "@/lib/recommendations";
 import { citiesOf, cityShort } from "@/lib/cities";
 import { Avatar, StageBadge } from "@/components/ui";
 import { SubmitButton, ConfirmActionForm } from "@/components/forms";
@@ -206,13 +206,13 @@ export default async function PersonPage({
                 <li key={rec.id} className="border-t border-ink/10 pt-3 first:border-t-0 first:pt-0">
                   <p className="text-xs text-muted">
                     <span className="font-medium text-ink">{rec.name}</span>
-                    {` · ${rec.gender} · ${rec.email}`}
+                    {`${rec.gender ? ` · ${rec.gender}` : ""} · ${rec.email}`}
                     {rec.status === "submitted"
                       ? ""
                       : rec.remindedAt
                         ? " · nudged, no reply yet"
                         : " · asked, no reply yet"}
-                    {countsTowardGate(p.gender, rec.gender) ? "" : " · does not count toward the two"}
+                    {rec.relationship === "Put them forward" ? " · put them forward" : ""}
                   </p>
                   {rec.body && (
                     <p className="mt-1.5 text-sm italic leading-relaxed text-ink/85">&ldquo;{rec.body}&rdquo;</p>

@@ -26,6 +26,9 @@ export function SiteFooter() {
             <Link href="/apply" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">
               Apply
             </Link>
+            <Link href="/refer" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">
+              Recommend someone
+            </Link>
           </nav>
           <nav aria-label="Legal navigation" className="flex flex-col items-start gap-3 text-cream/65">
             <Link href="/privacy" className="inline-flex min-h-11 items-center transition-colors duration-200 hover:text-cream">

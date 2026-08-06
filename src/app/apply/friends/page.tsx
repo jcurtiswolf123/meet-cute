@@ -3,7 +3,8 @@ import { Logo } from "@/components/ui";
 import { SiteFooter } from "@/components/SiteFooter";
 import { prisma } from "@/lib/prisma";
 import { getCurrentPerson } from "@/lib/auth";
-import { fastTrackFor } from "@/lib/recommendations";
+import { fastTrackFor, gateState, requiredNewRecommenders } from "@/lib/recommendations";
+import { convertNominationsFor } from "@/lib/nominations";
 import { ApplyFriendsForm } from "./ApplyFriendsForm";
 import { StepShell } from "../StepShell";
 import { STEPS } from "@/lib/application-steps";
@@ -22,15 +23,24 @@ export default async function ApplyFriends() {
   if (!me.basicsAt) redirect("/apply");
   if (me.appliedAt) redirect("/apply/thanks");
 
-  const [fastTrack, recommenders] = await Promise.all([
-    fastTrackFor(me.email, me.gender),
+  // Anybody who put this person forward wrote about them before they ever got
+  // here. Converting first is what makes the form ask for one friend instead of
+  // two, and it is idempotent, so rendering this page twice credits nothing
+  // twice.
+  await convertNominationsFor({ id: me.id, email: me.email });
+
+  const [fastTrack, state, recommenders] = await Promise.all([
+    fastTrackFor(me.email),
+    gateState(me.id),
     prisma.recommendation.findMany({
-      where: { applicantId: me.id },
+      where: { applicantId: me.id, status: "requested" },
       orderBy: { createdAt: "asc" },
       take: 2,
       select: { name: true, email: true, gender: true },
     }),
   ]);
+  const already = state.qualifying;
+  const needed = requiredNewRecommenders(fastTrack, already.length);
 
   return (
     <>
@@ -44,9 +54,10 @@ export default async function ApplyFriends() {
             sub={`${me.name.split(" ")[0]}, everything about you is saved. Nothing here can undo that, and if you stop now you can pick this up from the link we send.`}
           >
             <ApplyFriendsForm
-              gender={me.gender ?? ""}
+              needed={needed}
               recommenders={recommenders}
               fastTrack={fastTrack ? { memberName: fastTrack.member.name } : null}
+              vouchedBy={already.map((r) => r.name)}
             />
           </StepShell>
         </div>

@@ -2,7 +2,9 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-05 (an applicant can change an answer after applying:
+Last updated: 2026-08-06 (the gate is any two friends, and somebody can be put
+forward at `/refer` before they ever apply: see the section below. Before that:
+an applicant can change an answer after applying:
 "Edit your application" had pointed at `/apply`, which sent anybody carrying
 `appliedAt` straight back to the waiting page, so the button was a loop for the
 whole stretch between applying and being accepted, and the profile editor is
@@ -99,6 +101,36 @@ in the code that records it.
 The tap link is deliberately not a one-click URL in the email. Mail scanners
 follow links, and a scanner must never be able to vouch for somebody.
 
+## 2026-08-06: any two friends, and somebody can be put forward
+
+Both from Jess, off what people were replying with. Verified end to end on the
+sandbox: a nomination submitted at `/refer`, both emails queued, the nominee
+greeted by name at `/apply?ref=`, the friends step asking for one friend instead
+of two, and a woman accepted on two women's recommendations, which the old rule
+would have refused.
+
+- **The gate is any two friends.** The opposite-gender rule and the "single"
+  wording are both gone. People were stopping on the last screen of the
+  application because they had nobody of the right description to name.
+  `countsTowardGate` is deleted; the form rejects nothing on gender; the copy is
+  "Name any two friends who know you well."
+- **Gender is still collected per friend and still stored** as lead data.
+  `Recommendation.gender` is nullable, because a nomination never asks for it.
+- **`/refer` is the referral running the other way.** Somebody fills in a
+  friend's name, email and optionally a couple of sentences, with no account.
+  One email to the nominee (`nomination_invite`) naming who sent them and
+  quoting the words, one receipt to the nominator (`nomination_receipt`), and
+  nothing after that.
+- **Words of 40 characters or more become an answered recommendation** on the
+  nominee's row when they apply, so they are asked for one friend rather than
+  two. Two such nominations accept somebody the moment they submit.
+- **Somebody already a member is recorded and not emailed**, and no email ever
+  discloses whether a named person is already in Mutuals.
+- Entry points: the closing CTA on the landing page, the footer, the waiting
+  page after applying, and the thank-you a recommender sees at `/r/<token>`.
+- Migration `20260806203832_nominations_and_any_two_friends`. Covered by
+  `scripts/test-nominations.ts` and the rewritten gate and flywheel checks.
+
 ## 2026-08-03: the recommender loop
 
 Built, tested end to end on the sandbox. The recommender is the warmest lead
@@ -106,8 +138,8 @@ this product gets and until now they hit a thank-you page and vanished.
 
 - **A recommender who applies needs one friend, not two.** The member they
   vouched for counts as the other and is emailed to vouch back. Earned only by
-  vouching for a live member of the opposite gender; vouching for someone who
-  was declined earns nothing. The server decides it, so the form cannot be
+  vouching for a live member (of the opposite gender until 2026-08-06); vouching
+  for someone who was declined earns nothing. The server decides it, so the form cannot be
   talked into a shorter gate.
 - **The follow-up link carries their token**, so `/apply` greets them by name,
   prefills the address someone else already gave us, and says up front that

@@ -82,9 +82,14 @@ model Person {
   recommendation String?
 
   // Recommendations written about this person by the friends they named at
-  // application. Two submitted ones from the opposite gender are what accepts
-  // an applicant into Mutuals.
+  // application. Two answered ones are what accepts an applicant into Mutuals.
   recommendationsReceived Recommendation[] @relation("RecommendationSubject")
+
+  // People this member put forward through /refer, and the nomination they came
+  // in on. Both nullable: most nominations are written by somebody with no
+  // account at all, and most members were never nominated.
+  nominationsMade Nomination[] @relation("Nominator")
+  nominatedAs     Nomination[] @relation("Nominee")
 
   // ambassador
   ambassadorTitle String?
@@ -432,9 +437,9 @@ model Reference {
 }
 
 // A recommendation request sent to a friend the applicant named, and the reply
-// they wrote. An application is not accepted until two of these come back from
-// people of the opposite gender to the applicant: the applicant has to ask, and
-// the friends have to answer, which is also how the roster grows.
+// they wrote. An application is not accepted until two of these come back: the
+// applicant has to ask, and the friends have to answer, which is also how the
+// roster grows.
 //
 // The friend needs no account and no session. The token in the email is the
 // capability: it identifies exactly one request, is single-purpose, and stops
@@ -444,11 +449,13 @@ model Recommendation {
   applicantId String
   applicant   Person @relation("RecommendationSubject", fields: [applicantId], references: [id], onDelete: Cascade)
 
-  // Who the applicant named. gender is theirs, not the applicant's, and is what
-  // the opposite-gender rule is checked against: "woman" | "man" | "nonbinary".
+  // Who the applicant named. gender is theirs, not the applicant's. It stopped
+  // gating anything on 2026-08-06 (any two friends count) and is now kept as
+  // lead data. Null on a row that came from a nomination, where nobody was ever
+  // asked for it.
   name   String
   email  String
-  gender String
+  gender String?
 
   // Opaque capability token (base64url) carried by the request email.
   token String @unique
@@ -490,6 +497,57 @@ model Recommendation {
   @@index([token])
   // Finding "did this email ever vouch for anyone" runs on every application.
   @@index([email, status])
+}
+
+// Somebody put a friend forward, unprompted.
+//
+// The recommendation gate runs the other way round: an applicant names two
+// friends and Mutuals emails them. This is the direction people actually offer
+// first ("you should meet my friend Ana"), and before this there was nowhere
+// for it to go. The nominee gets one email inviting them to apply, and if the
+// nominator wrote a couple of sentences those become a real recommendation the
+// moment the nominee applies, so they only have to ask one friend.
+//
+// The nominator needs no account: requiring one loses the referral at the first
+// click, which is the same reason a recommender needs none.
+model Nomination {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Opaque capability token carried by the invite email, so /apply can greet
+  // the nominee by name and say who put them forward.
+  token String @unique
+
+  // Who did the recommending. personId is set only when they were signed in,
+  // which is the only case where the name is verified rather than typed.
+  nominatorName   String
+  nominatorEmail  String
+  nominatorPersonId String?
+  nominator       Person? @relation("Nominator", fields: [nominatorPersonId], references: [id])
+
+  // Who they put forward, and why. A note of any substance becomes the
+  // nominee's first recommendation; a blank one makes this a plain invitation.
+  name  String
+  email String
+  note  String?
+
+  // sent -> applied. "skipped" is somebody who is already with us, where the
+  // nomination is recorded and no email is sent: nobody needs an invitation to
+  // a thing they already joined.
+  status    String    @default("sent") // sent | skipped | applied
+  invitedAt DateTime?
+  appliedAt DateTime?
+
+  // The person the nominee became, once they applied. The only way the referral
+  // funnel can be measured.
+  personId String?
+  person   Person? @relation("Nominee", fields: [personId], references: [id])
+
+  // One nomination per pair: the same person putting the same friend forward
+  // twice is a double-tap, not two referrals.
+  @@unique([email, nominatorEmail])
+  @@index([email, status])
+  @@index([token])
 }
 
 model Referral {

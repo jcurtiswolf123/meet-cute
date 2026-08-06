@@ -53,7 +53,7 @@ export const STEPS: { id: StepId; title: (row: ApplicationRow) => string; sub: s
   {
     id: "gender",
     title: () => "How do you identify?",
-    sub: "Your matchmaker needs this, and so does the step where you name your friends.",
+    sub: "Your matchmaker needs this to know who to introduce you to.",
   },
   {
     id: "birthdate",

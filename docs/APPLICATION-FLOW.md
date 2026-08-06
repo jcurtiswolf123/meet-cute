@@ -1,11 +1,15 @@
 # The application, end to end
 
 Every step from a stranger arriving at `/apply` to an accepted member, and every
-email that leaves along the way. Current as of 2026-08-04.
+email that leaves along the way. Current as of 2026-08-06.
 
-The one thing to hold onto: **submitting the form accepts nobody.** Two friends
-of the opposite gender answering is what gets someone in. The form is how we ask
-them; the friends are the gate.
+The one thing to hold onto: **submitting the form accepts nobody.** Any two
+friends answering is what gets someone in. The form is how we ask them; the
+friends are the gate.
+
+There are two doors in. Most people walk through `/apply` and name their own
+friends. Since 2026-08-06 somebody can also be put forward by a friend at
+`/refer` before they have ever heard of us: see section 3a.
 
 ## 1. Sign in, before anything is asked
 
@@ -44,7 +48,7 @@ they resume on the right step from any device or from an email days later.
 |---|---|---|---|
 | 1 | `name` | First and last name | Both. The surname stays private until two people have said yes |
 | 2 | `city` | NYC, SF or LA, plus an optional second city | Primary only |
-| 3 | `gender` | Woman, man, non-binary | Yes. The opposite-gender rule is checked against it |
+| 3 | `gender` | Woman, man, non-binary | Yes. It decides who a matchmaker introduces them to, and gates nothing |
 | 4 | `birthdate` | Date of birth | Yes, and 18 or older |
 | 5 | `photo` | At least one photo | Yes. Live immediately, no review queue |
 | 6 | `extras` | Email shown read-only, what you are looking for, Instagram, LinkedIn, mobile, terms, SMS opt-in | Terms only |
@@ -62,15 +66,23 @@ Notes that matter:
 
 ## 3. Naming the two friends
 
-Step 7 of 7, at `/apply/friends`, in the same shell as the other six. The ask
-is specific to the gender they gave: **"Name two single men who know you well"**,
-or two single women. Single is guidance, not a check: the vouchers are the
-warmest leads Mutuals sees, and they only become members if they are available
-to be one.
+Step 7 of 7, at `/apply/friends`, in the same shell as the other six. The ask is
+**"Name any two friends who know you well."**
+
+It used to be "two single men", or two single women, matching a gate that
+required two recommendations from the opposite gender. Jess killed both
+qualifiers on 2026-08-06: people were stopping on this exact screen because they
+did not have two single friends of the right description to name, and an
+applicant who cannot name anybody does not become a better member, they become
+no member at all. Gender is still asked for each friend and still stored, as
+lead data. It decides nothing.
 
 - **A recommender who is already a member counts as one of the two**, and only
   one new friend is needed. That member is asked to vouch back
   (`vouch_back_request`).
+- **A nomination counts too**, on the same terms: see 3a. Somebody carrying two
+  answered recommendations already is accepted the moment they submit, and the
+  form asks for nobody.
 - One request per person per address. Naming the same friend twice is a typo.
 - Submitting here stamps `appliedAt`. **Status stays `applicant`.**
 
@@ -81,6 +93,32 @@ Three emails leave at this moment:
 | `application_received` | The applicant | We have it, and it is now up to your friends |
 | `recommendation_request` x2 | Each friend | Someone named you, here is a link |
 | `vouch_back_request` | The member, if fast-tracked | Your friend is applying, vouch back |
+
+(One of the two `recommendation_request` emails is not sent when a nomination or
+a fast-track credit has already covered that slot, and neither is sent when both
+have.)
+
+## 3a. Being put forward, before applying
+
+`/refer` is the referral running the other way: somebody fills in a friend's name
+and email, optionally writes a couple of sentences, and needs no account to do
+it. One `Nomination` row per (nominee, nominator) pair.
+
+- **One email to the nominee** (`nomination_invite`), naming who put them forward
+  and quoting what was written. There is no sequence behind it: this address was
+  given to us by somebody else and they never hear from us again unless they act.
+- **One receipt to the nominator** (`nomination_receipt`). It never says whether
+  the person is already a member, which is not ours to disclose.
+- **Somebody already inside is recorded and not emailed** (status `skipped`).
+- The invite links to `/apply?ref=<token>`, which greets them by who sent them
+  and prefills the address.
+- **Words of 40 characters or more become a real recommendation** on their row
+  the moment they apply, already answered, in the nominator's name. That is one
+  of their two, so they are asked for one friend rather than two. A shorter note
+  invites and credits nothing.
+- Converting is idempotent and runs both when the friends page renders and when
+  it is submitted, so the number of names asked for is never stale.
+- Nobody nominates themselves into a recommendation.
 
 ## 4. The friends answer
 
@@ -135,8 +173,8 @@ already left for the wrong address.
 
 **The second qualifying answer accepts automatically.** No operator involved.
 
-- Qualifying means opposite gender: a woman needs two men, a man needs two
-  women, non-binary applicants and recommenders count either way.
+- Qualifying means answered. Any two friends, in any combination, since
+  2026-08-06.
 - The transition is a guarded conditional update, so two friends answering at the
   same instant accepts once.
 - The words from a friend who wrote are copied to the profile and are what an

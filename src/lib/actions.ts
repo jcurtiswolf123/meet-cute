@@ -33,7 +33,16 @@ import {
   vouchBackRequestEmail,
   unfinishedApplicationEmail,
   signInLinkUnusedEmail,
+  nominationInviteEmail,
+  nominationReceiptEmail,
 } from "./email";
+import {
+  convertNominationsFor,
+  markInvited,
+  nominationApplyUrl,
+  nominationCounts,
+  saveNomination,
+} from "./nominations";
 import {
   FOLLOW_UP_DELAY_MS,
   REMINDER_SCHEDULE_MS,
@@ -669,11 +678,18 @@ export async function submitApplicationFriends(
   if (!me.basicsAt) redirect("/apply");
 
   const email = me.email ?? "";
-  const gender = me.gender ?? "";
   const applicantNote = String(formData.get("applicantNote") || "").trim().slice(0, 200);
 
-  const fastTrack = await fastTrackFor(email, gender);
-  const needed = requiredNewRecommenders(fastTrack);
+  // Anyone who put this person forward wrote their recommendation before being
+  // asked. Converted here as well as on the page that renders the form, because
+  // the count of friends to name is decided in both places and they must agree:
+  // a nomination that landed while the form was open would otherwise be asked
+  // for a friend the applicant no longer needs.
+  await convertNominationsFor({ id: me.id, email });
+
+  const fastTrack = await fastTrackFor(email);
+  const answered = (await gateState(me.id)).qualifying.length;
+  const needed = requiredNewRecommenders(fastTrack, answered);
   const recommenders = [1, 2].slice(0, needed).map((slot) => ({
     name: String(formData.get(`rec${slot}Name`) || "").trim().slice(0, 120),
     email: String(formData.get(`rec${slot}Email`) || "").trim().toLowerCase().slice(0, 254),
@@ -702,18 +718,10 @@ export async function submitApplicationFriends(
     seen.add(person.email);
     if (!isGender(person.gender)) fieldErrors[`rec${slot}Gender`] = "Pick one.";
   });
-  if (isGender(gender) && (gender === "woman" || gender === "man")) {
-    const wanted = gender === "woman" ? "man" : "woman";
-    recommenders.forEach((person, i) => {
-      const slot = i + 1;
-      if (isGender(person.gender) && person.gender !== wanted) {
-        fieldErrors[`rec${slot}Gender`] =
-          wanted === "man"
-            ? `Your ${needed === 1 ? "recommendation has" : "recommendations have"} to come from men.`
-            : `Your ${needed === 1 ? "recommendation has" : "recommendations have"} to come from women.`;
-      }
-    });
-  }
+  // What used to sit here: a check that every friend named was of the opposite
+  // gender to the applicant, which rejected the form outright. It is gone with
+  // the rule (2026-08-06). Gender is still asked and still stored, because it
+  // says who the warmest leads in this network are; it decides nothing.
 
   if (Object.keys(fieldErrors).length > 0) return { fieldErrors, values };
 
@@ -767,29 +775,40 @@ export async function submitApplicationFriends(
     }
   }
 
+  // Somebody who arrived with two recommendations already written about them
+  // (two people nominated them, or one did and they had vouched for a member)
+  // is a member the moment they apply. Nothing is waiting on anybody, so the
+  // "now it is up to your friends" email would be a lie.
+  const outcome = await acceptIfRecommended(me!.id);
+
   if (email.includes("@")) {
     try {
-      const msg = applicationReceivedEmail({
-        name: me!.name,
-        city: me!.city,
-        recommenders: saved.map((r) => ({ name: r.name, status: r.status })),
-        statusUrl: `${appBaseUrl()}/apply/thanks`,
-      });
+      const msg = outcome.justAccepted
+        ? applicationApprovedEmail({ name: me!.name, appUrl: `${appBaseUrl()}/app/profile` })
+        : applicationReceivedEmail({
+            name: me!.name,
+            city: me!.city,
+            recommenders: saved.map((r) => ({ name: r.name, status: r.status })),
+            statusUrl: `${appBaseUrl()}/apply/thanks`,
+          });
       await queueEmailDelivery({
-        kind: "application_received",
+        kind: outcome.justAccepted ? "application_approved" : "application_received",
         to: email,
         subject: msg.subject,
         html: msg.html,
         text: msg.text,
         personId: me!.id,
-        idempotencyKey: makeDeliveryKey("application_received", me!.id),
+        idempotencyKey: makeDeliveryKey(
+          outcome.justAccepted ? "application_approved" : "application_received",
+          me!.id,
+        ),
       });
     } catch (error) {
       console.error(`[apply] could not queue confirmation: ${(error as Error).message}`);
     }
   }
 
-  redirect("/apply/thanks");
+  redirect(outcome.accepted ? "/app" : "/apply/thanks");
 }
 
 // --- recommendations ---------------------------------------------------------
@@ -2249,4 +2268,130 @@ export async function requestCoaching(formData: FormData) {
     redirect("/coaching?error=send");
   }
   redirect("/coaching?requested=1");
+}
+
+// --- nominations -------------------------------------------------------------
+
+export type ReferState = {
+  fieldErrors?: Record<string, string>;
+  values?: Record<string, string>;
+  /** Set on success, so the page can thank them by the name they typed. */
+  sent?: { name: string; counts: boolean };
+};
+
+/**
+ * Put somebody forward who has not applied.
+ *
+ * No session required. The person filling this in is usually a member's friend
+ * or a recommender who has just been told what Mutuals is, and asking them to
+ * make an account first would lose the referral in the ten seconds they thought
+ * of the person.
+ *
+ * It sends exactly one email to a stranger, whose address was given to us by
+ * somebody else, and never a second one. That is the whole reason there is no
+ * nudge schedule here, unlike every other ask in this system: the recommenders
+ * we chase asked for nothing either, but their friend named them to us as
+ * someone who would want to be asked, and a nominee has not even had that.
+ */
+export async function submitNomination(_prev: ReferState, formData: FormData): Promise<ReferState> {
+  const me = await getCurrentPerson();
+  const values = {
+    fromName: (me?.name || String(formData.get("fromName") || "")).trim().slice(0, 120),
+    fromEmail: normalizeEmail(me?.email || String(formData.get("fromEmail") || "")),
+    name: String(formData.get("name") || "").trim().slice(0, 120),
+    email: normalizeEmail(String(formData.get("email") || "")),
+    note: String(formData.get("note") || "").trim().slice(0, 1200),
+  };
+
+  const fieldErrors: Record<string, string> = {};
+  if (!values.fromName) fieldErrors.fromName = "Tell them who this is from.";
+  if (!isValidEmail(values.fromEmail)) fieldErrors.fromEmail = "We need your email, so we can tell you what happens.";
+  if (!values.name) fieldErrors.name = "Add their name.";
+  if (!isValidEmail(values.email)) fieldErrors.email = "Add their email so we can write to them.";
+  else if (values.email === values.fromEmail) {
+    fieldErrors.email = "This is for somebody else. To join yourself, apply.";
+  }
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors, values };
+
+  // Throttled means discarded, so it must not render the success state: this
+  // form emails a third party, which is exactly the thing worth abusing.
+  const ip = await clientIp();
+  if (!(await rateLimit(`refer:ip:${ip}`, 10, 60 * 60 * 1000)).ok) {
+    return {
+      values,
+      fieldErrors: {
+        email: "That is a lot of recommendations from one place in a short window. Try again in a little while.",
+      },
+    };
+  }
+
+  const counts = nominationCounts(values.note);
+  let result;
+  try {
+    result = await saveNomination({
+      nominatorName: values.fromName,
+      nominatorEmail: values.fromEmail,
+      nominatorPersonId: me?.id ?? null,
+      name: values.name,
+      email: values.email,
+      note: values.note,
+    });
+  } catch (error) {
+    console.error(`[nomination] could not record: ${(error as Error).message}`);
+    return {
+      values,
+      fieldErrors: { email: "We could not record that just now. Please try again." },
+    };
+  }
+
+  // One email, once. `isNew` is false for a repeat submission of the same pair,
+  // and `alreadyMember` is somebody who is already inside: neither is written
+  // to, and both see the same confirmation, because whether a given person is
+  // a member is not ours to disclose to whoever typed their address.
+  if (result.isNew && !result.alreadyMember) {
+    try {
+      const invite = nominationInviteEmail({
+        name: result.nomination.name,
+        nominatorName: result.nomination.nominatorName,
+        note: result.nomination.note,
+        applyUrl: nominationApplyUrl(result.nomination.token),
+        counts,
+        existingApplicant: result.existingApplicant,
+      });
+      await queueEmailDelivery({
+        kind: "nomination_invite",
+        to: result.nomination.email,
+        subject: invite.subject,
+        html: invite.html,
+        text: invite.text,
+        idempotencyKey: makeDeliveryKey("nomination_invite", result.nomination.token),
+      });
+      await markInvited(result.nomination.id);
+    } catch (error) {
+      console.error(`[nomination] could not queue invite: ${(error as Error).message}`);
+    }
+  }
+
+  if (result.isNew) {
+    try {
+      const receipt = nominationReceiptEmail({
+        nominatorName: result.nomination.nominatorName,
+        name: result.nomination.name,
+        counts,
+        referUrl: `${appBaseUrl()}/refer`,
+      });
+      await queueEmailDelivery({
+        kind: "nomination_receipt",
+        to: result.nomination.nominatorEmail,
+        subject: receipt.subject,
+        html: receipt.html,
+        text: receipt.text,
+        idempotencyKey: makeDeliveryKey("nomination_receipt", result.nomination.token),
+      });
+    } catch (error) {
+      console.error(`[nomination] could not queue receipt: ${(error as Error).message}`);
+    }
+  }
+
+  return { sent: { name: result.nomination.name, counts } };
 }

@@ -155,6 +155,15 @@ export default function Home() {
               <p className="mt-5 text-sm leading-6 text-muted">
                 Every application is read by a person, and you will hear back either way.
               </p>
+              {/* The other half of "meet your friend's friends": plenty of
+                  people read this page and think of somebody else. */}
+              <p className="mt-4 text-sm leading-6 text-muted">
+                Not for you, but you know who it is for?{" "}
+                <Link href="/refer" className="text-link">
+                  Recommend them
+                </Link>
+                .
+              </p>
             </Reveal>
           </div>
         </section>
