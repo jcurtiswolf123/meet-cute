@@ -326,7 +326,7 @@ export default async function PersonPage({
         {!p.isOperator && (
           <div className="card p-4">
             <p className="label">Suggested candidates</p>
-            <p className="mb-2 mt-0.5 text-xs text-muted">Ranked by fit + vouches. Click to create a suggestion.</p>
+            <p className="mb-2 mt-0.5 text-xs text-muted">Ranked by fit + vouches. Click a name to view them, or + to suggest the match.</p>
             {suggestNotice && (
               <p
                 role="status"
@@ -337,16 +337,30 @@ export default async function PersonPage({
             )}
             <div className="space-y-2">
               {candidates.map((c) => (
-                <form key={c.p.id} action={createSuggestion.bind(null, id, c.p.id, `Co-pilot suggested: fit ${c.score.toFixed(2)}, ${c.vouches} vouches.`)}>
-                  <button className="flex w-full items-center gap-2 rounded-lg border border-line p-2 text-left text-sm transition hover:border-studio-line">
+                <div
+                  key={c.p.id}
+                  className="flex w-full items-center gap-2 rounded-lg border border-line p-2 text-sm transition hover:border-studio-line"
+                >
+                  {/* Name opens the profile; only the + commits a suggestion.
+                      The whole row used to be the submit button, so clicking a
+                      name to read about someone silently created a suggestion. */}
+                  <Link href={`/studio/person/${c.p.id}`} className="flex min-w-0 flex-1 items-center gap-2">
                     <Avatar url={undefined} name={c.p.name} size={32} />
-                    <span className="flex-1">
-                      <span className="block font-medium">{c.p.name}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium hover:underline">{c.p.name}</span>
                       <span className="block text-xs text-muted">fit {c.score.toFixed(2)} · {c.vouches} vouches</span>
                     </span>
-                    <span className="text-ink">+</span>
-                  </button>
-                </form>
+                  </Link>
+                  <form action={createSuggestion.bind(null, id, c.p.id, `Co-pilot suggested: fit ${c.score.toFixed(2)}, ${c.vouches} vouches.`)}>
+                    <button
+                      className="rounded-full border border-line px-2.5 py-1 text-ink transition hover:border-studio-line"
+                      aria-label={`Suggest ${c.p.name} as a match`}
+                      title="Create suggestion"
+                    >
+                      +
+                    </button>
+                  </form>
+                </div>
               ))}
               {!candidates.length && <p className="text-xs text-muted">No open candidates.</p>}
             </div>

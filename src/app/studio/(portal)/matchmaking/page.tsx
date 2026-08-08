@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import {
@@ -180,7 +181,13 @@ export default async function Matchmaking({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-ink">
-                        {displayName(m.personA.name)} + {displayName(m.personB.name)}
+                        <Link href={`/studio/person/${m.personA.id}`} className="hover:underline">
+                          {displayName(m.personA.name)}
+                        </Link>
+                        {" + "}
+                        <Link href={`/studio/person/${m.personB.id}`} className="hover:underline">
+                          {displayName(m.personB.name)}
+                        </Link>
                       </span>
                       <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${s.tone}`}>
                         {s.label}
@@ -288,7 +295,9 @@ export default async function Matchmaking({
                 <tr key={p.id}>
                   <td className="font-medium text-ink">
                     <span className="flex items-center gap-2">
-                      {p.name}
+                      <Link href={`/studio/person/${p.id}`} className="hover:underline">
+                        {p.name}
+                      </Link>
                       {p.openToMatch && (
                         <span className="inline-flex items-center rounded-full border border-ink/25 bg-studio-canvas px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink">
                           Ready
