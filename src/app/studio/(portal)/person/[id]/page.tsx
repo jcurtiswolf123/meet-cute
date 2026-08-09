@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
 import { addNote, createSuggestion, hidePhoto } from "@/lib/actions";
+import { pairStates } from "@/lib/introductions";
+import { PhotoGallery } from "@/components/PhotoGallery";
 import { candidatesFor } from "@/lib/copilot";
 import { connectionsOf, vouchesFor } from "@/lib/social";
 import { REQUIRED_RECOMMENDATIONS } from "@/lib/recommendations";
@@ -26,7 +28,7 @@ export default async function PersonPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ suggest?: string; intro?: string }>;
+  searchParams?: Promise<{ suggest?: string; intro?: string; with?: string }>;
 }) {
   await requireOperatorPage();
   const { id } = await params;
@@ -47,22 +49,24 @@ export default async function PersonPage({
   });
   if (!p) notFound();
 
-  const [notes, vouches, connIds, candidates] = await Promise.all([
+  // One round trip's worth of waiting, not five. Everything below depends only
+  // on the person row, so it is issued together: the page was serialising six
+  // queries against a database in another region, and the operator paid the
+  // latency of all six in a row on every profile open.
+  const [notes, vouches, connIds, candidates, rosterForMatching, pairs] = await Promise.all([
     prisma.note.findMany({ where: { subjectId: id }, orderBy: { createdAt: "desc" }, include: { author: { select: { name: true } } } }),
     vouchesFor(id),
     connectionsOf(id),
     p.isOperator ? Promise.resolve([]) : candidatesFor(id, 4),
-  ]);
-  const connections = await prisma.person.findMany({ where: { id: { in: [...connIds] } }, select: { id: true, name: true } });
-
-  // Everyone this person can be introduced to, so the operator is never limited
-  // to the four ranked suggestions. Same eligibility rule as the Directory
-  // composer: an active roster member with an authorized channel (email, or a
-  // textable phone plus recorded SMS consent). The double opt-in email remains
-  // the consent point, so `openToMatch` is deliberately not required here.
-  const rosterForMatching = p.isOperator
+    // Everyone this person can be introduced to, so the operator is never
+    // limited to the four ranked suggestions. Same eligibility rule as the
+    // Directory composer: an active roster member with an authorized channel
+    // (email, or a textable phone plus recorded SMS consent). The double opt-in
+    // email remains the consent point, so `openToMatch` is deliberately not
+    // required here.
+    p.isOperator
     ? []
-    : await prisma.person.findMany({
+    : prisma.person.findMany({
         where: {
           isOperator: false,
           isAmbassador: false,
@@ -80,9 +84,14 @@ export default async function PersonPage({
           instagram: true,
           bio: true,
           lookingFor: true,
+          photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } },
         },
         orderBy: { name: "asc" },
-      });
+      }),
+    p.isOperator ? Promise.resolve({}) : pairStates(),
+  ]);
+  const connections = await prisma.person.findMany({ where: { id: { in: [...connIds] } }, select: { id: true, name: true } });
+
   const composerPeople = rosterForMatching.map((c) => ({
     id: c.id,
     name: c.name,
@@ -90,6 +99,8 @@ export default async function PersonPage({
     phone: c.phone,
     canText: !!c.smsConsentAt,
     city: c.city,
+    photoUrl: c.photos[0]?.url ?? null,
+    lookingFor: c.lookingFor,
   }));
   // The person can only be the anchor of a new introduction if they are on the
   // roster with a channel of their own.
@@ -153,30 +164,32 @@ export default async function PersonPage({
         {p.photos.length > 0 && (
           <div className="mt-5">
             <p className="label text-muted">Photos</p>
-            <div className="mt-2 flex flex-wrap gap-3">
-              {p.photos
-                .filter((photo) => photo.status !== "rejected")
-                .map((photo) => (
-                  <figure key={photo.id} className="w-24">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.url}
-                      alt={`${p.name}, photo ${photo.order + 1}`}
-                      className="h-24 w-24 rounded-lg border border-line object-cover"
-                    />
-                    <ConfirmActionForm
-                      action={hidePhoto}
-                      confirmMessage="Hide this photo everywhere?"
-                      triggerLabel="Hide"
-                      triggerAriaLabel={`Hide photo ${photo.order + 1} for ${p.name}`}
-                      confirmLabel="Hide it"
-                      pendingText="Hiding..."
-                      buttonClassName="mt-1 text-xs text-muted underline underline-offset-2 hover:text-ink"
-                    >
-                      <input type="hidden" name="photoId" value={photo.id} />
-                    </ConfirmActionForm>
-                  </figure>
-                ))}
+            <p className="mt-0.5 text-xs text-muted">Click a photo to see it full size.</p>
+            <div className="mt-2">
+              <PhotoGallery
+                variant="grid"
+                label={`${p.name}'s photo`}
+                photos={p.photos
+                  .filter((photo) => photo.status !== "rejected")
+                  .map((photo) => ({
+                    id: photo.id,
+                    src: photo.url,
+                    alt: `${p.name}, photo ${photo.order + 1}`,
+                    footer: (
+                      <ConfirmActionForm
+                        action={hidePhoto}
+                        confirmMessage="Hide this photo everywhere?"
+                        triggerLabel="Hide"
+                        triggerAriaLabel={`Hide photo ${photo.order + 1} for ${p.name}`}
+                        confirmLabel="Hide it"
+                        pendingText="Hiding..."
+                        buttonClassName="mt-1 text-xs text-muted underline underline-offset-2 hover:text-ink"
+                      >
+                        <input type="hidden" name="photoId" value={photo.id} />
+                      </ConfirmActionForm>
+                    ),
+                  }))}
+              />
             </div>
             {p.photos.some((photo) => photo.status === "rejected") && (
               <p className="mt-2 text-xs text-muted">
@@ -252,12 +265,14 @@ export default async function PersonPage({
             same double opt-in introduction the Directory composer sends. */}
         {!p.isOperator && (
           <>
-            <h2 className="label mt-8">Match {p.name.split(" ")[0]} with someone</h2>
+            <h2 id="introduce" className="label mt-8 scroll-mt-24">Match {p.name.split(" ")[0]} with someone</h2>
             {canMatchThisPerson ? (
               <div className="mt-2">
                 <IntroComposer
                   people={composerPeople}
                   lockedAId={id}
+                  defaultBId={sp?.with}
+                  pairs={pairs}
                   returnTo={`/studio/person/${id}`}
                   notice={introNotice(sp?.intro)}
                   title={`Introduce ${p.name.split(" ")[0]} to anyone on the list`}
@@ -326,7 +341,10 @@ export default async function PersonPage({
         {!p.isOperator && (
           <div className="card p-4">
             <p className="label">Suggested candidates</p>
-            <p className="mb-2 mt-0.5 text-xs text-muted">Ranked by fit + vouches. Click a name to view them, or + to suggest the match.</p>
+            <p className="mb-2 mt-0.5 text-xs text-muted">
+              Ranked by fit and vouches. A name opens their profile. Introduce sends the real double
+              opt-in invitation; Shortlist only parks the pair in the pipeline and emails nobody.
+            </p>
             {suggestNotice && (
               <p
                 role="status"
@@ -339,27 +357,37 @@ export default async function PersonPage({
               {candidates.map((c) => (
                 <div
                   key={c.p.id}
-                  className="flex w-full items-center gap-2 rounded-lg border border-line p-2 text-sm transition hover:border-studio-line"
+                  className="rounded-lg border border-line p-2 text-sm transition hover:border-studio-line"
                 >
-                  {/* Name opens the profile; only the + commits a suggestion.
+                  {/* Name opens the profile; the two actions are spelled out.
                       The whole row used to be the submit button, so clicking a
-                      name to read about someone silently created a suggestion. */}
-                  <Link href={`/studio/person/${c.p.id}`} className="flex min-w-0 flex-1 items-center gap-2">
+                      name to read about someone silently created a suggestion,
+                      and the button that replaced it was a bare "+" whose one
+                      effect (a pipeline row, no email) nobody could guess. */}
+                  <Link href={`/studio/person/${c.p.id}`} className="flex min-w-0 items-center gap-2">
                     <Avatar url={undefined} name={c.p.name} size={32} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium hover:underline">{c.p.name}</span>
                       <span className="block text-xs text-muted">fit {c.score.toFixed(2)} · {c.vouches} vouches</span>
                     </span>
                   </Link>
-                  <form action={createSuggestion.bind(null, id, c.p.id, `Co-pilot suggested: fit ${c.score.toFixed(2)}, ${c.vouches} vouches.`)}>
-                    <button
-                      className="rounded-full border border-line px-2.5 py-1 text-ink transition hover:border-studio-line"
-                      aria-label={`Suggest ${c.p.name} as a match`}
-                      title="Create suggestion"
+                  <div className="mt-2 flex items-center gap-2">
+                    <Link
+                      href={`/studio/person/${id}?with=${c.p.id}#introduce`}
+                      className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white"
                     >
-                      +
-                    </button>
-                  </form>
+                      Introduce
+                    </Link>
+                    <form action={createSuggestion.bind(null, id, c.p.id, `Co-pilot suggested: fit ${c.score.toFixed(2)}, ${c.vouches} vouches.`)}>
+                      <button
+                        className="rounded-full border border-line px-3 py-1 text-xs text-ink transition hover:border-studio-line"
+                        aria-label={`Shortlist ${c.p.name} in the pipeline`}
+                        title="Park this pair in the pipeline. Nobody is emailed."
+                      >
+                        Shortlist
+                      </button>
+                    </form>
+                  </div>
                 </div>
               ))}
               {!candidates.length && <p className="text-xs text-muted">No open candidates.</p>}

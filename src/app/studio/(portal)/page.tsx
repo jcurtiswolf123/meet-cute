@@ -8,44 +8,122 @@ import { ApproveApplicant } from "./ApproveApplicant";
 import { retryDeliveryJob, setMemberStatus } from "@/lib/actions";
 import { IntroComposer } from "./matchmaking/IntroComposer";
 import { introNotice } from "./matchmaking/intro-notice";
+import { pairStates } from "@/lib/introductions";
 
 export const dynamic = "force-dynamic";
 
 export default async function Roster({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; city?: string; gender?: string; sort?: string; intro?: string }>;
+  searchParams: Promise<{ q?: string; city?: string; gender?: string; sort?: string; intro?: string; with?: string }>;
 }) {
   await requireOperatorPage();
   const sp = await searchParams;
   const q = (sp.q ?? "").toLowerCase();
 
-  const people = await prisma.person.findMany({
-    where: {
-      isOperator: false,
-      isAmbassador: false,
-      isCoach: false,
-      status: "active",
-      // Either slot: someone who splits their time is in both markets, and a
-      // filter that only reads the primary hides half of them.
-      ...(sp.city ? cityWhere(sp.city) : {}),
-      ...(sp.gender ? { gender: sp.gender } : {}),
-    },
-    include: {
-      photos: true,
-      vouchesReceived: true,
-      referredBy: { select: { name: true } },
-      matchesAsA: { select: { createdAt: true, stage: true } },
-      matchesAsB: { select: { createdAt: true, stage: true } },
-      dinnerAttendance: { select: { id: true } },
-    },
-  });
+  // Every query this page needs, issued at once. They were serialised: the
+  // roster, then the three metric counts, then the applicants, then the
+  // half-finished, then the delivery failures. Against a database in another
+  // region that is six round trips of waiting stacked end to end, on the page
+  // an operator opens first and returns to all day.
+  //
+  // The roster reads counts rather than whole relation rows: it was pulling
+  // every vouch row and every photo row for every member to render two numbers
+  // and one avatar.
+  const [people, applicants, accepted, byStage, pendingApplicants, halfFinished, failedDeliveryCount, failedDeliveries, pairs] =
+    await Promise.all([
+      prisma.person.findMany({
+        where: {
+          isOperator: false,
+          isAmbassador: false,
+          isCoach: false,
+          status: "active",
+          // Either slot: someone who splits their time is in both markets, and a
+          // filter that only reads the primary hides half of them.
+          ...(sp.city ? cityWhere(sp.city) : {}),
+          ...(sp.gender ? { gender: sp.gender } : {}),
+        },
+        include: {
+          photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } },
+          referredBy: { select: { name: true } },
+          matchesAsA: { select: { createdAt: true } },
+          matchesAsB: { select: { createdAt: true } },
+          _count: { select: { vouchesReceived: true, dinnerAttendance: true } },
+        },
+      }),
+      // Accept rate is measured within the application funnel: of people who
+      // actually applied, how many were accepted. Counting all acceptedAt rows
+      // (which include seeded/operator-added actives that never applied) let the
+      // rate exceed 100%.
+      prisma.person.count({ where: { appliedAt: { not: null } } }),
+      prisma.person.count({ where: { appliedAt: { not: null }, acceptedAt: { not: null } } }),
+      prisma.match.groupBy({ by: ["stage"], _count: true }),
+      // New applicants awaiting review. Gate on appliedAt so only people who
+      // actually completed the application show up here. A bare magic-link click
+      // creates an "applicant" row with no appliedAt; surfacing those would bury
+      // the operator in half-finished signups.
+      prisma.person.findMany({
+        where: {
+          isOperator: false,
+          isAmbassador: false,
+          isCoach: false,
+          status: "applicant",
+          appliedAt: { not: null },
+        },
+        include: {
+          photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } },
+          recommendationsReceived: { orderBy: { createdAt: "asc" } },
+        },
+        orderBy: { appliedAt: "desc" },
+      }),
+      // People who saved the first half and stopped at the friends. Before the
+      // application was split they left no trace at all, which is why 18 of them
+      // went unnoticed on 3 August. They are not "to review" (there is nothing to
+      // review yet) and they are not noise either: they gave a name, a city and a
+      // face, and one of them is a member as soon as two friends are named.
+      prisma.person.findMany({
+        where: {
+          isOperator: false,
+          status: "applicant",
+          basicsAt: { not: null },
+          appliedAt: null,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          city: true,
+          secondCity: true,
+          basicsAt: true,
+          unfinishedNudgedAt: true,
+          _count: { select: { photos: true } },
+        },
+        orderBy: { basicsAt: "desc" },
+      }),
+      prisma.deliveryJob.count({ where: { status: "failed" } }),
+      prisma.deliveryJob.findMany({
+        where: { status: "failed" },
+        select: {
+          id: true,
+          kind: true,
+          channel: true,
+          recipient: true,
+          attempts: true,
+          lastError: true,
+          updatedAt: true,
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+      }),
+      pairStates(),
+    ]);
+  const stageCount = (s: string) => byStage.find((b) => b.stage === s)?._count ?? 0;
 
   const enriched = people
     .map((p) => {
       const matches = [...p.matchesAsA, ...p.matchesAsB];
       const last = matches.map((m) => m.createdAt).sort((a, b) => b.getTime() - a.getTime())[0];
-      return { p, vouches: p.vouchesReceived.length, lastSuggested: last, dinners: p.dinnerAttendance.length, active: matches.length };
+      return { p, vouches: p._count.vouchesReceived, lastSuggested: last, dinners: p._count.dinnerAttendance };
     })
     // Email and phone are searchable too: an operator who has a reply in their
     // inbox and wants the member behind it was searching by name and failing.
@@ -75,77 +153,10 @@ export default async function Roster({
       phone: p.phone,
       canText: !!p.smsConsentAt,
       city: p.city,
+      photoUrl: p.photos[0]?.url ?? null,
+      lookingFor: p.lookingFor,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
-
-  // metrics
-  // Accept rate is measured within the application funnel: of people who actually
-  // applied, how many were accepted. Counting all acceptedAt rows (which include
-  // seeded/operator-added actives that never applied) let the rate exceed 100%.
-  const [applicants, accepted, byStage] = await Promise.all([
-    prisma.person.count({ where: { appliedAt: { not: null } } }),
-    prisma.person.count({ where: { appliedAt: { not: null }, acceptedAt: { not: null } } }),
-    prisma.match.groupBy({ by: ["stage"], _count: true }),
-  ]);
-  const stageCount = (s: string) => byStage.find((b) => b.stage === s)?._count ?? 0;
-
-  // New applicants awaiting review. Gate on appliedAt so only people who
-  // actually completed the application show up here. A bare magic-link click
-  // creates an "applicant" row with no appliedAt; surfacing those would bury
-  // the operator in half-finished signups.
-  const pendingApplicants = await prisma.person.findMany({
-    where: {
-      isOperator: false,
-      isAmbassador: false,
-      isCoach: false,
-      status: "applicant",
-      appliedAt: { not: null },
-    },
-    include: { photos: true, recommendationsReceived: { orderBy: { createdAt: "asc" } } },
-    orderBy: { appliedAt: "desc" },
-  });
-
-  // People who saved the first half and stopped at the friends. Before the
-  // application was split they left no trace at all, which is why 18 of them
-  // went unnoticed on 3 August. They are not "to review" (there is nothing to
-  // review yet) and they are not noise either: they gave a name, a city and a
-  // face, and one of them is a member as soon as two friends are named.
-  const halfFinished = await prisma.person.findMany({
-    where: {
-      isOperator: false,
-      status: "applicant",
-      basicsAt: { not: null },
-      appliedAt: null,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      city: true,
-      secondCity: true,
-      basicsAt: true,
-      unfinishedNudgedAt: true,
-      photos: { select: { id: true } },
-    },
-    orderBy: { basicsAt: "desc" },
-  });
-  const [failedDeliveryCount, failedDeliveries] = await Promise.all([
-    prisma.deliveryJob.count({ where: { status: "failed" } }),
-    prisma.deliveryJob.findMany({
-      where: { status: "failed" },
-      select: {
-        id: true,
-        kind: true,
-        channel: true,
-        recipient: true,
-        attempts: true,
-        lastError: true,
-        updatedAt: true,
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 10,
-    }),
-  ]);
 
   return (
     <div>
@@ -229,7 +240,7 @@ export default async function Roster({
                 </Link>
                 <span className="text-xs text-muted">
                   {person.email} · {citiesOf(person).map(cityShort).join(" + ")} ·{" "}
-                  {person.photos.length} photo{person.photos.length === 1 ? "" : "s"} ·{" "}
+                  {person._count.photos} photo{person._count.photos === 1 ? "" : "s"} ·{" "}
                   {person.unfinishedNudgedAt ? "chased" : "not chased yet"}
                 </span>
               </li>
@@ -283,7 +294,13 @@ export default async function Roster({
           <span className="ml-2 text-sm text-muted">Introduce two members straight from the list.</span>
         </summary>
         <div className="mt-3">
-          <IntroComposer people={composerPeople} returnTo="/studio" notice={introNotice(sp.intro)} />
+          <IntroComposer
+            people={composerPeople}
+            pairs={pairs}
+            defaultBId={sp.with}
+            returnTo="/studio"
+            notice={introNotice(sp.intro)}
+          />
         </div>
       </details>
       {/* Metrics ledger. "Together" is the north-star outcome, so it earns weight
@@ -335,6 +352,7 @@ export default async function Roster({
               <th>Vouches</th>
               <th>Dinners</th>
               <th>Source</th>
+              <th><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -379,6 +397,18 @@ export default async function Roster({
                 <td>{vouches > 0 ? <span className="pill">{vouches}</span> : <span className="text-muted">-</span>}</td>
                 <td className="text-muted">{dinners}</td>
                 <td className="text-muted">{p.referredBy?.name ?? "direct"}</td>
+                {/* Matching started on this page and finished nowhere near it:
+                    the operator read a row, then scrolled back up and retyped
+                    the name into the composer. This is the same introduction,
+                    with the person already in the first slot. */}
+                <td>
+                  <Link
+                    href={`/studio/person/${p.id}#introduce`}
+                    className="whitespace-nowrap rounded-full border border-line px-3 py-1 text-xs text-ink transition hover:border-studio-line"
+                  >
+                    Introduce
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>

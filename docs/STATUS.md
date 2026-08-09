@@ -2,8 +2,11 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-06 (the gate is any two friends, and somebody can be put
-forward at `/refer` before they ever apply: see the section below. Before that:
+Last updated: 2026-08-09 (photos open full size everywhere a person is judged,
+matching says what will happen before it happens, and the Directory stopped
+waiting on six database round trips in a row: see the section below. Before
+that: the gate is any two friends, and somebody can be put
+forward at `/refer` before they ever apply. Before that:
 an applicant can change an answer after applying:
 "Edit your application" had pointed at `/apply`, which sent anybody carrying
 `appliedAt` straight back to the waiting page, so the button was a loop for the
@@ -34,6 +37,40 @@ a suggested pair can be introduced; the database is healthy, the latency cost is
 sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
+
+## 2026-08-09: a photo you can actually see, and a match that explains itself
+
+Three things, all in the places where somebody makes a decision.
+
+**Photos expand.** Every surface that showed a face showed it at 96 to 128
+pixels: the invitation where a member decides whether to meet a stranger, the
+studio profile where an operator decides whether a photo is really the
+applicant, and a connection, which was one avatar of the one person you actually
+matched with. `src/components/PhotoGallery.tsx` is the one component behind all
+three. Click any photo and it opens full size on a solid ink ground, with arrow
+keys, swipe, Escape, a counter, and focus returned to the thumbnail you came
+from. It renders through a portal on `<body>`, because the studio builds its own
+stacking contexts and an overlay left in the profile column painted underneath
+the sidebar.
+
+**Matching says what it is about to do.** The composer is three named steps
+(who, why, send), the picker carries a face and what each person is looking for
+instead of a name and a city, and the send button reads "Introduce Ben and
+Sofia". An open introduction, a block, or a pair who have already met are
+reported the moment both people are picked, not after the click: `pairStates`
+in `src/lib/introductions.ts` is the read `createIntroduction` was already
+refusing on, moved forward to where it can still be acted on. In the suggested
+candidates list the bare "+" is gone; there are two labelled actions, Introduce
+(the real double opt-in invitation) and Shortlist (a pipeline row that emails
+nobody), because nobody could guess which one a "+" was. Directory and
+Matchmaking rows each carry an Introduce link that lands on the profile with
+that person already in the first slot.
+
+**The Directory stopped waiting in line.** It ran six queries one after another
+against a database in another region and pulled every vouch row and every photo
+row for every member to render two numbers and one avatar. One `Promise.all`,
+counts instead of rows. Measured read-only against the production Neon branch:
+median 896ms before, 343ms after. The person page went the same way.
 
 ## 2026-08-05: applying is not the last edit
 

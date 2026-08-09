@@ -215,6 +215,21 @@ body {
   animation: fadeup 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* The expanded photo view. A plain appearance was abrupt over a dark full-page
+   surface, and the global reduced-motion rule above already collapses it. */
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-lightbox-in {
+  animation: lightbox-in 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes shimmer {
   100% {
     transform: translateX(100%);

@@ -4,6 +4,7 @@ import { requireMemberPage } from "@/lib/page-auth";
 import { prisma } from "@/lib/prisma";
 import { isConnectedTo, vouchesFor, mutualFriends } from "@/lib/social";
 import { Avatar } from "@/components/ui";
+import { PhotoGallery } from "@/components/PhotoGallery";
 import { SafetyControls } from "@/components/SafetyControls";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,11 @@ export default async function ConnectionDetail({ params }: { params: Promise<{ i
   });
   if (!person || person.isOperator) notFound();
 
+  // A photo an operator hid is hidden everywhere, this page included.
+  const visiblePhotos = person.photos
+    .filter((photo) => photo.status !== "rejected")
+    .sort((a, b) => a.order - b.order);
+
   const [vouches, mutuals] = await Promise.all([
     vouchesFor(id),
     mutualFriends(me.id, id),
@@ -37,7 +43,7 @@ export default async function ConnectionDetail({ params }: { params: Promise<{ i
       </Link>
 
       <div className="mt-6 flex items-start gap-6">
-        <Avatar url={person.photos[0]?.url} name={person.name} size={96} />
+        {visiblePhotos.length === 0 && <Avatar url={null} name={person.name} size={96} />}
         <div className="flex-1">
           <h1 className="font-display text-4xl font-medium">{person.name.split(" ")[0]}</h1>
           <p className="mt-1 text-lg text-muted">
@@ -53,6 +59,23 @@ export default async function ConnectionDetail({ params }: { params: Promise<{ i
             inside the product. This is the screen where they would look. */}
         <SafetyControls subjectId={person.id} name={person.name.split(" ")[0]} />
       </div>
+
+      {/* Every photo, expandable. A connection used to be one 96px avatar, so
+          the member you actually matched with was the one person in the product
+          you could not see properly. */}
+      {visiblePhotos.length > 0 && (
+        <div className="mt-6">
+          <PhotoGallery
+            variant="row"
+            label={`${person.name.split(" ")[0]}'s photo`}
+            photos={visiblePhotos.map((photo, i) => ({
+              id: photo.id,
+              src: photo.url,
+              alt: `${person.name.split(" ")[0]}, photo ${i + 1} of ${visiblePhotos.length}`,
+            }))}
+          />
+        </div>
+      )}
 
       {person.bio && (
         <div className="mt-6">

@@ -13,6 +13,7 @@ import { prisma } from "./prisma";
 import { matchInviteEmail } from "./email";
 import { introInviteSMS, introInviteTemplate } from "./sms";
 import { STORED_EXT } from "./uploads";
+import { pairKey, type PairState } from "./pairs";
 import {
   makeDeliveryKey,
   queueConnectionDeliveries,
@@ -288,6 +289,35 @@ export const EXPIRED_DAYS = 14; // no reply for this long -> offer to close
  *  contacted nobody, so it gets promoted into a real introduction instead. Also
  *  excludes "exit" and "connected", which are finished and can be re-opened. */
 export const LIVE_INTRO_STAGES = ["invited", "mutual_yes", "connecting"];
+
+/**
+ * Every pair an operator should be told about before pressing send.
+ *
+ * `createIntroduction` already refuses an open invitation and a block, but it
+ * refuses AFTER the click, by redirecting back with a code. The composer knows
+ * both people the moment they are picked, so with this it can say so while
+ * there is still something to change.
+ */
+export async function pairStates(): Promise<Record<string, PairState>> {
+  const [matches, blocks] = await Promise.all([
+    prisma.match.findMany({ select: { personAId: true, personBId: true, stage: true } }),
+    prisma.block.findMany({ select: { blockerId: true, blockedId: true } }),
+  ]);
+
+  const states: Record<string, PairState> = {};
+  for (const m of matches) {
+    if (LIVE_INTRO_STAGES.includes(m.stage)) {
+      states[pairKey(m.personAId, m.personBId)] = "open";
+    } else if (m.stage !== "exit" && m.stage !== "suggested") {
+      // Connected and every dating stage after it: these two have already met
+      // through us. Re-introducing is allowed, it is just worth knowing.
+      states[pairKey(m.personAId, m.personBId)] = "connected";
+    }
+  }
+  // A block outranks anything else, so it is written last.
+  for (const b of blocks) states[pairKey(b.blockerId, b.blockedId)] = "blocked";
+  return states;
+}
 
 /** Where createIntroduction sends the operator back to with its outcome. The
  *  composer submits the page it lives on, and only an in-app studio path is
