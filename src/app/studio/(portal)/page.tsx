@@ -153,73 +153,12 @@ export default async function Roster({
         <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Directory</h1>
         <p className="mt-1 text-sm text-muted">Everyone on the list, with new applicants to review at a glance.</p>
       </div>
-      {/* Order follows what an operator actually does in a session: clear
-          anything blocking first, then make a match, then browse the list.
+      {/* Order follows what an operator actually does in a session: people
+          first (approve new applicants, chase half-finished signups), then
+          make a match, then browse the list. Delivery failures are rare, so
+          they sit collapsed under the people work instead of leading the page.
           Metrics are ambient context, so they sit under the work rather than
           above it, where they were the first thing read every single visit. */}
-      {failedDeliveries.length > 0 && (
-        <section
-          className="mt-6 rounded-xl2 border border-studio-line border-l-2 border-l-ink bg-studio-subtle p-5"
-          aria-labelledby="delivery-failures-heading"
-        >
-          <h2 id="delivery-failures-heading" className="label !text-ink">
-            Delivery failures ({failedDeliveryCount})
-          </h2>
-          <p className="mt-1 text-sm text-muted">
-            These messages exhausted their retries or were rejected permanently. Fix the provider
-            or recipient issue before retrying. Showing the 10 most recent.
-          </p>
-          <ul className="mt-4 space-y-2">
-            {failedDeliveries.map((job) => (
-              <li key={job.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel px-4 py-2.5">
-                <span>
-                  <span className="block text-sm font-medium text-ink">
-                    {humanizeDeliveryKind(job.kind)} via {job.channel} to {maskRecipient(job.recipient)}
-                  </span>
-                  <span className="block text-xs text-muted">
-                    {job.lastError || "Provider rejected the message."} Attempt {job.attempts}.{" "}
-                    {job.updatedAt.toLocaleString("en-US")}
-                  </span>
-                </span>
-                <form action={retryDeliveryJob}>
-                  <input type="hidden" name="deliveryJobId" value={job.id} />
-                  <button
-                    className="rounded-full border border-ink/25 px-3 py-1 text-xs font-medium text-ink transition hover:bg-ink hover:text-white"
-                    aria-label={`Retry ${humanizeDeliveryKind(job.kind)} via ${job.channel} to ${maskRecipient(job.recipient)}`}
-                  >
-                    Retry
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {halfFinished.length > 0 && (
-        <div className="mt-6 rounded-xl2 border border-line bg-panel p-5">
-          <p className="label !text-ink">
-            Stopped at the friends ({halfFinished.length})
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            Details and photos saved, no friends named yet. Each is one screen from being a member.
-          </p>
-          <ul className="mt-3 space-y-1.5">
-            {halfFinished.map((person) => (
-              <li key={person.id} className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-                <Link href={`/studio/person/${person.id}`} className="font-medium text-ink hover:underline">
-                  {person.name}
-                </Link>
-                <span className="text-xs text-muted">
-                  {person.email} · {citiesOf(person).map(cityShort).join(" + ")} ·{" "}
-                  {person.photos.length} photo{person.photos.length === 1 ? "" : "s"} ·{" "}
-                  {person.unfinishedNudgedAt ? "chased" : "not chased yet"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {pendingApplicants.length > 0 && (
         <div className="mt-6 rounded-xl2 border border-studio-line border-l-2 border-l-ink bg-studio-subtle p-5">
           <p className="label !text-ink">New applicants ({pendingApplicants.length})</p>
@@ -274,6 +213,68 @@ export default async function Roster({
           </ul>
         </div>
       )}
+      {halfFinished.length > 0 && (
+        <div className="mt-6 rounded-xl2 border border-line bg-panel p-5">
+          <p className="label !text-ink">
+            Stopped at the friends ({halfFinished.length})
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Details and photos saved, no friends named yet. Each is one screen from being a member.
+          </p>
+          <ul className="mt-3 space-y-1.5">
+            {halfFinished.map((person) => (
+              <li key={person.id} className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+                <Link href={`/studio/person/${person.id}`} className="font-medium text-ink hover:underline">
+                  {person.name}
+                </Link>
+                <span className="text-xs text-muted">
+                  {person.email} · {citiesOf(person).map(cityShort).join(" + ")} ·{" "}
+                  {person.photos.length} photo{person.photos.length === 1 ? "" : "s"} ·{" "}
+                  {person.unfinishedNudgedAt ? "chased" : "not chased yet"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {failedDeliveries.length > 0 && (
+        <details className="mt-6 rounded-xl2 border border-studio-line border-l-2 border-l-ink bg-studio-subtle p-5">
+          <summary className="cursor-pointer">
+            <span className="label !text-ink">Delivery failures ({failedDeliveryCount})</span>
+            <span className="ml-2 text-xs text-muted">Open to review and retry.</span>
+          </summary>
+          <p className="mt-2 text-sm text-muted">
+            These messages exhausted their retries or were rejected permanently. Fix the provider
+            or recipient issue before retrying. Showing the 10 most recent.
+          </p>
+          <ul className="mt-4 space-y-2">
+            {failedDeliveries.map((job) => (
+              <li key={job.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel px-4 py-2.5">
+                <span>
+                  <span className="block text-sm font-medium text-ink">
+                    {humanizeDeliveryKind(job.kind)} via {job.channel} to {maskRecipient(job.recipient)}
+                  </span>
+                  <span className="block text-xs text-muted">
+                    {job.lastError || "Provider rejected the message."} Attempt {job.attempts}.{" "}
+                    {job.updatedAt.toLocaleString("en-US")}
+                  </span>
+                </span>
+                <form action={retryDeliveryJob}>
+                  <input type="hidden" name="deliveryJobId" value={job.id} />
+                  <button
+                    className="rounded-full border border-ink/25 px-3 py-1 text-xs font-medium text-ink transition hover:bg-ink hover:text-white"
+                    aria-label={`Retry ${humanizeDeliveryKind(job.kind)} via ${job.channel} to ${maskRecipient(job.recipient)}`}
+                  >
+                    Retry
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       {/* Make a match without leaving the directory. Pick two members, add a
           line about each, and send the double opt-in introductions in one step. */}
       <details open className="mt-6">
