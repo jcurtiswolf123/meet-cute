@@ -11,6 +11,8 @@ import {
 } from "@/lib/actions";
 import { IntroComposer } from "./IntroComposer";
 import { introNotice } from "./intro-notice";
+import { pairStates } from "@/lib/introductions";
+import { Avatar } from "@/components/ui";
 import { ConfirmActionForm } from "@/components/forms";
 import { Select } from "@/components/select";
 import { Checkbox } from "@/components/fields";
@@ -44,14 +46,28 @@ function statusFor(m: { stage: string; aDecision: string; bDecision: string; per
 export default async function Matchmaking({
   searchParams,
 }: {
-  searchParams?: Promise<{ intro?: string }>;
+  searchParams?: Promise<{ intro?: string; with?: string }>;
 }) {
   await requireOperatorPage();
+  const sp = await searchParams;
 
-  const [people, intros] = await Promise.all([
+  const [people, intros, pairs] = await Promise.all([
     prisma.person.findMany({
       where: { isOperator: false, isAmbassador: false, isCoach: false, status: "active" },
-      select: { id: true, name: true, email: true, phone: true, city: true, bio: true, openToMatch: true, lookingFor: true, linkedin: true, instagram: true, smsConsentAt: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        city: true,
+        bio: true,
+        openToMatch: true,
+        lookingFor: true,
+        linkedin: true,
+        instagram: true,
+        smsConsentAt: true,
+        photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } },
+      },
       orderBy: [{ openToMatch: "desc" }, { name: "asc" }],
     }),
     prisma.match.findMany({
@@ -63,6 +79,7 @@ export default async function Matchmaking({
       },
       orderBy: { updatedAt: "desc" },
     }),
+    pairStates(),
   ]);
 
   const ready = people.filter((p) => p.openToMatch).length;
@@ -80,6 +97,8 @@ export default async function Matchmaking({
     phone: p.phone,
     canText: !!p.smsConsentAt,
     city: p.city,
+    photoUrl: p.photos[0]?.url ?? null,
+    lookingFor: p.lookingFor,
   }));
 
   return (
@@ -109,8 +128,10 @@ export default async function Matchmaking({
 
       <IntroComposer
         people={composerPeople}
+        pairs={pairs}
+        defaultBId={sp?.with}
         returnTo="/studio/matchmaking"
-        notice={introNotice((await searchParams)?.intro)}
+        notice={introNotice(sp?.intro)}
       />
 
       {/* Quick-add a person. Stays open (a server-action submit re-renders and
@@ -288,6 +309,7 @@ export default async function Matchmaking({
                 <th>City</th>
                 <th>Social</th>
                 <th>Wants / notes</th>
+                <th><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
@@ -295,6 +317,7 @@ export default async function Matchmaking({
                 <tr key={p.id}>
                   <td className="font-medium text-ink">
                     <span className="flex items-center gap-2">
+                      <Avatar url={p.photos[0]?.url} name={p.name} size={28} />
                       <Link href={`/studio/person/${p.id}`} className="hover:underline">
                         {p.name}
                       </Link>
@@ -311,11 +334,19 @@ export default async function Matchmaking({
                     <SocialLinks instagram={p.instagram} linkedin={p.linkedin} />
                   </td>
                   <td className="max-w-[32ch] truncate text-muted">{p.lookingFor || p.bio || "-"}</td>
+                  <td>
+                    <Link
+                      href={`/studio/person/${p.id}#introduce`}
+                      className="whitespace-nowrap rounded-full border border-line px-3 py-1 text-xs text-ink transition hover:border-studio-line"
+                    >
+                      Introduce
+                    </Link>
+                  </td>
                 </tr>
               ))}
               {people.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted">
                     No one yet. Add your first person above.
                   </td>
                 </tr>

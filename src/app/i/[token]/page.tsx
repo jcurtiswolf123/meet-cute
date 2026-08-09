@@ -5,6 +5,7 @@ import { decideInvite } from "@/lib/actions";
 import { STORED_EXT } from "@/lib/uploads";
 import { inviteIsExpired } from "@/lib/introductions";
 import { Avatar } from "@/components/ui";
+import { PhotoGallery } from "@/components/PhotoGallery";
 
 export const dynamic = "force-dynamic";
 
@@ -141,26 +142,16 @@ export default async function InvitePage({
           token-scoped proxy and is approved-only. */}
       {photoUrls.length > 0 ? (
         <div className="mt-8">
-          {/* eslint-disable-next-line @next/next/no-img-element -- token-proxied,
-              not a static asset, and next/image cannot cache a capability URL */}
-          <img
-            src={photoUrls[0]}
-            alt={`${otherFirst}, photo 1 of ${photoUrls.length}`}
-            className="aspect-[4/5] w-full max-w-sm rounded-xl border border-line object-cover"
+          <PhotoGallery
+            variant="lead"
+            label={`${otherFirst}'s photo`}
+            photos={photoUrls.map((url, i) => ({
+              id: url,
+              src: url,
+              alt: `${otherFirst}, photo ${i + 1} of ${photoUrls.length}`,
+            }))}
           />
-          {photoUrls.length > 1 && (
-            <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
-              {photoUrls.slice(1).map((url, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={url}
-                  src={url}
-                  alt={`${otherFirst}, photo ${i + 2} of ${photoUrls.length}`}
-                  className="h-32 w-[6.4rem] flex-none rounded-lg border border-line object-cover"
-                />
-              ))}
-            </div>
-          )}
+          <p className="mt-2 text-xs text-muted">Tap a photo to see it full size.</p>
         </div>
       ) : null}
 
