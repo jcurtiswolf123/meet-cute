@@ -183,9 +183,12 @@ async function main() {
     assert.equal(half.name, "Journey Member");
     assert.equal(half.gender, "man");
 
-    // The ask is specific to what they said about themselves. Getting this
-    // wrong sends someone off to ask the wrong two people.
-    await memberPage.getByText("Name two single women who know you well.").waitFor();
+    // The ask is for any two friends. It used to be specific to what the
+    // applicant had said about themselves ("two single women"), and the
+    // 2026-08-06 decision removed the qualifier from the gate and the copy;
+    // this assertion kept waiting for a sentence the form had stopped
+    // rendering, so the whole journey had been failing here since.
+    await memberPage.getByText("Name any two friends who know you well.").waitFor();
 
     await memberPage.getByLabel("Their name").first().fill("Ada Recommender");
     await memberPage.getByRole("group", { name: "They are" }).first().getByText("Woman", { exact: true }).click();

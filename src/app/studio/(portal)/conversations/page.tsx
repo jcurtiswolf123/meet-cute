@@ -30,6 +30,7 @@ export default async function Conversations({
   const [intros, stalledCount, expiredCount] = await Promise.all([
     prisma.match.findMany({
       where: { stage: { in: ["invited", "mutual_yes", "connected"] } },
+      relationLoadStrategy: "join",
       include: {
         personA: { select: { name: true } },
         personB: { select: { name: true } },

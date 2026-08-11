@@ -27,6 +27,19 @@ const STAGES: [string, string][] = [
 
 const STAGE_LABEL: Record<string, string> = Object.fromEntries(STAGES);
 
+/** Exactly what a board card draws of each half of a match. */
+const MATCH_PERSON_CARD = {
+  id: true,
+  name: true,
+  city: true,
+  photos: {
+    where: { status: { not: "rejected" } },
+    orderBy: { order: "asc" },
+    take: 1,
+    select: { url: true },
+  },
+} as const;
+
 // How long a match has sat at its current stage. The whole point of the page
 // is to surface the stalled ones, and the old board showed no age at all.
 function daysSince(when: Date): string {
@@ -38,21 +51,30 @@ function daysSince(when: Date): string {
 
 export default async function Pipeline() {
   await requireOperatorPage();
-  const matches = await prisma.match.findMany({
-    where: { stage: { not: "exit" } },
-    include: {
-      personA: { include: { photos: true } },
-      personB: { include: { photos: true } },
-      thread: { select: { state: true, confirmedSlot: true } },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
-
-  const members = await prisma.person.findMany({
-    where: { status: "active", isOperator: false, isAmbassador: false, isCoach: false },
-    select: { id: true, name: true, city: true },
-    orderBy: { name: "asc" },
-  });
+  // The board and the "suggest a pair" picker do not depend on each other, so
+  // they are issued together rather than one after the other, and each relation
+  // rides along on a join instead of costing its own trip to us-east-2.
+  //
+  // The two people on a match are read down to what a board card draws: a name,
+  // a city, and one avatar. They used to arrive whole, both of them, with every
+  // photo they have ever uploaded attached, on every card on the page.
+  const [matches, members] = await Promise.all([
+    prisma.match.findMany({
+      where: { stage: { not: "exit" } },
+      relationLoadStrategy: "join",
+      include: {
+        personA: { select: MATCH_PERSON_CARD },
+        personB: { select: MATCH_PERSON_CARD },
+        thread: { select: { state: true, confirmedSlot: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.person.findMany({
+      where: { status: "active", isOperator: false, isAmbassador: false, isCoach: false },
+      select: { id: true, name: true, city: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   // Most stalled first, and anything waiting on the operator ahead of anything
   // waiting on the members, since only one of those is actionable from here.

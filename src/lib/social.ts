@@ -5,34 +5,37 @@
 import { prisma } from "./prisma";
 
 // Set of person ids socially connected to `personId`.
+//
+// Three independent sources - who referred whom, who sat at the same dinner,
+// and who vouched for whom - so all three are asked at once. They were asked in
+// sequence, and dinner co-attendance was two of those trips: the dinners this
+// person attended, then everyone else at them. One query with a nested filter
+// answers both halves, so the whole function is one round trip deep instead of
+// four. Across a region gap that is the difference between 50ms and 200ms, on
+// every profile the operator opens.
 export async function connectionsOf(personId: string): Promise<Set<string>> {
   const ids = new Set<string>();
 
-  const person = await prisma.person.findUnique({
-    where: { id: personId },
-    select: { referredById: true, referred: { select: { id: true } } },
-  });
+  const [person, coAttendees, vouches] = await Promise.all([
+    prisma.person.findUnique({
+      where: { id: personId },
+      relationLoadStrategy: "join",
+      select: { referredById: true, referred: { select: { id: true } } },
+    }),
+    prisma.dinnerAttendee.findMany({
+      where: { dinner: { attendees: { some: { personId } } }, NOT: { personId } },
+      select: { personId: true },
+    }),
+    prisma.vouch.findMany({
+      where: { OR: [{ voucherId: personId }, { subjectId: personId }] },
+      select: { voucherId: true, subjectId: true },
+    }),
+  ]);
+
   if (person?.referredById) ids.add(person.referredById);
   person?.referred.forEach((r) => ids.add(r.id));
-
-  // dinner co-attendance
-  const myDinners = await prisma.dinnerAttendee.findMany({
-    where: { personId },
-    select: { dinnerId: true },
-  });
-  if (myDinners.length) {
-    const co = await prisma.dinnerAttendee.findMany({
-      where: { dinnerId: { in: myDinners.map((d) => d.dinnerId) }, NOT: { personId } },
-      select: { personId: true },
-    });
-    co.forEach((c) => ids.add(c.personId));
-  }
-
-  // explicit vouches (either direction implies they know each other)
-  const vouches = await prisma.vouch.findMany({
-    where: { OR: [{ voucherId: personId }, { subjectId: personId }] },
-    select: { voucherId: true, subjectId: true },
-  });
+  coAttendees.forEach((c) => ids.add(c.personId));
+  // Either direction implies they know each other.
   vouches.forEach((v) => {
     ids.add(v.voucherId === personId ? v.subjectId : v.voucherId);
   });

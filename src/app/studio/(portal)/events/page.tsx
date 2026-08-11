@@ -12,6 +12,7 @@ export default async function Events() {
   await requireOperatorPage();
 
   const events = await prisma.dinner.findMany({
+    relationLoadStrategy: "join",
     include: { _count: { select: { attendees: true } } },
     orderBy: { date: "asc" },
   });

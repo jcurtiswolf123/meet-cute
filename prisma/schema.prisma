@@ -4,6 +4,14 @@
 
 generator client {
   provider = "prisma-client-js"
+  // relationJoins lets a query opt into `relationLoadStrategy: "join"`, which
+  // resolves an `include` with a LATERAL JOIN instead of one extra round trip
+  // per relation. The app runs in sjc and Neon runs in us-east-2, so a round
+  // trip is ~50ms: the studio directory was spending five of them fetching the
+  // photo, referrer, and match rows for one list. Enabling the feature changes
+  // nothing on its own (the default strategy is still "query"); each query that
+  // wants the join asks for it.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -165,6 +173,7 @@ model Person {
   coachingAsCoach  CoachingEngagement[] @relation("Coach")
 
   @@index([phone])
+  @@index([status])
 }
 
 // Opaque, revocable session. The cookie holds a random token; we store only its
@@ -211,6 +220,8 @@ model Photo {
   // takedown effective everywhere at once. "pending" is retired; the
   // 20260803120000 migration released the backlog.
   status     String      @default("approved")
+
+  @@index([personId])
 }
 
 // Shared database fallback for normalized image bytes. This keeps production
@@ -260,6 +271,8 @@ model Prompt {
   question String
   answer   String
   order    Int    @default(0)
+
+  @@index([personId])
 }
 
 model Match {
@@ -319,6 +332,8 @@ model Match {
   datePicks     DatePick[]
 
   @@unique([personAId, personBId])
+  @@index([personBId])
+  @@index([stage])
 }
 
 // One recipient's email-based double opt-in for a match. When a match is made,
@@ -420,6 +435,7 @@ model Vouch {
   note      String?
 
   @@unique([voucherId, subjectId])
+  @@index([subjectId])
 }
 
 // Active reference: post-match "ask a mutual friend for the inside scoop"
@@ -685,6 +701,7 @@ model DinnerAttendee {
   status   String @default("invited") // invited | confirmed | attended | noshow
 
   @@unique([dinnerId, personId])
+  @@index([personId])
 }
 
 model CoachingEngagement {
@@ -712,4 +729,7 @@ model Note {
   match     Match?   @relation(fields: [matchId], references: [id])
   kind      String   @default("general") // rationale | postdate | general
   body      String
+
+  @@index([subjectId])
+  @@index([matchId])
 }

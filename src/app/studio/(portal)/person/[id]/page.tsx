@@ -36,6 +36,10 @@ export default async function PersonPage({
   const suggestNotice = SUGGEST_MESSAGE[sp?.suggest ?? ""];
   const p = await prisma.person.findUnique({
     where: { id },
+    // Eight relations, and before the join strategy each was its own trip to
+    // us-east-2: opening a profile spent about four hundred milliseconds
+    // assembling one row.
+    relationLoadStrategy: "join",
     include: {
       photos: true,
       prompts: true,
@@ -53,10 +57,21 @@ export default async function PersonPage({
   // on the person row, so it is issued together: the page was serialising six
   // queries against a database in another region, and the operator paid the
   // latency of all six in a row on every profile open.
-  const [notes, vouches, connIds, candidates, rosterForMatching, pairs] = await Promise.all([
-    prisma.note.findMany({ where: { subjectId: id }, orderBy: { createdAt: "desc" }, include: { author: { select: { name: true } } } }),
+  const [notes, vouches, connections, candidates, rosterForMatching, pairs] = await Promise.all([
+    prisma.note.findMany({
+      where: { subjectId: id },
+      orderBy: { createdAt: "desc" },
+      relationLoadStrategy: "join",
+      include: { author: { select: { name: true } } },
+    }),
     vouchesFor(id),
-    connectionsOf(id),
+    // The names behind the connection ids, resolved in the same lane rather
+    // than in a seventh query issued after all six of these had landed.
+    connectionsOf(id).then((ids) =>
+      ids.size
+        ? prisma.person.findMany({ where: { id: { in: [...ids] } }, select: { id: true, name: true } })
+        : []
+    ),
     p.isOperator ? Promise.resolve([]) : candidatesFor(id, 4),
     // Everyone this person can be introduced to, so the operator is never
     // limited to the four ranked suggestions. Same eligibility rule as the
@@ -74,6 +89,7 @@ export default async function PersonPage({
           status: "active",
           OR: [{ email: { not: null } }, { AND: [{ phone: { not: null } }, { smsConsentAt: { not: null } }] }],
         },
+        relationLoadStrategy: "join",
         select: {
           id: true,
           name: true,
@@ -90,7 +106,6 @@ export default async function PersonPage({
       }),
     p.isOperator ? Promise.resolve({}) : pairStates(),
   ]);
-  const connections = await prisma.person.findMany({ where: { id: { in: [...connIds] } }, select: { id: true, name: true } });
 
   const composerPeople = rosterForMatching.map((c) => ({
     id: c.id,
