@@ -1,8 +1,9 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createIntroduction } from "@/lib/actions";
 import { Avatar } from "@/components/ui";
+import { FaceWall, type FacePerson } from "@/components/FaceWall";
 import { pairKey, type PairState } from "@/lib/pairs";
 
 type Person = {
@@ -62,8 +63,12 @@ export function IntroComposer({
   intro?: string;
 }) {
   const locked = lockedAId ? people.find((p) => p.id === lockedAId) : undefined;
-  const [aId, setAId] = useState(locked?.id ?? "");
-  const [bId, setBId] = useState(defaultBId ?? "");
+  // One ordered list rather than two ids. Two adjacent clicks on the wall land
+  // inside the same React batch, and with a state per slot the second one read
+  // the first one's stale value and overwrote it: picking two faces quickly
+  // left one picked. Every write here is a function of the list itself.
+  const slots = locked ? 1 : 2;
+  const [picked, setPicked] = useState<string[]>(defaultBId ? [defaultBId] : []);
   const [blurb, setBlurb] = useState("");
 
   // A link that arrives with a candidate already chosen ("Introduce" in the
@@ -73,11 +78,69 @@ export function IntroComposer({
   const [lastDefaultBId, setLastDefaultBId] = useState(defaultBId);
   if (defaultBId !== lastDefaultBId) {
     setLastDefaultBId(defaultBId);
-    if (defaultBId) setBId(defaultBId);
+    if (defaultBId) {
+      setPicked((current) =>
+        current.includes(defaultBId)
+          ? current
+          : [...current.slice(0, slots - 1), defaultBId],
+      );
+    }
   }
+
+  const aId = locked ? locked.id : (picked[0] ?? "");
+  const bId = locked ? (picked[0] ?? "") : (picked[1] ?? "");
 
   const a = useMemo(() => people.find((p) => p.id === aId), [people, aId]);
   const b = useMemo(() => people.find((p) => p.id === bId), [people, bId]);
+
+  // The wall the two people are picked off. Everyone but whoever is already
+  // fixed in the first slot, drawn as a face with the line that decides a
+  // match: what that person is looking for.
+  const wallPeople: FacePerson[] = useMemo(
+    () =>
+      people
+        .filter((p) => p.id !== locked?.id)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          photoUrl: p.photoUrl,
+          meta: p.city,
+          note: p.lookingFor,
+        })),
+    [people, locked?.id],
+  );
+
+  // What already stands between the person in the first slot and everyone on
+  // the wall, drawn on the tile before the click rather than reported after the
+  // send is refused. Only meaningful once there is somebody to compare against.
+  const pivotId = locked?.id ?? aId;
+  const { unavailable, caution } = useMemo(() => {
+    const unavailable: Record<string, string> = {};
+    const caution: Record<string, string> = {};
+    for (const p of wallPeople) {
+      const person = people.find((x) => x.id === p.id);
+      if (person && !hasChannel(person)) {
+        unavailable[p.id] = "No email or text on file";
+        continue;
+      }
+      if (!pivotId || p.id === pivotId) continue;
+      const state = pairs?.[pairKey(pivotId, p.id)];
+      if (state === "blocked") unavailable[p.id] = "Blocked";
+      else if (state === "open") unavailable[p.id] = "Introduction already out";
+      else if (state === "connected") caution[p.id] = "Introduced before";
+    }
+    return { unavailable, caution };
+  }, [wallPeople, people, pairs, pivotId]);
+
+  function toggle(id: string) {
+    setPicked((current) => {
+      if (current.includes(id)) return current.filter((x) => x !== id);
+      if (current.length >= slots) return current;
+      return [...current, id];
+    });
+  }
+
+  const drop = (id: string) => setPicked((current) => current.filter((x) => x !== id));
 
   const missingChannel = (a && !hasChannel(a) ? a.name : null) || (b && !hasChannel(b) ? b.name : null);
   const sameTwice = !!aId && aId === bId;
@@ -122,35 +185,46 @@ export function IntroComposer({
         <input type="hidden" name="returnTo" value={returnTo} />
 
         <div>
-          {step(1, locked ? `Who to introduce ${first(locked.name)} to` : "Who is meeting whom")}
-          <div className="mt-2 grid gap-3 sm:grid-cols-2">
-            {locked ? (
-              <div className="block">
-                <span className="label">First person</span>
-                <div className="mt-1.5 flex items-center gap-2.5 rounded-lg border border-line bg-studio-subtle px-3 py-2 text-sm">
-                  <Avatar url={locked.photoUrl} name={locked.name} size={28} />
-                  <span className="min-w-0 flex-1 truncate font-medium text-ink">{locked.name}</span>
-                  <span className="text-xs text-muted">{locked.city}</span>
-                </div>
-                <input type="hidden" name="personAId" value={locked.id} />
-              </div>
-            ) : (
-              <PersonCombobox
-                label="First person"
-                name="personAId"
-                people={people}
-                value={aId}
-                excludeId={bId}
-                onChange={setAId}
-              />
-            )}
-            <PersonCombobox
-              label="Second person"
-              name="personBId"
-              people={people}
-              value={bId}
-              excludeId={aId}
-              onChange={setBId}
+          {step(
+            1,
+            locked
+              ? `Who to introduce ${first(locked.name)} to`
+              : picked.length === 0
+                ? "Pick two faces"
+                : picked.length === 1
+                  ? "Pick the second face"
+                  : "Who is meeting whom",
+          )}
+
+          {/* The pair, at the size a pairing is judged at. Picking used to be
+              two typeahead fields, so the operator held both people in their
+              head and read a name to check the choice. */}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <Slot
+              person={locked ?? a}
+              label="First person"
+              onClear={locked || !aId ? undefined : () => drop(aId)}
+            />
+            <span className="text-lg text-muted" aria-hidden="true">
+              +
+            </span>
+            <Slot person={b} label="Second person" onClear={bId ? () => drop(bId) : undefined} />
+          </div>
+          <input type="hidden" name="personAId" value={locked?.id ?? aId} />
+          <input type="hidden" name="personBId" value={bId} />
+
+          <div className="mt-3">
+            <FaceWall
+              people={wallPeople}
+              selected={picked}
+              onToggle={toggle}
+              unavailable={unavailable}
+              caution={caution}
+              max={slots}
+              ordered={!locked}
+              ariaLabel="People to introduce"
+              searchPlaceholder="Filter by name, city, what they want..."
+              emptyText="Nobody is marked ready to match. Open a profile and mark them ready."
             />
           </div>
         </div>
@@ -250,127 +324,39 @@ function Warning({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Typeahead person picker. Replaces a flat alphabetical <select> so the operator
-// types 2-3 letters and hits Enter instead of scrolling a long roster. Writes the
-// chosen id to a hidden input so the server action receives it unchanged.
-function PersonCombobox({
+/** One half of the pair, drawn as a face, or an empty frame waiting for one. */
+function Slot({
+  person,
   label,
-  name,
-  people,
-  value,
-  excludeId,
-  onChange,
+  onClear,
 }: {
+  person?: Person;
   label: string;
-  name: string;
-  people: Person[];
-  value: string;
-  excludeId?: string;
-  onChange: (id: string) => void;
+  onClear?: () => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(0);
-  const listboxId = useId();
-  const selected = people.find((p) => p.id === value);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return people
-      .filter((p) => p.id !== excludeId)
-      .filter(
-        (p) =>
-          !q ||
-          p.name.toLowerCase().includes(q) ||
-          p.city.toLowerCase().includes(q) ||
-          (p.lookingFor ?? "").toLowerCase().includes(q),
-      )
-      .slice(0, 8);
-  }, [people, query, excludeId]);
-
-  // Show the chosen person's name when closed; typing reopens the search.
-  const display = open ? query : selected ? `${selected.name} (${selected.city})` : "";
-
-  function choose(id: string) {
-    onChange(id);
-    setQuery("");
-    setOpen(false);
+  if (!person) {
+    return (
+      <div className="flex h-[3.75rem] w-48 items-center gap-2.5 rounded-lg border border-dashed border-line px-3 text-sm text-muted">
+        {label}
+      </div>
+    );
   }
-
   return (
-    <div className="relative block">
-      <label className="block">
-        <span className="label">{label}</span>
-        <input
-          type="text"
-          className="field mt-1.5"
-          placeholder="Type a name, city, or what they want..."
-          value={display}
-          autoComplete="off"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-controls={listboxId}
-          aria-expanded={open}
-          aria-activedescendant={open && filtered[active] ? `${listboxId}-${filtered[active].id}` : undefined}
-          onFocus={() => { setOpen(true); setQuery(""); setActive(0); }}
-          onBlur={() => setTimeout(() => setOpen(false), 120)}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); setActive(0); }}
-          onKeyDown={(e) => {
-            if (!open) return;
-            if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, filtered.length - 1)); }
-            else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-            else if (e.key === "Enter" && filtered[active]) { e.preventDefault(); choose(filtered[active].id); }
-            else if (e.key === "Escape") setOpen(false);
-          }}
-        />
-      </label>
-      <input type="hidden" name={name} value={value} />
-      {selected && (
+    <div className="flex h-[3.75rem] w-48 items-center gap-2.5 rounded-lg border border-studio-line bg-studio-subtle px-3">
+      <Avatar url={person.photoUrl} name={person.name} size={40} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-ink">{person.name}</span>
+        <span className="block truncate text-xs text-muted">{person.city}</span>
+      </span>
+      {onClear && (
         <button
           type="button"
-          onClick={() => onChange("")}
-          className="absolute right-2 top-[2.1rem] rounded-full px-2 py-1 text-xs text-muted hover:text-ink"
+          onClick={onClear}
           aria-label={`Clear ${label.toLowerCase()}`}
+          className="flex-none rounded-full px-1.5 py-1 text-xs text-muted hover:text-ink"
         >
-          Clear
+          ✕
         </button>
-      )}
-      {open && filtered.length > 0 && (
-        <ul
-          id={listboxId}
-          role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-line bg-panel py-1 shadow-card"
-        >
-          {filtered.map((p, i) => (
-            <li key={p.id} role="option" aria-selected={i === active}>
-              <button
-                id={`${listboxId}-${p.id}`}
-                type="button"
-                onMouseEnter={() => setActive(i)}
-                onMouseDown={(e) => { e.preventDefault(); choose(p.id); }}
-                className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm ${i === active ? "bg-studio-canvas" : ""}`}
-              >
-                {/* A face and a line about what they want. A name and a city was
-                    not enough to pick the second person without opening two
-                    profiles in other tabs first. */}
-                <Avatar url={p.photoUrl} name={p.name} size={28} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-ink">{p.name}</span>
-                  <span className="block truncate text-xs text-muted">
-                    {p.city}
-                    {p.lookingFor ? ` · ${p.lookingFor}` : ""}
-                  </span>
-                </span>
-                {!hasChannel(p) && <span className="flex-none text-xs text-ink">no channel</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {open && filtered.length === 0 && (
-        <p className="absolute z-20 mt-1 w-full rounded-lg border border-line bg-panel px-3 py-2 text-xs text-muted shadow-card">
-          Nobody matches that. Try a first name, or a city.
-        </p>
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireOperatorPage } from "@/lib/page-auth";
+import { Avatar } from "@/components/ui";
 import { conversationHealth, toneClass, relativeAge } from "@/lib/conversation-health";
 import { stalledWhere, expiredWhere, STALLED_DAYS, EXPIRED_DAYS } from "@/lib/introductions";
 import { bulkResendStalled, bulkCloseExpired } from "@/lib/actions";
@@ -32,8 +33,11 @@ export default async function Conversations({
       where: { stage: { in: ["invited", "mutual_yes", "connected"] } },
       relationLoadStrategy: "join",
       include: {
-        personA: { select: { name: true } },
-        personB: { select: { name: true } },
+        // One avatar each: the pair column named two people and drew neither of
+        // them, so an operator scanning the board read strings for a job that
+        // is about who these two are.
+        personA: { select: { id: true, name: true, photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } } } },
+        personB: { select: { id: true, name: true, photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } } } },
         introMessages: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true, body: true } },
       },
       orderBy: { updatedAt: "desc" },
@@ -135,7 +139,21 @@ export default async function Conversations({
               {rows.map(({ m, health, lastMessageAt, lastBody }) => (
                 <tr key={m.id} className="border-b border-line/70 hover:bg-studio-canvas/60">
                   <td className="px-4 py-3 font-medium text-ink">
-                    {displayName(m.personA.name)} + {displayName(m.personB.name)}
+                    <span className="flex items-center gap-2.5">
+                      <span className="flex -space-x-2">
+                        <Avatar url={m.personA.photos[0]?.url} name={m.personA.name} size={32} />
+                        <Avatar url={m.personB.photos[0]?.url} name={m.personB.name} size={32} />
+                      </span>
+                      <span className="flex flex-wrap items-center gap-x-1.5">
+                        <Link href={`/studio/person/${m.personA.id}`} className="hover:underline">
+                          {displayName(m.personA.name)}
+                        </Link>
+                        <span className="text-muted">+</span>
+                        <Link href={`/studio/person/${m.personB.id}`} className="hover:underline">
+                          {displayName(m.personB.name)}
+                        </Link>
+                      </span>
+                    </span>
                     {m.conversationSid && (
                       <span className="ml-2 inline-flex items-center rounded-full border border-ink/25 bg-studio-canvas px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink">
                         group

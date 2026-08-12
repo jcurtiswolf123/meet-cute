@@ -10,17 +10,21 @@ export function SubmitButton({
   ariaLabel,
   pendingText,
   className = "btn-primary",
+  // Nothing picked yet, nothing to submit. The button still renders, so the
+  // form keeps its shape while the operator chooses.
+  disabled = false,
 }: {
   children: React.ReactNode;
   ariaLabel?: string;
   pendingText?: string;
   className?: string;
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       className={`${className} disabled:opacity-60`}
       aria-busy={pending}
       aria-label={ariaLabel}
