@@ -12,7 +12,10 @@ import { logout } from "@/lib/actions";
 // icons only (persisted). On mobile it becomes a slide-in drawer opened from a
 // slim top bar. Restyled to the Mutuals warm palette.
 
-export type SidebarItem = { href: string; label: string; icon: IconName };
+// `badge` is a count of things waiting on the operator behind that view. Zero
+// and undefined both draw nothing: a badge reading 0 is noise that has to be
+// read before it can be dismissed.
+export type SidebarItem = { href: string; label: string; icon: IconName; badge?: number };
 export type SidebarSection = { label?: string; items: SidebarItem[] };
 export type PortalSidebarVariant = "warm" | "twenty";
 
@@ -338,6 +341,10 @@ function SidebarInner({
           <input
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
+            // The `/` hint beside this field was decoration: nothing was bound.
+            // StudioHotkeys now sends `/` to the page's own search when it has
+            // one, and here when it does not.
+            data-studio-nav-search
             className="h-8 w-full rounded border border-line bg-studio-subtle pl-8 pr-12 text-[12px] text-ink outline-none transition placeholder:text-muted focus:border-ink/30 focus:ring-2 focus:ring-ink/5"
             placeholder="Quick search..."
             aria-label="Quick search"
@@ -376,7 +383,7 @@ function SidebarInner({
                       // always attached; `title` alone is not an accessible name
                       // and is not announced reliably.
                       aria-label={it.label}
-                      className={`group flex items-center gap-2.5 text-sm transition ${
+                      className={`group relative flex items-center gap-2.5 text-sm transition ${
                         twenty ? "h-7 rounded px-1" : "rounded-lg px-2.5 py-2"
                       } ${
                         collapsed ? "justify-center" : ""
@@ -394,6 +401,24 @@ function SidebarInner({
                         <PortalIcon name={it.icon} />
                       </span>
                       {!collapsed && <span className="truncate">{it.label}</span>}
+                      {it.badge ? (
+                        collapsed ? (
+                          // Collapsed the rail is 48px of icons, so the count
+                          // becomes a dot on the icon and the number is left to
+                          // the tooltip and the expanded rail.
+                          <span
+                            className="absolute right-1 top-0.5 h-1.5 w-1.5 rounded-full bg-ink"
+                            aria-label={`${it.badge} waiting`}
+                          />
+                        ) : (
+                          <span
+                            className="ml-auto shrink-0 rounded-full bg-ink px-1.5 py-0.5 text-[10px] font-medium leading-none text-white"
+                            aria-label={`${it.badge} waiting`}
+                          >
+                            {it.badge}
+                          </span>
+                        )
+                      ) : null}
                     </Link>
                   </li>
                 );

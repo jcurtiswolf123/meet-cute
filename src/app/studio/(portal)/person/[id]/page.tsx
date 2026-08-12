@@ -10,6 +10,7 @@ import { connectionsOf, vouchesFor } from "@/lib/social";
 import { REQUIRED_RECOMMENDATIONS } from "@/lib/recommendations";
 import { citiesOf, cityShort } from "@/lib/cities";
 import { Avatar, StageBadge } from "@/components/ui";
+import { BackLink } from "@/components/BackLink";
 import { SubmitButton, ConfirmActionForm } from "@/components/forms";
 import { IntroComposer } from "../../matchmaking/IntroComposer";
 import { introNotice } from "../../matchmaking/intro-notice";
@@ -135,7 +136,11 @@ export default async function PersonPage({
   return (
     <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
       <div>
-        <Link href="/studio" className="text-xs text-muted hover:text-ink">&larr; Directory</Link>
+        {/* Back to whatever they were reading, at the row they were reading.
+            This was a hard link to the Directory, so a profile opened from
+            Status, Matchmaking or the applicant board sent the operator to a
+            different page, at the top of it. */}
+        <BackLink href="/studio" label="Back" />
         <div className="mt-3 flex items-start gap-4">
           <Avatar url={p.photos[0]?.url} name={p.name} size={72} />
           <div>
