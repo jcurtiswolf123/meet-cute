@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mutuals IG Story 1 - Ink / Meet your friend's friends</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:1080px;height:1920px;overflow:hidden;}
+  body{background:#171714;color:#f4f1ea;font-family:'Instrument Sans',sans-serif;position:relative;}
+
+  /* one quiet warm wash, no gradient hero, no glass */
+  body::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(900px 700px at 78% 12%, rgba(118,45,56,.28), transparent 62%);}
+
+  .frame{position:absolute;inset:0;display:flex;flex-direction:column;
+    padding:250px 88px 300px;}
+
+  .brand{display:flex;align-items:baseline;gap:18px;}
+  .brand .nm{font-family:'Instrument Serif',serif;font-size:44px;letter-spacing:-.01em;line-height:1;}
+  .brand .cities{font-size:20px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:rgba(244,241,234,.55);}
+
+  .rule{height:1px;background:rgba(244,241,234,.18);margin:44px 0 0;}
+
+  h1{font-family:'Instrument Serif',serif;font-weight:400;font-size:152px;line-height:.9;
+    letter-spacing:-.03em;margin-top:150px;max-width:13ch;}
+  h1 em{font-style:italic;color:#e2b7bd;}
+
+  .sub{margin-top:52px;max-width:26ch;font-size:38px;line-height:1.45;color:rgba(244,241,234,.72);}
+  .sub b{color:#f4f1ea;font-weight:600;}
+
+  .facts{margin-top:auto;padding-top:32px;border-top:1px solid rgba(244,241,234,.18);
+    display:grid;grid-template-columns:1fr 1fr;gap:20px 40px;
+    font-size:26px;font-weight:500;color:rgba(244,241,234,.62);}
+
+  .cta{margin-top:76px;display:flex;align-items:center;gap:28px;}
+  .cta .btn{background:#f4f1ea;color:#171714;font-weight:700;font-size:38px;
+    padding:30px 52px;border-radius:999px;letter-spacing:-.01em;}
+  .cta .url{font-size:30px;font-weight:500;color:rgba(244,241,234,.55);letter-spacing:.01em;}
+
+  .sticker-hint{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);
+    display:flex;align-items:center;gap:14px;
+    font-size:24px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:rgba(244,241,234,.45);}
+  .sticker-hint .arrow{font-size:28px;}
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="brand">
+      <span class="nm">Mutuals</span>
+      <span class="cities">New York &middot; San Francisco &middot; Los Angeles</span>
+    </div>
+    <div class="rule"></div>
+
+    <h1>Meet your friend&rsquo;s <em>friends.</em></h1>
+
+    <p class="sub">A real matchmaker makes every introduction, <b>one person at a time</b>. No profile to keep up. No feed. No swiping.</p>
+
+    <div class="facts">
+      <span>Friends of friends</span>
+      <span>One person at a time</span>
+      <span>Introduced, not swiped</span>
+      <span>Curated matchmaking</span>
+    </div>
+
+    <div class="cta">
+      <span class="btn">Apply to join</span>
+      <span class="url">hellomutuals.com</span>
+    </div>
+  </div>
+
+  <div class="sticker-hint"><span class="arrow">&uarr;</span> tap the link to apply</div>
+</body>
+</html>

@@ -107,28 +107,46 @@ every page load and all were sequential scans. At 98 rows this is invisible and
 it stays invisible right up until it is not, so
 `prisma/migrations/20260811_studio_hot_path_indexes` adds them, concurrently.
 
-## The step that is not done
+## Shipped
 
-**Move the app to `iad`.** This is the largest single remaining win and the only
-one that needs no code: from `iad` the round trip to Neon is roughly 12ms rather
-than 50, so every number in the table above gets about four times cheaper. A
-visitor in California pays about 50ms more to reach the app and gets it back
-several times over on a page that asks the database anything at all.
+All of the above went to production on 2026-08-12, release 217.
 
-`fly.toml` already says `primary_region = "iad"`, which only governs where new
-machines are created. The two live machines have to be moved deliberately:
+**The app now runs in `iad`, next to the database.** This was the largest single
+win and it needed no code. Measured on production against `/readyz`, which makes
+five sequential database round trips, same release on both machines:
 
-```
-fly scale count 2 --region iad -a meet-cute   # bring up the pair in iad
-fly scale count 0 --region sjc -a meet-cute   # retire the sjc pair
-```
+| Region | /readyz |
+|---|---|
+| `sjc` (before) | 516-598ms |
+| `iad` (after) | 154-184ms |
 
-In that order there is no window with fewer than two machines.
+Every studio page carries the same 3.4x on its remaining round trips. Live
+timings for the public pages settled at 70-100ms, `/readyz` at 143-152ms.
 
-Blocked on 11 August 2026 because the stored Fly token no longer verifies
-(`missing third-party discharge token`). `flyctl auth login` first.
+Order was: bring up the `iad` pair, confirm both healthy, then retire the `sjc`
+pair, so there was never a window with fewer than two machines. The two orphaned
+`sjc` `meetcute_data` volumes were destroyed afterwards; the ones in `iad` are
+the same unused legacy mount and can go in a future window.
 
-The index migration also still has to be applied: `npm run db:deploy`.
+**The indexes are applied.** Not via `prisma migrate deploy`: the migration
+originally used `CREATE INDEX CONCURRENTLY`, and Prisma runs every migration
+inside a transaction, which Postgres refuses (error 25001). Caught on a scratch
+database before it reached Neon. `CONCURRENTLY` is gone, and each of the nine
+indexes built against production in under 60ms. The migration is recorded with
+`prisma migrate resolve --applied`.
+
+Note for whoever runs a migration next: the Prisma CLI reads `.env` and that
+wins over inline environment variables, so `DATABASE_URL=... npx prisma ...`
+does **not** point the CLI somewhere else. It will use the production URL in
+`.env` no matter what you set on the command line. Move `.env` aside, or run the
+statements yourself over a connection you constructed.
+
+**Embeddings are backfilled.** 31 of 31 real members hold genuine 1024-dimension
+vectors from NVIDIA. The five active rows still without one are all operators,
+who are excluded by `scripts/embed.ts` because they are not match candidates.
+The local `.env` carries no embedding key, so running the backfill from it would
+have stored 256-dimension lexical vectors that look real and would have masked
+the gap permanently.
 
 ## Rules worth keeping
 

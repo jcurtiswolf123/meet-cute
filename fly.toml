@@ -1,23 +1,24 @@
 app = "meet-cute"
 
 # Sit next to the database. Neon holds every row in us-east-2 and this app ran
-# in sjc, about 50ms away, which is the single largest cost in the operator
+# in sjc, about 50ms away, which was the single largest cost in the operator
 # studio: the pages are server-rendered and each one asks the database several
 # questions, so the region gap was worth a few hundred milliseconds per page
-# before a byte of markup existed. From iad the same round trip is roughly
-# 12ms. A visitor in California pays about 50ms more to reach the app and gets
-# it back several times over.
+# before a byte of markup existed.
 #
-# This line only decides where NEW machines are created. `fly deploy` leaves
-# existing machines in the region they are already in, so the two live machines
-# have to be moved deliberately:
+# Moved 2026-08-12. Measured on production, same code, same endpoint, against
+# /readyz (which makes five sequential database round trips):
+#   sjc  516-598ms
+#   iad  154-184ms
+# A visitor in California pays about 50ms more to reach the app and gets it back
+# several times over on any page that talks to the database at all.
 #
+# This line only decides where NEW machines are created; `fly deploy` leaves
+# existing machines where they are. The live pair was moved with:
 #   fly scale count 2 --region iad -a meet-cute   # bring up the pair in iad
 #   fly scale count 0 --region sjc -a meet-cute   # retire the sjc pair
-#
-# Do it in that order and there is no window with fewer than two machines. Each
-# has a sticky (unused) meetcute_data volume, so the sjc machines and their
-# volumes are both destroyed by the second command.
+# In that order there is never a window with fewer than two machines. The two
+# orphaned sjc meetcute_data volumes were destroyed afterwards.
 primary_region = "iad"
 
 [build]
