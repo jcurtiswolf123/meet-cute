@@ -54,6 +54,7 @@ export default async function Matchmaking({
   const [people, intros, pairs] = await Promise.all([
     prisma.person.findMany({
       where: { isOperator: false, isAmbassador: false, isCoach: false, status: "active" },
+      relationLoadStrategy: "join",
       select: {
         id: true,
         name: true,
@@ -72,6 +73,7 @@ export default async function Matchmaking({
     }),
     prisma.match.findMany({
       where: { stage: { in: ["invited", "mutual_yes", "connected"] } },
+      relationLoadStrategy: "join",
       include: {
         personA: { select: { id: true, name: true, phone: true } },
         personB: { select: { id: true, name: true, phone: true } },

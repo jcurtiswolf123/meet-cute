@@ -29,7 +29,9 @@ export default async function Roster({
   //
   // The roster reads counts rather than whole relation rows: it was pulling
   // every vouch row and every photo row for every member to render two numbers
-  // and one avatar.
+  // and one avatar. It also loads its relations with a join rather than a
+  // follow-up query each, which is four more round trips this page does not pay
+  // (see the relationJoins note in prisma/schema.prisma).
   const [people, applicants, accepted, byStage, pendingApplicants, halfFinished, failedDeliveryCount, failedDeliveries, pairs] =
     await Promise.all([
       prisma.person.findMany({
@@ -43,11 +45,16 @@ export default async function Roster({
           ...(sp.city ? cityWhere(sp.city) : {}),
           ...(sp.gender ? { gender: sp.gender } : {}),
         },
+        relationLoadStrategy: "join",
         include: {
           photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } },
           referredBy: { select: { name: true } },
-          matchesAsA: { select: { createdAt: true } },
-          matchesAsB: { select: { createdAt: true } },
+          // Only the newest suggestion is read, and only to sort by staleness.
+          // Both sides used to come back whole: every match row a member had
+          // ever been in, on both relations, on every visit, to compute one
+          // date per person.
+          matchesAsA: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+          matchesAsB: { select: { createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
           _count: { select: { vouchesReceived: true, dinnerAttendance: true } },
         },
       }),
@@ -70,6 +77,7 @@ export default async function Roster({
           status: "applicant",
           appliedAt: { not: null },
         },
+        relationLoadStrategy: "join",
         include: {
           photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } },
           recommendationsReceived: { orderBy: { createdAt: "asc" } },
@@ -88,6 +96,7 @@ export default async function Roster({
           basicsAt: { not: null },
           appliedAt: null,
         },
+        relationLoadStrategy: "join",
         select: {
           id: true,
           name: true,

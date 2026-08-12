@@ -25,6 +25,7 @@ export default async function Team({
   const operators = await prisma.person.findMany({
     where: { isOperator: true },
     orderBy: { name: "asc" },
+    relationLoadStrategy: "join",
     select: {
       id: true,
       name: true,

@@ -27,6 +27,7 @@ type Row = Awaited<ReturnType<typeof loadVenues>>[number];
 async function loadVenues() {
   return prisma.venue.findMany({
     orderBy: [{ city: "asc" }, { name: "asc" }],
+    relationLoadStrategy: "join",
     include: { _count: { select: { picks: true } } },
   });
 }

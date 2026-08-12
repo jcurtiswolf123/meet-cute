@@ -2,6 +2,40 @@
 
 _Append-only. Newest at top. Each entry: what was decided, why, and what was rejected._
 
+## 2026-08-11 : The studio was slow because of where the database is
+
+The operator studio was slow on every page. It is not the amount of data: on
+this date production held 98 people, 29 of them active, and one match. It is
+that Fly runs the app in `sjc`, Neon holds every row in `us-east-2`, and a warm
+round trip between them is about 50ms. Pages that ask a database twenty separate
+questions and wait for each answer are slow no matter how little it holds.
+
+- **Round trips are the unit, not milliseconds.** A laptop's database answers in
+  under a millisecond, so nothing measured locally transfers. Statements counted
+  around one request do. `PRISMA_LOG_QUERIES=1` exists for that and for nothing
+  else. Ten studio pages cost 114 round trips before and 45 after.
+- **Authorization reads what authorization decides on.** It was reading the
+  session, then the person, then that person's photos, then their prompts, and
+  the layout and the page each did it, so eight round trips ran before a page
+  read anything it was asked for. It is one query now, joined and cached per
+  request. Photos and prompts decide nothing about whether somebody is an
+  operator.
+- **A page render never calls a third party.** Opening a profile called the
+  embeddings API behind a 12-second timeout whenever the person had no stored
+  vector, and no active member had one, so it happened every time. The stored
+  vector is used when it exists and a deterministic local one stands in when it
+  does not. `npm run embed` is where that call belongs.
+- **Rejected: caching the pages.** Every number in the studio is something an
+  operator is about to act on, and a stale roster is worse than a slow one. The
+  fix was to stop asking the same question repeatedly, not to stop asking.
+- **Rejected: moving the database.** A Neon project cannot change region, and
+  moving the app is a config change with no data risk. `fly.toml` now says
+  `iad`; the live machines still have to be moved by hand, and that is the
+  largest remaining win.
+
+Full accounting, including the query shapes that were reading whole tables to
+count them, in `docs/PERFORMANCE.md`.
+
 ## 2026-08-06 : Any two friends, and a way to put somebody forward
 
 Both from Jess, off what people were actually replying with.

@@ -46,9 +46,13 @@ export default async function MatchesHistory() {
 
   const matches = await prisma.match.findMany({
     orderBy: { updatedAt: "desc" },
+    relationLoadStrategy: "join",
     include: {
-      personA: { select: { id: true, name: true, city: true, photos: { take: 1, orderBy: { order: "asc" } } } },
-      personB: { select: { id: true, name: true, city: true, photos: { take: 1, orderBy: { order: "asc" } } } },
+      // One avatar per person, and only the column the avatar draws: the whole
+      // photo row, storage URL and all, was coming back for both halves of
+      // every match in the history.
+      personA: { select: { id: true, name: true, city: true, photos: { take: 1, orderBy: { order: "asc" }, select: { url: true } } } },
+      personB: { select: { id: true, name: true, city: true, photos: { take: 1, orderBy: { order: "asc" }, select: { url: true } } } },
     },
   });
 
