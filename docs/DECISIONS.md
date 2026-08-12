@@ -741,3 +741,17 @@ one screen - approvals, half-finished chases, delivery failures, the composer,
 the metrics, and the directory it is named after - so the applicant list is now
 one line and a button that opens the board, and the count lives in the sidebar
 where it is visible from every page.
+
+### The empty screen below the studio (12 August 2026)
+
+The console had a second scrollbar: past the end of any studio page there was a
+screenful of empty cream you could keep scrolling into. Tailwind's `.sr-only` is
+an absolutely positioned 1px box, and with no positioned ancestor it resolves
+against the document rather than against the element it is written in. The
+"Actions" label in the directory's table header therefore sat 1,135px down a
+850px window and gave the document a scroll height of its own, outside the app
+frame that is supposed to be exactly one viewport tall.
+
+The scroll container is `relative` now, so any absolutely positioned descendant
+belongs to the panel it is drawn in. Document height equals the viewport on
+every studio page, desktop and phone.

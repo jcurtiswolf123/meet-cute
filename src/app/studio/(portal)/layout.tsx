@@ -74,9 +74,16 @@ export default async function StudioPortalLayout({ children }: { children: React
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-2 md:p-3 md:pl-0">
         <StudioPortalHeader />
+        {/* `relative` is load-bearing. Tailwind's .sr-only is an absolutely
+            positioned 1px box, and with no positioned ancestor it resolves
+            against the document rather than against this scroller: the "Actions"
+            label in the directory's table header landed 1,135px down the page
+            and gave the window a second scrollbar over a screen of empty cream
+            below the app frame. Any absolutely positioned descendant, present or
+            future, now belongs to the container it is drawn in. */}
         <main
           id={SCROLL_CONTAINER_ID}
-          className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-studio-line bg-white"
+          className="relative min-h-0 flex-1 overflow-y-auto rounded-lg border border-studio-line bg-white"
         >
           <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 md:px-8 md:py-8">
             {children}
