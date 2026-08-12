@@ -159,3 +159,39 @@ the gap permanently.
 - Count with `_count`, take the newest with `take: 1`. Do not fetch a list to
   measure it.
 - Authorization reads what authorization decides on, and nothing else.
+
+## Photos are served at the size they are drawn (12 August 2026)
+
+Uploads are normalized to 1600px webp, and every surface asked for that file: a
+28px avatar in the directory, a 96px thumbnail on a profile, and every tile on
+the new applicant wall. A roster page was a few hundred kilobytes of face per
+row and the wall asked for two dozen at once. The round trips were already
+cheap after the region move; the bytes were not.
+
+`/api/photos/{id}.{ext}?w=` now serves a resized copy for an allowlisted width
+(96, 192, 384, 768) and keeps the result in a 48-entry LRU in the process, so
+the resize is paid once per machine rather than once per viewer. Authorization
+is unchanged and runs before any resizing. Widths are an allowlist so this
+cannot be used as a general image-resizing service.
+
+Measured locally on a photographic 1600px webp of 151 KB, production build:
+
+| Drawn at | Request | Bytes | First | Cached |
+|---|---|---|---|---|
+| avatar, 28-48px | `?w=96` | 204 B | 71ms | 18ms |
+| profile thumb, 96px | `?w=192` | 5.6 KB | 42ms | - |
+| wall tile, ~300px | `?w=768` | 53 KB | 110ms | - |
+| lightbox | none | 151 KB | 55ms | - |
+
+So a 14-row directory went from about 2.1 MB of images to under 50 KB, and a
+wall of 24 tiles from roughly 3.6 MB to 1.3 MB, lazily and cached privately for
+a day. `photoAt`/`widthFor` in `src/lib/photo-url.ts` are the only callers'
+API; the expanded lightbox deliberately still gets the stored file, because
+that is where a face is actually judged.
+
+Server-rendered page timings on the same build, warm, sandbox database on
+localhost: `/studio` 26-36ms, `/studio/applicants` 10-28ms, `/studio/person/:id`
+43-66ms. The sidebar's waiting count is issued in the same `Promise.all` as the
+session lookup, so it costs no extra serial round trip on any studio page.
+Production after the deploy: `/readyz` 148-168ms (unchanged), public pages
+80-190ms.

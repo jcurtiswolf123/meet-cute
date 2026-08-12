@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionSubject } from "@/lib/auth";
+import sharp from "sharp";
 import { readUpload, contentTypeForExt } from "@/lib/uploads";
+import { isPhotoWidth, type PhotoWidth } from "@/lib/photo-url";
 import { isConnectedTo } from "@/lib/social";
 
 export const runtime = "nodejs";
@@ -66,6 +68,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ file: s
   } catch {
     return new NextResponse("Not found", { status: 404 });
   }
+
+  // A width the caller has told us it will actually draw. Uploads are stored at
+  // 1600px, so a directory of 28px avatars or a wall of tiles was megabytes of
+  // detail nothing rendered. Only the allowlisted widths are honoured, so this
+  // cannot be turned into an image-resizing service by anyone who finds it.
+  const requested = Number(new URL(_req.url).searchParams.get("w") ?? 0);
+  if (isPhotoWidth(requested)) {
+    bytes = await narrowed(id, ext, requested, bytes);
+  }
+
   return new NextResponse(new Uint8Array(bytes), {
     headers: {
       "Content-Type": contentTypeForExt(ext),
@@ -77,4 +89,53 @@ export async function GET(_req: Request, { params }: { params: Promise<{ file: s
           : "private, no-store",
     },
   });
+}
+
+// Resized copies, kept in the process that made them. Resizing costs about
+// 20ms of a single Fly CPU, and without this it is paid again by every viewer
+// who has not already cached the image: a shared roster is the same forty faces
+// for everybody. Small and bounded on purpose - a few megabytes of thumbnails
+// is worth it, a full-size cache is not.
+const NARROWED_LIMIT = 48;
+const narrowedCache = new Map<string, Buffer>();
+
+async function narrowed(
+  id: string,
+  ext: string,
+  width: PhotoWidth,
+  original: Buffer,
+): Promise<Buffer> {
+  const key = `${id}.${ext}@${width}`;
+  const hit = narrowedCache.get(key);
+  if (hit) {
+    // Least-recently-used: re-insert so a face nobody looks at is the one
+    // evicted rather than the one on every page.
+    narrowedCache.delete(key);
+    narrowedCache.set(key, hit);
+    return hit;
+  }
+
+  let out: Buffer;
+  try {
+    const pipeline = sharp(original).resize(width, width, {
+      fit: "inside",
+      withoutEnlargement: true,
+    });
+    out =
+      ext === "png"
+        ? await pipeline.png({ compressionLevel: 9 }).toBuffer()
+        : ext === "jpg"
+          ? await pipeline.jpeg({ quality: 78 }).toBuffer()
+          : await pipeline.webp({ quality: 78 }).toBuffer();
+  } catch {
+    // A file sharp cannot read still has to render somewhere.
+    return original;
+  }
+
+  narrowedCache.set(key, out);
+  if (narrowedCache.size > NARROWED_LIMIT) {
+    const oldest = narrowedCache.keys().next().value;
+    if (oldest !== undefined) narrowedCache.delete(oldest);
+  }
+  return out;
 }

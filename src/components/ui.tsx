@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { photoAt, widthFor } from "@/lib/photo-url";
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
@@ -31,7 +32,9 @@ export function Avatar({
   return url ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={url}
+      src={photoAt(url, widthFor(size))}
+      loading="lazy"
+      decoding="async"
       alt={name}
       width={size}
       height={size}

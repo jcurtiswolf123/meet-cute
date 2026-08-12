@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { setMemberStatus } from "@/lib/actions";
 import { ConfirmActionForm } from "@/components/forms";
 import { ApproveApplicant } from "../ApproveApplicant";
+import { photoAt } from "@/lib/photo-url";
 
 export type GalleryPerson = {
   id: string;
@@ -146,7 +147,7 @@ export function ApplicantGallery({
                 {person.photos[0] ? (
                   /* eslint-disable-next-line @next/next/no-img-element -- proxied member upload */
                   <img
-                    src={person.photos[0].url}
+                    src={photoAt(person.photos[0].url, 768)}
                     alt={person.name}
                     loading="lazy"
                     decoding="async"
@@ -411,7 +412,12 @@ function Reviewer({
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- proxied member upload */}
-                <img src={p.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                <img
+                  src={photoAt(p.url, 192)}
+                  alt=""
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                />
               </button>
             ))}
           </div>

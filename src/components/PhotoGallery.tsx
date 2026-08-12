@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { photoAt, type PhotoWidth } from "@/lib/photo-url";
 
 export type GalleryPhoto = {
   id: string;
@@ -52,7 +53,14 @@ export function PhotoGallery({
 
   if (photos.length === 0) return null;
 
-  const thumb = (photo: GalleryPhoto, i: number, className: string) => (
+  // What each thumbnail is actually drawn at, so a 96px square stops pulling
+  // the 1600px upload. The expanded view below still gets the stored file.
+  const thumb = (
+    photo: GalleryPhoto,
+    i: number,
+    className: string,
+    width: PhotoWidth = 192,
+  ) => (
     <button
       key={photo.id}
       type="button"
@@ -65,7 +73,13 @@ export function PhotoGallery({
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- member uploads are
           served through an authorized proxy route, not a static asset */}
-      <img src={photo.src} alt={photo.alt} className="h-full w-full object-cover" />
+      <img
+        src={photoAt(photo.src, width)}
+        alt={photo.alt}
+        loading="lazy"
+        decoding="async"
+        className="h-full w-full object-cover"
+      />
       <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 flex items-end justify-end bg-ink/0 p-1.5 opacity-0 transition duration-200 ease-soft group-hover:bg-ink/10 group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none"
@@ -85,6 +99,7 @@ export function PhotoGallery({
             photos[0],
             0,
             "aspect-[4/5] w-full max-w-sm rounded-xl border border-line",
+            768,
           )}
           {photos.length > 1 && (
             <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
