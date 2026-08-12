@@ -17,23 +17,32 @@ export function ApproveApplicant({
   personId,
   name,
   outstanding,
+  // The applicant board reviews faces against a black ground, where ink on ink
+  // is invisible. Same control, same friction, inverted.
+  tone = "light",
 }: {
   personId: string;
   name: string;
   outstanding: number;
+  tone?: "light" | "dark";
 }) {
   const [confirming, setConfirming] = useState(false);
   const first = name.split(" ")[0];
+  const solid =
+    tone === "dark"
+      ? "rounded-full bg-white px-3 py-1 text-xs font-medium text-ink transition hover:bg-white/85"
+      : "rounded-full bg-ink px-3 py-1 text-xs font-medium text-white transition hover:bg-ink/85";
+  const outline =
+    tone === "dark"
+      ? "rounded-full border border-white px-3 py-1 text-xs font-medium text-white transition hover:bg-white/10"
+      : "rounded-full border border-ink px-3 py-1 text-xs font-medium text-ink transition hover:bg-panel";
 
   if (outstanding === 0) {
     return (
       <form action={setMemberStatus}>
         <input type="hidden" name="personId" value={personId} />
         <input type="hidden" name="action" value="approve" />
-        <SubmitButton
-          className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white transition hover:bg-ink/85"
-          pendingText="..."
-        >
+        <SubmitButton className={solid} pendingText="...">
           Approve
         </SubmitButton>
       </form>
@@ -42,11 +51,7 @@ export function ApproveApplicant({
 
   if (!confirming) {
     return (
-      <button
-        type="button"
-        onClick={() => setConfirming(true)}
-        className="rounded-full border border-ink px-3 py-1 text-xs font-medium text-ink transition hover:bg-panel"
-      >
+      <button type="button" onClick={() => setConfirming(true)} className={outline}>
         Approve early
       </button>
     );
@@ -64,16 +69,15 @@ export function ApproveApplicant({
         className="field !py-1 w-64 text-xs"
         aria-label={`Reason for approving ${name} early`}
       />
-      <SubmitButton
-        className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white transition hover:bg-ink/85"
-        pendingText="..."
-      >
+      <SubmitButton className={solid} pendingText="...">
         Override
       </SubmitButton>
       <button
         type="button"
         onClick={() => setConfirming(false)}
-        className="text-xs text-muted underline underline-offset-2"
+        className={`text-xs underline underline-offset-2 ${
+          tone === "dark" ? "text-white/70" : "text-muted"
+        }`}
       >
         Cancel
       </button>

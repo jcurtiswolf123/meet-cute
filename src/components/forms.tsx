@@ -41,6 +41,10 @@ export function ConfirmActionForm({
   pendingText,
   buttonClassName,
   className,
+  // The applicant board asks for this confirmation over a black ground, where
+  // the default muted grey is unreadable.
+  messageClassName = "text-muted",
+  cancelClassName = "rounded-full border border-line px-3 py-1 text-xs",
 }: {
   children?: React.ReactNode;
   action: (formData: FormData) => void | Promise<void>;
@@ -51,6 +55,8 @@ export function ConfirmActionForm({
   pendingText: string;
   buttonClassName?: string;
   className?: string;
+  messageClassName?: string;
+  cancelClassName?: string;
 }) {
   const [confirming, setConfirming] = useState(false);
 
@@ -59,10 +65,10 @@ export function ConfirmActionForm({
       {children}
       {confirming ? (
         <div className="flex max-w-xs flex-wrap items-center justify-end gap-2 text-right">
-          <p className="w-full text-xs text-muted">{confirmMessage}</p>
+          <p className={`w-full text-xs ${messageClassName}`}>{confirmMessage}</p>
           <button
             type="button"
-            className="rounded-full border border-line px-3 py-1 text-xs"
+            className={cancelClassName}
             onClick={() => setConfirming(false)}
           >
             Cancel

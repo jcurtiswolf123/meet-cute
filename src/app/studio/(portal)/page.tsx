@@ -4,8 +4,8 @@ import { requireOperatorPage } from "@/lib/page-auth";
 import { Avatar } from "@/components/ui";
 import { Select as FieldSelect } from "@/components/select";
 import { CITIES, citiesOf, cityShort, cityWhere } from "@/lib/cities";
-import { ApproveApplicant } from "./ApproveApplicant";
-import { retryDeliveryJob, setMemberStatus } from "@/lib/actions";
+
+import { retryDeliveryJob } from "@/lib/actions";
 import { IntroComposer } from "./matchmaking/IntroComposer";
 import { introNotice } from "./matchmaking/intro-notice";
 import { pairStates } from "@/lib/introductions";
@@ -69,6 +69,9 @@ export default async function Roster({
       // actually completed the application show up here. A bare magic-link click
       // creates an "applicant" row with no appliedAt; surfacing those would bury
       // the operator in half-finished signups.
+      //
+      // Only the faces and the count are read now: the decision itself, with the
+      // recommendations behind it, is made on /studio/applicants.
       prisma.person.findMany({
         where: {
           isOperator: false,
@@ -78,9 +81,10 @@ export default async function Roster({
           appliedAt: { not: null },
         },
         relationLoadStrategy: "join",
-        include: {
+        select: {
+          id: true,
+          name: true,
           photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } },
-          recommendationsReceived: { orderBy: { createdAt: "asc" } },
         },
         orderBy: { appliedAt: "desc" },
       }),
@@ -89,25 +93,13 @@ export default async function Roster({
       // went unnoticed on 3 August. They are not "to review" (there is nothing to
       // review yet) and they are not noise either: they gave a name, a city and a
       // face, and one of them is a member as soon as two friends are named.
-      prisma.person.findMany({
+      prisma.person.count({
         where: {
           isOperator: false,
           status: "applicant",
           basicsAt: { not: null },
           appliedAt: null,
         },
-        relationLoadStrategy: "join",
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          city: true,
-          secondCity: true,
-          basicsAt: true,
-          unfinishedNudgedAt: true,
-          _count: { select: { photos: true } },
-        },
-        orderBy: { basicsAt: "desc" },
       }),
       prisma.deliveryJob.count({ where: { status: "failed" } }),
       prisma.deliveryJob.findMany({
@@ -127,6 +119,7 @@ export default async function Roster({
       pairStates(),
     ]);
   const stageCount = (s: string) => byStage.find((b) => b.stage === s)?._count ?? 0;
+  const filtered = Boolean(sp.q || sp.city || sp.gender);
 
   const enriched = people
     .map((p) => {
@@ -179,82 +172,43 @@ export default async function Roster({
           they sit collapsed under the people work instead of leading the page.
           Metrics are ambient context, so they sit under the work rather than
           above it, where they were the first thing read every single visit. */}
-      {pendingApplicants.length > 0 && (
-        <div className="mt-6 rounded-xl2 border border-studio-line border-l-2 border-l-ink bg-studio-subtle p-5">
-          <p className="label !text-ink">New applicants ({pendingApplicants.length})</p>
-          <p className="mt-1 text-sm text-muted">Review and approve to add them to the list.</p>
-          <ul className="mt-4 space-y-2">
-            {pendingApplicants.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-panel px-4 py-2.5">
-                <Link href={`/studio/person/${a.id}`} className="flex items-center gap-3">
-                  <Avatar url={a.photos[0]?.url} name={a.name} size={32} />
-                  <span>
-                    <span className="block text-sm font-medium text-ink">{a.name}{a.age ? `, ${a.age}` : ""}</span>
-                    <span className="block text-xs text-muted">
-                      {a.email} · {citiesOf(a).map(cityShort).join(" + ")}
-                    </span>
-                    {/* What the gate is waiting on, in the list where the
-                        Approve button lives. Approving here is what let two
-                        applicants in before their friends wrote. */}
-                    {a.recommendationsReceived.length > 0 && (
-                      <span className="mt-0.5 block text-xs text-muted">
-                        {a.recommendationsReceived.filter((r) => r.status === "submitted").length} of{" "}
-                        {a.recommendationsReceived.length} friends have written
-                        {a.recommendationsReceived.some((r) => r.status === "requested")
-                          ? `, waiting on ${a.recommendationsReceived
-                              .filter((r) => r.status === "requested")
-                              .map((r) => r.name.split(" ")[0])
-                              .join(" and ")}`
-                          : ""}
-                      </span>
-                    )}
-                    {a.voucherName && (
-                      <span className="mt-0.5 block text-xs font-medium text-ink">
-                        Vouched by {a.voucherName}
-                        {a.recommendation ? `: "${a.recommendation.slice(0, 80)}${a.recommendation.length > 80 ? "..." : ""}"` : ""}
-                      </span>
-                    )}
-                  </span>
-                </Link>
-                <div className="flex gap-2">
-                  <ApproveApplicant
-                    personId={a.id}
-                    name={a.name}
-                    outstanding={a.recommendationsReceived.filter((r) => r.status === "requested").length}
-                  />
-                  <form action={setMemberStatus}>
-                    <input type="hidden" name="personId" value={a.id} />
-                    <input type="hidden" name="action" value="decline" />
-                    <button className="rounded-full border border-line px-3 py-1 text-xs">Decline</button>
-                  </form>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {halfFinished.length > 0 && (
-        <div className="mt-6 rounded-xl2 border border-line bg-panel p-5">
-          <p className="label !text-ink">
-            Stopped at the friends ({halfFinished.length})
+      {/* Applicant triage used to live here in full: a stacked list of faces at
+          32 pixels, each with an Approve button, above a second list of the
+          half-finished, above the delivery failures, above the composer, above
+          the directory this page is named after. Six jobs on one screen, and
+          the one that decides whether somebody joins was being done from a
+          thumbnail. The work moved to its own board, where the photos are the
+          size of the decision. This is the doorway to it, and the count. */}
+      {(pendingApplicants.length > 0 || halfFinished > 0) && (
+        <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-xl2 border border-studio-line border-l-2 border-l-ink bg-studio-subtle p-4">
+          {pendingApplicants.length > 0 && (
+            <div className="flex -space-x-2">
+              {pendingApplicants.slice(0, 8).map((a) => (
+                <Avatar key={a.id} url={a.photos[0]?.url} name={a.name} size={32} />
+              ))}
+            </div>
+          )}
+          <p className="text-sm text-ink">
+            {pendingApplicants.length > 0 && (
+              <span className="font-medium">
+                {pendingApplicants.length} waiting on a decision
+              </span>
+            )}
+            {pendingApplicants.length > 0 && halfFinished > 0 && (
+              <span className="text-muted"> · </span>
+            )}
+            {halfFinished > 0 && (
+              <span className="text-muted">
+                {halfFinished} stopped before naming friends
+              </span>
+            )}
           </p>
-          <p className="mt-1 text-xs text-muted">
-            Details and photos saved, no friends named yet. Each is one screen from being a member.
-          </p>
-          <ul className="mt-3 space-y-1.5">
-            {halfFinished.map((person) => (
-              <li key={person.id} className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-                <Link href={`/studio/person/${person.id}`} className="font-medium text-ink hover:underline">
-                  {person.name}
-                </Link>
-                <span className="text-xs text-muted">
-                  {person.email} · {citiesOf(person).map(cityShort).join(" + ")} ·{" "}
-                  {person._count.photos} photo{person._count.photos === 1 ? "" : "s"} ·{" "}
-                  {person.unfinishedNudgedAt ? "chased" : "not chased yet"}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <Link
+            href="/studio/applicants"
+            className="ml-auto rounded-full bg-ink px-3 py-1 text-xs font-medium text-white transition hover:bg-ink/85"
+          >
+            Review applicants
+          </Link>
         </div>
       )}
 
@@ -334,7 +288,14 @@ export default async function Roster({
         </div>
       </div>
       <form className="mt-6 flex flex-wrap items-center gap-2" action="/studio">
-        <input name="q" aria-label="Search directory" defaultValue={sp.q} placeholder="Search name, headline, what they want..." className="field max-w-xs" />
+        <input
+          name="q"
+          data-studio-search
+          aria-label="Search directory"
+          defaultValue={sp.q}
+          placeholder="Search name, headline, what they want... (/)"
+          className="field max-w-xs"
+        />
         <Select
           label="Filter by city"
           name="city"
@@ -344,6 +305,18 @@ export default async function Roster({
         <Select label="Filter by gender" name="gender" value={sp.gender} options={[["", "Any"], ["woman", "Women"], ["man", "Men"]]} />
         <Select label="Sort directory" name="sort" value={sp.sort} options={[["name", "A-Z"], ["vouches", "Most vouched"], ["stale", "Stalest"]]} />
         <button className="btn-ghost">Filter</button>
+        {/* How many rows are under the filter, and one click back to all of
+            them. Without it a city filter left on from yesterday reads as a
+            roster that shrank overnight. */}
+        <span className="text-xs text-muted">
+          {enriched.length} {enriched.length === 1 ? "member" : "members"}
+          {filtered ? " match" : " on the list"}
+        </span>
+        {filtered && (
+          <Link href="/studio" className="text-xs text-ink underline underline-offset-2">
+            Clear filters
+          </Link>
+        )}
       </form>
 
       <div

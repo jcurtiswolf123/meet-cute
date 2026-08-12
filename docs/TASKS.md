@@ -23,6 +23,14 @@ _Lightweight backlog. Move items between sections as they progress._
 - [ ] Community admissions voting (V2)
 - [ ] Extend Sentry context with match/person metadata for error triage
 
+## Done (2026-08-12)
+- [x] The studio keeps its scroll position on Back, and a profile's back control
+  returns to the page it was opened from
+- [x] `/studio/applicants`: a photo-first review board with full-size review,
+  keyboard paging between photos and people, and Approve/Decline in place
+- [x] Directory slimmed to a directory: applicant triage moved to the board, a
+  count in the sidebar, a result count and a clear-filters link, `/` to search
+
 ## Done (2026-08-06)
 - [x] Any two friends accept an applicant: the opposite-gender rule and the
   "single" wording are gone from the gate, the form, and the copy

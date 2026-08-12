@@ -694,3 +694,50 @@ live in `~/.gstack/credentials/meetcute-tigris-photos.txt` as well as in the Fly
 secrets. Recreating the bucket does not re-set the app secrets; it says so and
 leaves the old ones in place, which is worth knowing because the app then points
 at a bucket that no longer exists and the mirror silently fails.
+
+## The studio remembers where you were, and applicants get a wall (12 August 2026)
+
+Two operator complaints, one shape: the console made you re-do work you had
+already done.
+
+**Back lost your place.** The studio scrolls inside `<main>`, not on the
+document, because the shell is a fixed-height app frame. Every scroll
+restoration that exists - the browser's own, and the App Router's - acts on the
+window, so an inner scroller gets none of it. An operator who read to row 40 of
+the directory, opened a profile and pressed Back landed at row 1.
+`StudioScrollMemory` stores the container's position per URL in `sessionStorage`
+and puts it back, and `BackLink` on a profile goes back through history rather
+than to a hard-coded Directory link, so a profile opened from Status or the
+applicant board returns to Status or the applicant board.
+
+Three things about it are not obvious and cost the afternoon:
+- popstate is useless as the signal. The App Router re-renders the restored
+  route about a millisecond **before** the event reaches a listener, so the
+  effect that restores has already decided. What it keys on instead is the last
+  URL the router *pushed*: a push starts at the top, everything else (Back,
+  Forward, a reload) is somewhere the operator has already been.
+- The flag cannot live in a ref. The layout is force-dynamic and the component
+  is remounted underneath the navigation it is observing, and development mounts
+  every effect twice, so a one-shot flag was read and cleared by the first mount
+  and the restore it started was cancelled by that mount's own cleanup. Module
+  state, read the same way any number of times.
+- Restoring once does not work. For several frames after Back the container is
+  still as tall as the page being left, so the target clamps to nothing. It
+  waits for the content to be tall enough, then holds the position for 350ms
+  against the router's own scroll-to-top. Any scroll of the operator's own ends
+  it immediately.
+
+**Faces were being judged at 32 pixels.** Approving an applicant is a decision
+about a photograph, and it was being made from an avatar in a list; seeing
+somebody's other photos meant opening their profile, scrolling to the photo
+block, expanding one, and coming back. `/studio/applicants` is that review at
+the size of the decision: every applicant a portrait, arrow keys through their
+photos and up and down through the people, Approve and Decline in the same view,
+and a tab for the half-finished and for the roster so any face on the list can
+be found by looking rather than by remembering a name.
+
+The Directory gave up the triage it was doing badly. It was running six jobs on
+one screen - approvals, half-finished chases, delivery failures, the composer,
+the metrics, and the directory it is named after - so the applicant list is now
+one line and a button that opens the board, and the count lives in the sidebar
+where it is visible from every page.

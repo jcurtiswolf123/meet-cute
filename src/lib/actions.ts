@@ -1307,6 +1307,10 @@ export async function setMemberStatus(formData: FormData) {
   }
 
   revalidatePath("/studio");
+  // The applicant board is where most approvals are made now, and it also draws
+  // the waiting count in the sidebar of every studio page.
+  revalidatePath("/studio/applicants");
+  revalidatePath("/studio", "layout");
 }
 
 // --- operator (admin) accounts ----------------------------------------------
