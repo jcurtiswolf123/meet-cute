@@ -15,9 +15,12 @@ Production on the phone will show that, correctly, until the deploy happens.
 So the phone points at the Mac, over the LAN, at the sandbox. Throwaway data,
 every outbound provider blanked, cannot email or text a real person.
 
-## Two blockers, both Joshua's
+## The one blocker left
 
-**1. Xcode has no Apple account.** The project signs as team `J8M8Z862Z7` and
+Developer Mode is on and `Wolf 1` is paired, so this is the only thing standing
+between the build and the phone.
+
+**Xcode has no Apple account.** The project signs as team `J8M8Z862Z7` and
 the build fails with:
 
 ```
@@ -25,20 +28,16 @@ error: No Account for Team "J8M8Z862Z7". Add a new account in Accounts settings
 error: No profiles for 'com.joshuawolf.mutuals' were found
 ```
 
-Fix: Xcode, then Settings, then Accounts, then **+**, then Apple ID, and sign in with the account
-that owns that team. Automatic signing takes it from there; a free personal team
+The signing identity is already in the keychain,
+`Apple Development: jcurtiswolfx@gmail.com (J8M8Z862Z7)`, but there is no
+provisioning profile and Xcode cannot mint one without being signed in.
+
+Fix: Xcode, then Settings, then Accounts, then **+**, then Apple ID, and sign in
+as `jcurtiswolfx@gmail.com`. Automatic signing takes it from there; a free personal team
 is enough for this app, because the associated-domains entitlement is not wired
 into the build (`CODE_SIGN_ENTITLEMENTS` is empty). That costs universal links
 and nothing else: signing in uses the pasted-link route, which is what the QA
 pass used throughout.
-
-**2. The phone is not in developer mode.** `Wolf 1` is paired and visible, but
-the build fails with "The developer disk image could not be mounted on this
-device."
-
-Fix, on the phone: unlock it and leave it unlocked, then Settings, then Privacy &
-Security, then Developer Mode, and turn it on, which asks for a restart. Plug it in, and answer
-Trust This Computer.
 
 ## Then, one run
 
@@ -61,7 +60,8 @@ cd ~/Projects/meet-cute-sessions/ios/ios
 xcodebuild -project Mutuals.xcodeproj -scheme Mutuals -configuration Debug \
   -destination "platform=iOS,id=96D33F7C-02E8-54BE-B0FE-9492003F3EAD" \
   -derivedDataPath ~/Library/Developer/Xcode/DerivedData/Mutuals-device \
-  -allowProvisioningUpdates build
+  -allowProvisioningUpdates \
+  MUTUALS_LOCAL_HOST=<that-address>:3060 build
 
 xcrun devicectl device install app \
   --device 96D33F7C-02E8-54BE-B0FE-9492003F3EAD \
@@ -72,19 +72,21 @@ First launch on a personal team: Settings, then General, then VPN & Device Manag
 trust the developer certificate. A personal-team build expires after seven days
 and needs the same two commands again.
 
-## On the phone, once
+## On the phone
 
-Open Mutuals, tap the ellipsis, and under Backend set:
+Nothing to set up. `MUTUALS_LOCAL_HOST` above is baked into the build, so the
+app starts on Local dev pointed at the Mac. The Settings sheet will show it on
+the Host row. If it says "Nothing is listening on ...", the message names the
+real host and port: check the sandbox is running and that the phone is on the
+same wifi.
 
-- **Talking to**: Local dev
-- **Your Mac**: `<that-address>:3060`
+Sign in with the two buttons under SANDBOX ONLY on the sign-in screen: one as a
+member, one as an operator. They only appear against Local dev, because the
+endpoint behind them (`/api/mobile/demo`) is 404 anywhere else.
 
-The Host row at the bottom of the sheet should then read the same thing. If it
-says "Nothing is listening on ...", the message now names the real host and
-port: check the sandbox is running and that the phone is on the same wifi.
-
-To sign in, generate a link on the Mac and get it onto the phone's clipboard
-(AirDrop, or Messages to yourself), then tap **Paste sign-in link**:
+For a specific person instead, generate a link on the Mac, get it onto the
+phone's clipboard (AirDrop, or Messages to yourself), and tap **Paste sign-in
+link**:
 
 ```bash
 cd ~/Projects/meet-cute-sessions/ios
