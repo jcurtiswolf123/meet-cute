@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleDisplayName</key>
+  <string>Mutuals</string>
+  <key>CFBundleExecutable</key>
+  <string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleIdentifier</key>
+  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>$(PRODUCT_NAME)</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key>
+  <string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>LSRequiresIPhoneOS</key>
+  <true/>
+  <key>UILaunchScreen</key>
+  <dict>
+    <key>UIColorName</key>
+    <string>Cream</string>
+    <key>UIImageName</key>
+    <string>LaunchMark</string>
+    <key>UIImageRespectsSafeAreaInsets</key>
+    <true/>
+  </dict>
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+  </array>
+  <key>UISupportedInterfaceOrientations~ipad</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+    <string>UIInterfaceOrientationPortraitUpsideDown</string>
+    <string>UIInterfaceOrientationLandscapeLeft</string>
+    <string>UIInterfaceOrientationLandscapeRight</string>
+  </array>
+
+  <!-- The web views run against hellomutuals.com over https. The local
+       exception exists so the app can be pointed at `npm run dev` on the Mac
+       from a real phone, which is plain http on the LAN. -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
+
+  <!-- A member uploads a face. The uploader is the web app's own file input;
+       WKWebView raises the system camera and library sheets for it, and iOS
+       kills the app if these strings are missing. -->
+  <!-- Talking to `npm run dev` on the Mac means connecting to another device on
+       the same wifi, and iOS blocks that until it is asked for. Without this
+       key the request is denied with no prompt and no error worth reading: the
+       app simply never reaches the Mac. Only Local dev needs it; production is
+       an ordinary internet host. -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Mutuals connects to the development server running on your Mac.</string>
+
+  <key>NSCameraUsageDescription</key>
+  <string>Take a photo for your Mutuals profile.</string>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>Choose photos for your Mutuals profile.</string>
+
+  <!-- mutuals:// is the fallback route in from a browser or a pasted link when
+       universal links are not provisioned. -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>com.joshuawolf.mutuals</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>mutuals</string>
+      </array>
+    </dict>
+  </array>
+
+  <!-- Where "Local dev" points when nobody has typed anything into Settings.
+       Empty in a normal build; set at build time for a build going onto a
+       phone, which cannot see the Mac's localhost:
+       xcodebuild ... MUTUALS_LOCAL_HOST=10.0.0.5:3060 -->
+  <key>MutualsLocalHost</key>
+  <string>$(MUTUALS_LOCAL_HOST)</string>
+
+  <!-- The display face, bundled rather than left to a system fallback. Without
+       it Theme.display() fell back to New York and the native chrome read as a
+       serif the web app had already stopped using. -->
+  <key>UIAppFonts</key>
+  <array>
+    <string>BricolageGrotesque-SemiBold.ttf</string>
+  </array>
+
+  <key>UIUserInterfaceStyle</key>
+  <string>Light</string>
+  <key>UIViewControllerBasedStatusBarAppearance</key>
+  <true/>
+</dict>
+</plist>

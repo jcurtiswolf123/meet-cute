@@ -105,9 +105,13 @@ If you are the only session, the main checkout is fine and nothing changes.
   loop. `createLoginCode` in `src/lib/auth.ts` mints the code as an ordinary
   LoginToken row scoped to the address. Never widen the guess budget: six digits
   are only safe because of the rate limits in `signInWithCode`.
-- `ios/` is a WKWebView shell of the same site, built with XcodeGen. The signing
-  team is a **free personal team**, so a build lasts 7 days and cannot be given
-  to anyone else. Read `ios/README.md` before promising it to a person.
+- `ios/` is a native shell around the same site, built with XcodeGen: its own
+  sign-in screen, member and studio tabs, a `window.mutuals` bridge, and web
+  views underneath. It was replaced by a 200-line WKWebView wrapper on
+  2026-08-16 and restored the same day. The signing team is a **free personal
+  team**, so a build lasts 7 days and cannot be given to anyone else, and a
+  build that is going to leave the house must be on `Backend.production`, never
+  the Mac's dev server. Read `ios/README.md` before building or promising it.
 
 ## Design system
 - Read `DESIGN.md` before making any visual or UI decision.
