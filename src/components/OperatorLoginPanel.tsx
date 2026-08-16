@@ -51,7 +51,7 @@ export function OperatorLoginPanel({
             type="email"
             required
             autoComplete="email"
-            placeholder="you@meetcute.co"
+            placeholder="you@hellomutuals.com"
             className="field"
           />
           <button type="submit" className="btn-primary w-full">

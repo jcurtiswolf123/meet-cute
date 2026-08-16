@@ -4,7 +4,7 @@
 //
 //   npx tsx scripts/login-link.ts <email>
 //
-// Base URL comes from NEXT_PUBLIC_APP_URL, else --base, else meet-cute.fly.dev.
+// Base URL comes from NEXT_PUBLIC_APP_URL, else --base, else the canonical host.
 import { prisma } from "../src/lib/prisma";
 import { createLoginToken, normalizeEmail } from "../src/lib/auth";
 
@@ -15,7 +15,7 @@ import { createLoginToken, normalizeEmail } from "../src/lib/auth";
     const email = normalizeEmail(arg);
 
     const baseArg = process.argv.find((a) => a.startsWith("--base="))?.split("=")[1];
-    const base = (baseArg || process.env.NEXT_PUBLIC_APP_URL || "https://meet-cute.fly.dev").replace(/\/$/, "");
+    const base = (baseArg || process.env.NEXT_PUBLIC_APP_URL || "https://hellomutuals.com").replace(/\/$/, "");
 
     const person = await prisma.person.findUnique({ where: { email } });
     if (!person) throw new Error(`No account with email ${email}. Create it first.`);

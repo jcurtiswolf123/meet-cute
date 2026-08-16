@@ -3,7 +3,7 @@
 Historical operator brief. Current operating instructions are in
 `docs/OPERATOR-GUIDE.md` and current release state is in `docs/STATUS.md`.
 
-**Live Demo**: https://meet-cute.fly.dev  
+**Live**: https://hellomutuals.com  
 **Status**: Tier 0 Production-Ready (Auth, Safety, Legal, Data Rights)  
 **Date**: June 15, 2026
 
@@ -30,7 +30,7 @@ Mutuals is a curated matchmaking platform for people seeking serious relationshi
 ## How Members Use It
 
 ### Signup
-1. Member lands on https://meet-cute.fly.dev
+1. Member lands on https://hellomutuals.com
 2. Clicks "Request an introduction" → email login form
 3. Enters email → receives a magic link (15-min valid)
 4. Clicks link → asked to create profile (name, age, photo, brief bio)
@@ -190,7 +190,7 @@ Each stage triggers notifications and operator visibility.
 
 ## To Get Started
 
-1. **See it live**: https://meet-cute.fly.dev (click "Request an introduction" to see signup flow)
+1. **See it live**: https://hellomutuals.com (click "Request an introduction" to see signup flow)
 2. **Operator access**: Let Joshua know and he'll create your operator account + send co-pilot walkthrough
 3. **Help**: Ask the co-pilot anything ("what's on the roster", "suggest X and Y", "book the date for X", etc.)
 
