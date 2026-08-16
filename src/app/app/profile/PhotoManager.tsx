@@ -32,8 +32,14 @@ export function PhotoManager({ photos }: { photos: Photo[] }) {
   return (
     <div>
       <label className="label">Photos</label>
+      {/* This said "New photos are reviewed before they appear to others",
+          which stopped being true on 2026-08-03: the moderation queue was
+          deleted and `/api/photos` writes `approved`, so an upload is live the
+          moment it finishes. The old copy told a member their face was being
+          checked when it was already on the invitation going out. */}
       <p className="mt-1 text-xs text-muted">
-        New photos are reviewed before they appear to others. JPEG, PNG, or WebP, up to 5 MB.
+        A photo goes live as soon as it uploads, and the first one leads your introduction. JPEG,
+        PNG, or WebP, up to 5 MB.
       </p>
       <div className="mt-3 grid grid-cols-3 gap-3">
         {photos.map((p) => (

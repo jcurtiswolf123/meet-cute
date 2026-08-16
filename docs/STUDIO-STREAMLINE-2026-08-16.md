@@ -77,10 +77,50 @@ that, `npm run sandbox` prints a LAN URL and the phone must be on the same
 Wi-Fi; iOS will not install a PWA from a plain-http origin, so test the layout
 over LAN and install from the deployed site.
 
+## Two content defects found on the way
+
+Both on the member profile, both wrong rather than ugly.
+
+- **"New photos are reviewed before they appear to others."** Untrue since
+  2026-08-03, when the moderation queue was deleted and `/api/photos` started
+  writing `approved`. It told a member their face was being checked while it was
+  already on an invitation going out. Now: a photo goes live on upload and the
+  first one leads the introduction.
+- **"NYC ·"** with nothing after it. Neighbourhood is optional and most rows have
+  none; the separator was interpolated rather than joined.
+
+## One test was broken, and it was hiding behind a known flake
+
+`test-operator-portal.ts` failed on the second invite. Not a regression: the
+Team page is untouched by this work. The two fallbacks that cover the flaky
+post-action navigation asked whether the URL carried **an** `operator=` at all.
+It always does after the first invite, so on the second the fallback was skipped
+as unnecessary, the page still showed the first operator's flash, and the
+assertion waited 60 seconds for text that could never render. Both accounts had
+been created correctly. Replaced with `ensureFlashFor(page, name)`, which asks
+for the name it is about to assert on.
+
 ## Verification
 
-- typecheck, lint, production build
-- `npm run test:launch`
-- `npm run test:launch:roles:e2e` (operator portal, sidebar collapse)
-- browse-daemon screenshots of all seven studio pages at 1440x900 and 390x844,
-  before and after, in `docs/qa/`
+All run on this branch, against the sandbox database, 2026-08-16.
+
+- `npm run typecheck`, `npm run lint`, `npm run build`: clean.
+- `npm run test:launch`: 24 suites, all pass.
+- `npm run test:launch:roles:e2e`: passes, including the sidebar collapse
+  assertions, after the guard fix above.
+- `/studio/conversations`, `/studio/pipeline` and `/studio/venues` each land on
+  their new tab, checked in a browser with a real session.
+- No page overflows 390px horizontally, studio or member.
+- Service worker: caches exactly `offline.html`, the icons, the fonts and the
+  content-hashed chunks, and **no HTML**, asserted by reading the live cache.
+  With the server stopped, `/app/connections` served the offline page rather
+  than a browser error.
+- Before and after screenshots at 390x844 and 1440x900 in `docs/qa/2026-08-16/`.
+
+## Still open
+
+- The mobile drawer carries Co-pilot under a "Tools" heading. If more tools
+  arrive it wants to be a sheet, not a nav section.
+- `/studio/matches?view=board` still renders a table at `md` and up. It is the
+  right shape for eight columns of stage data, but it is the last table in the
+  studio that a narrow laptop can scroll sideways.

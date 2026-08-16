@@ -42,7 +42,12 @@ export default async function Profile() {
         <Avatar url={me.photos[0]?.url} name={me.name} size={64} />
         <div>
           <h1 className="font-display text-3xl font-medium">{me.name}</h1>
-          <p className="text-sm text-muted">{me.city} · {me.neighborhood}</p>
+          {/* The separator is joined, not interpolated: neighbourhood is
+              optional and most rows have none, so this read "NYC ·" with
+              nothing after it. */}
+          <p className="text-sm text-muted">
+            {[me.city, me.neighborhood].filter(Boolean).join(" · ")}
+          </p>
         </div>
       </div>
 

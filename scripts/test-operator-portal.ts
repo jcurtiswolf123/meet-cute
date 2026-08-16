@@ -51,6 +51,23 @@ const waitForOperatorRow = (email: string) =>
 const waitForOperatorPromotion = (personId: string) =>
   waitForRow({ id: personId }, (row) => row.isOperator, `Promoting ${personId} to operator`);
 
+/** Put the page on the flash for `name`, whether or not the client navigation
+ *  landed.
+ *
+ *  The two guards this replaces asked whether the URL carried *an* `operator=`
+ *  at all. It always does after the first invite, so on the second invite a
+ *  navigation that did not land left the page showing the first operator's
+ *  flash, the fallback was skipped as unnecessary, and the assertion waited 60
+ *  seconds for text that could never appear. Both accounts had been created:
+ *  the only thing wrong was which flash was on screen. Asking for this name
+ *  is the question that was meant. */
+async function ensureFlashFor(page: Page, name: string) {
+  const wanted = `operator=${encodeURIComponent(name)}`;
+  if (page.url().includes(wanted)) return;
+  console.log(`  note: the post-action navigation did not land for ${name}; checking the flash directly`);
+  await page.goto(`${baseUrl}/studio/team?invite=failed&${wanted}`);
+}
+
 async function main() {
   await prisma.person.deleteMany({
     where: { email: { endsWith: `@${testDomain}` } },
@@ -239,12 +256,7 @@ async function main() {
     // assert the flash renders. If the navigation did land, that assertion runs
     // against the page the action actually produced.
     const created = await waitForOperatorRow(newOperatorEmail);
-    if (!/operator=Role\+?E2E/.test(superPage.url().replace(/%20/g, "+"))) {
-      console.log("  note: the post-action navigation did not land; checking the flash directly");
-      await superPage.goto(
-        `${baseUrl}/studio/team?invite=failed&operator=${encodeURIComponent("Role E2E New Operator")}`,
-      );
-    }
+    await ensureFlashFor(superPage, "Role E2E New Operator");
     await superPage.getByText(/Role E2E New Operator was added/).waitFor({ timeout: 60_000 });
     await superPage.getByText(/invitation email failed/i).waitFor({ timeout: 60_000 });
     assert.equal(created.isOperator, true);
@@ -258,12 +270,7 @@ async function main() {
     // navigation, and the navigation is the part that intermittently does not
     // land. Waiting longer never fixed it because waiting was not the problem.
     await waitForOperatorPromotion(pausedMember.id);
-    if (!superPage.url().includes("operator=")) {
-      console.log("  note: the post-action navigation did not land; checking the flash directly");
-      await superPage.goto(
-        `${baseUrl}/studio/team?invite=failed&operator=${encodeURIComponent(pausedMember.name)}`,
-      );
-    }
+    await ensureFlashFor(superPage, pausedMember.name);
     await superPage.getByText(/Role E2E Paused Member was added/).waitFor({ timeout: 60_000 });
     await superPage.getByText(/invitation email failed/i).waitFor({ timeout: 60_000 });
     const promoted = await prisma.person.findUniqueOrThrow({

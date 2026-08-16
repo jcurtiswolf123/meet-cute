@@ -42,6 +42,47 @@ sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
 
+## 2026-08-16: eleven rail items were four ways to look at one match
+
+Full write-up, with what every page actually drew: `docs/STUDIO-STREAMLINE-2026-08-16.md`.
+
+**Seven rail items, down from eleven.** Matchmaking drew the live introductions
+with one set of actions and the whole roster as a table; Conversations drew the
+same introductions with different signal and no actions; Matches was the ledger;
+Status was the board, with a second composer on it, next to the Directory's
+third. Nobody could tell which copy carried the button they wanted. Matches is
+one page with Live / Board / All tabs, Events absorbed Venues, Co-pilot moved to
+the header, and Matchmaking is the composer and nothing else.
+`/studio/conversations`, `/studio/pipeline` and `/studio/venues` are redirects,
+so `actions.ts`, the co-pilot and every bookmark still land.
+
+**Mobile.** `.ledger` was `flex-col sm:flex-row` inside a `flex-wrap` header, so
+on a phone three numbers became a tall narrow column against half a screen of
+dead space and Matchmaking's five ate the whole first screen: a 2-up grid now.
+Conversations and the pipeline roster ran off the right edge with no affordance
+and are card rows. Events led with a six-field form you scrolled past to reach
+your events. The mobile bar said "Mutuals" and never named the page.
+
+**It installs on a phone.** Manifest, maskable icons, the Apple meta tags,
+`viewport-fit=cover`, safe-area insets, and a service worker whose only jobs are
+making the app installable and answering a dropped connection with a page that
+says so. It caches static build output and never HTML: every page here is signed
+in, so a cached navigation would serve somebody's roster after sign-out. Proved
+by reading the live cache and by stopping the server mid-session.
+Install: Safari on the phone, hellomutuals.com/app, Share, Add to Home Screen.
+No cable, and it works on cellular with the laptop shut.
+
+**Two content defects, both wrong rather than ugly.** The member profile still
+told people "new photos are reviewed before they appear to others", untrue since
+the moderation queue was deleted on 8/3, while their face was already going out
+on invitations. And it rendered "NYC ·" with nothing after it.
+
+**One broken test that had been reading as a flake.** `test-operator-portal.ts`
+fell over on the second invite because both navigation fallbacks asked whether
+the URL carried *an* `operator=`, which it always does after the first one. The
+accounts were being created correctly; the page was showing the previous
+operator's flash. `ensureFlashFor` asks for the name it is about to assert on.
+
 ## 2026-08-09: a photo you can actually see, and a match that explains itself
 
 Three things, all in the places where somebody makes a decision.
