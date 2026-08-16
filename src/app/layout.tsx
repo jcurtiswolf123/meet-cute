@@ -50,9 +50,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // data-scroll-behavior opts the smooth scrolling in globals.css out of Next's
     // route transitions. Without it every navigation animated its scroll reset,
     // and Next warns about exactly this in the console.
+    // suppressHydrationWarning covers one attribute and is not a licence to
+    // ignore real mismatches: the iOS app injects data-native="ios" here at
+    // document start so the CSS that hides the web sidebar applies on the
+    // first paint, which React then reads as a server/client difference and
+    // logged on every page load in the app.
     <html
       lang="en"
       data-scroll-behavior="smooth"
+      suppressHydrationWarning
       className={`${display.variable} ${sans.variable} ${mono.variable}`}
     >
       <head>
