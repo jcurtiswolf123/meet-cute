@@ -187,7 +187,13 @@ export function PortalSidebar({
         {rail}
       </aside>
 
-      <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-studio-subtle px-4 py-2.5 md:hidden">
+      {/* The phone's own top bar. Hidden inside the iOS shell, which draws a
+          native navigation bar and a native tab bar over the same routes: see
+          the [data-native="ios"] block in globals.css. */}
+      <div
+        data-portal-mobilebar
+        className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-studio-subtle px-4 py-2.5 md:hidden"
+      >
         <button
           ref={openButtonRef}
           onClick={() => setMobileOpen(true)}

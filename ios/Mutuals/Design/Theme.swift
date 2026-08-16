@@ -24,14 +24,23 @@ enum Theme {
     static let studioSubtle = Color(hex: 0xFBFBFA)
     static let studioLine = Color(hex: 0xE3E2DF)
 
-    /// Instrument Serif when it is bundled, New York otherwise. The fallback is
-    /// deliberate rather than a build failure: a missing font file should cost
-    /// the display face, not the app.
+    /// Bricolage Grotesque SemiBold, bundled, matching --font-display on the
+    /// web so a native title and the page under it are the same voice. The
+    /// fallback is deliberate rather than a build failure: a missing font file
+    /// should cost the display face, not the app.
     static func display(_ size: CGFloat) -> Font {
-        if UIFont(name: "InstrumentSerif-Regular", size: size) != nil {
-            return .custom("InstrumentSerif-Regular", size: size)
+        if UIFont(name: displayFace, size: size) != nil {
+            return .custom(displayFace, size: size)
         }
-        return .system(size: size, weight: .regular, design: .serif)
+        return .system(size: size, weight: .semibold, design: .default)
+    }
+
+    static let displayFace = "BricolageGrotesque-SemiBold"
+
+    /// Display type is set tight. At 28pt and up the default tracking reads
+    /// loose and generic, and the web app's headlines are cut the same way.
+    static func displayTracking(_ size: CGFloat) -> CGFloat {
+        size >= 32 ? -size * 0.028 : -size * 0.02
     }
 
     static func body(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
@@ -56,6 +65,42 @@ enum Theme {
 
     /// The entrance easing every reveal on the public site uses.
     static let ease = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.22)
+
+    /// The same curve, given room to travel. For things that move across the
+    /// screen rather than fade in place: a shell arriving, a card replacing
+    /// another. Anything quicker reads as a cut.
+    static let enter = Animation.timingCurve(0.22, 1, 0.36, 1, duration: 0.45)
+}
+
+extension View {
+    /// Display type, always with its tracking. The two were separable and so
+    /// they drifted: half the headlines in the app were set at the default
+    /// spacing, which is what made a grotesk read loose.
+    func displayType(_ size: CGFloat) -> some View {
+        font(Theme.display(size)).tracking(Theme.displayTracking(size))
+    }
+
+    /// A press that answers. 60ms down, the standard curve back up, and no
+    /// opacity change: dimming a cream button on a cream ground reads as a
+    /// glitch rather than as a tap.
+    func pressable(_ scale: CGFloat = 0.97) -> some View {
+        buttonStyle(PressableButtonStyle(scale: scale))
+    }
+}
+
+struct PressableButtonStyle: ButtonStyle {
+    var scale: CGFloat = 0.97
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .animation(
+                configuration.isPressed
+                    ? .easeOut(duration: 0.06)
+                    : Theme.ease,
+                value: configuration.isPressed
+            )
+    }
 }
 
 extension Color {

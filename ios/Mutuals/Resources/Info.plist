@@ -74,6 +74,14 @@
     </dict>
   </array>
 
+  <!-- The display face, bundled rather than left to a system fallback. Without
+       it Theme.display() fell back to New York and the native chrome read as a
+       serif the web app had already stopped using. -->
+  <key>UIAppFonts</key>
+  <array>
+    <string>BricolageGrotesque-SemiBold.ttf</string>
+  </array>
+
   <key>UIUserInterfaceStyle</key>
   <string>Light</string>
   <key>UIViewControllerBasedStatusBarAppearance</key>

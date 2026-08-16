@@ -35,7 +35,7 @@ struct SignInView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Mutuals")
-                        .font(Theme.display(40))
+                        .displayType(40)
                         .foregroundStyle(Theme.ink)
                         .padding(.top, Theme.Space.xxl)
 
@@ -49,11 +49,26 @@ struct SignInView: View {
                         .frame(height: 1)
                         .padding(.vertical, Theme.Space.xl)
 
+                    // Asking and confirming are the same panel showing two
+                    // faces, so they cross-fade in place. A push would imply
+                    // the person had gone somewhere, and they have not: the
+                    // link is in their mail, and they are still here.
                     switch stage {
                     case .asking, .sending:
                         askForm
-                    case .sent, .opening:
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .offset(y: -8)),
+                                removal: .opacity.combined(with: .offset(y: -8))
+                            ))
+                    case .sent:
                         sentCard
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .offset(y: 12)),
+                                removal: .opacity
+                            ))
+                    case .opening:
+                        openingCard
+                            .transition(.opacity)
                     }
 
                     Spacer(minLength: Theme.Space.xxl)
@@ -71,6 +86,7 @@ struct SignInView: View {
                 .padding(.horizontal, Theme.Space.lg)
                 .frame(maxWidth: 480, alignment: .leading)
                 .frame(maxWidth: .infinity)
+                .animation(Theme.enter, value: stage)
             }
         }
         .onOpenURL { url in Task { await handle(url) } }
@@ -81,7 +97,7 @@ struct SignInView: View {
     @ViewBuilder
     private var askForm: some View {
         Text("Sign in")
-            .font(Theme.display(28))
+            .displayType(28)
             .foregroundStyle(Theme.ink)
 
         Text("Enter your email and we will send a one-time sign-in link.")
@@ -150,6 +166,7 @@ struct SignInView: View {
             .overlay(Capsule().stroke(looksLikeEmail ? .clear : Theme.line, lineWidth: 1))
         }
         .disabled(stage == .sending || !looksLikeEmail)
+        .pressable()
         .animation(Theme.ease, value: looksLikeEmail)
         .padding(.top, Theme.Space.md)
 
@@ -157,10 +174,31 @@ struct SignInView: View {
             .padding(.top, Theme.Space.md)
     }
 
+    /// Burning the link.
+    ///
+    /// This used to share the sent card, which reads as nonsense on the paste
+    /// route: nothing was sent, and `email` is empty because the address was
+    /// never typed, so the screen said "on its way to ." with a full stop where
+    /// the address should be.
+    @ViewBuilder
+    private var openingCard: some View {
+        Text("Signing you in")
+            .displayType(28)
+            .foregroundStyle(Theme.ink)
+
+        HStack(spacing: Theme.Space.sm) {
+            ProgressView().tint(Theme.muted)
+            Text("One moment.")
+                .font(Theme.body(15))
+                .foregroundStyle(Theme.muted)
+        }
+        .padding(.top, Theme.Space.sm)
+    }
+
     @ViewBuilder
     private var sentCard: some View {
         Text("Check your email")
-            .font(Theme.display(28))
+            .displayType(28)
             .foregroundStyle(Theme.ink)
 
         // Verbatim for the same reason as the placeholder: Markdown would
@@ -210,6 +248,7 @@ struct SignInView: View {
             .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
         }
         .disabled(stage == .opening)
+        .pressable()
     }
 
     private var looksLikeEmail: Bool {

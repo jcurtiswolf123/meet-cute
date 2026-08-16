@@ -16,6 +16,7 @@ struct RootView: View {
             switch app.phase {
             case .loading:
                 SplashView()
+                    .transition(.opacity)
             case .offline(let message):
                 // The way out has to be on this screen. Half the reasons the
                 // app cannot reach Mutuals are settings problems (pointed at a
@@ -38,15 +39,21 @@ struct RootView: View {
                     // the web app), so a member mode for an operator was three
                     // tabs of the studio directory wearing member titles.
                     if app.session.operatorAccess {
-                        StudioShell()
+                        StudioShell().transition(.shellArrival)
                     } else {
-                        MemberShell()
+                        MemberShell().transition(.shellArrival)
                     }
                 } else {
-                    SignInView()
+                    SignInView().transition(.shellArrival)
                 }
             }
         }
+        // The three states used to cut into each other, which made a cold
+        // launch look like two separate apps starting: mark, flash, tabs. They
+        // cross-fade now, and the shell arrives from slightly under its final
+        // size so it reads as one motion.
+        .animation(Theme.enter, value: app.phase)
+        .animation(Theme.enter, value: app.session.signedIn)
         .task { await app.refresh() }
         .onChange(of: scenePhase) { _, phase in
             // Coming back from Mail with a link tapped, or from a long
@@ -123,17 +130,48 @@ struct RootView: View {
     }
 }
 
+/// The launch screen, continued.
+///
+/// `UILaunchScreen` draws the oxblood M on cream before a line of Swift runs.
+/// This picks that frame up and carries it: the same mark, in the same place,
+/// with the wordmark settling under it. Anything else and the handover between
+/// the static launch image and the first real frame reads as a flicker.
 struct SplashView: View {
+    @State private var settled = false
+
     var body: some View {
         ZStack {
             Theme.cream.ignoresSafeArea()
-            VStack(spacing: Theme.Space.md) {
+            VStack(spacing: Theme.Space.lg) {
+                Image("LaunchMark")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 72)
+                    .scaleEffect(settled ? 1 : 0.92)
+                    .opacity(settled ? 1 : 0)
+
                 Text("Mutuals")
-                    .font(Theme.display(40))
+                    .displayType(28)
                     .foregroundStyle(Theme.ink)
-                ProgressView().tint(Theme.muted)
+                    .opacity(settled ? 1 : 0)
+                    .offset(y: settled ? 0 : 6)
             }
         }
+        .task {
+            withAnimation(Theme.enter) { settled = true }
+        }
+    }
+}
+
+extension AnyTransition {
+    /// A shell arriving: up from just under its size, fading as it comes. The
+    /// scale is small on purpose. Anything more and a cold launch looks like
+    /// an app that is pleased with itself.
+    static var shellArrival: AnyTransition {
+        .asymmetric(
+            insertion: .opacity.combined(with: .scale(scale: 0.985)),
+            removal: .opacity
+        )
     }
 }
 

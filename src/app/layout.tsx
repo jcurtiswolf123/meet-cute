@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
-import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const display = Instrument_Serif({
+// Display was Instrument Serif until 2026-08-15. At headline sizes it read as
+// a wedding invitation rather than as a product, which is the opposite of what
+// a curated service is selling, and the iOS app inherited it in every web view.
+// Bricolage Grotesque is set tight and heavy instead: it carries the same
+// editorial weight without the script feel, and it is the face bundled in the
+// app so native chrome and web content speak once. See DESIGN.md.
+const display = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: "400",
+  weight: ["500", "600", "700"],
   variable: "--font-display",
   display: "optional",
 });

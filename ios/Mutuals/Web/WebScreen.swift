@@ -116,7 +116,7 @@ struct FailureView: View {
     var body: some View {
         VStack(spacing: Theme.Space.md) {
             Text("Nothing loaded")
-                .font(Theme.display(28))
+                .displayType(28)
                 .foregroundStyle(Theme.ink)
             Text(message)
                 .font(Theme.body(15))
@@ -131,6 +131,7 @@ struct FailureView: View {
                     .padding(.vertical, 12)
                     .background(Theme.ink, in: Capsule())
             }
+            .pressable()
             .padding(.top, Theme.Space.sm)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

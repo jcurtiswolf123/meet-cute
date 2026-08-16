@@ -26,6 +26,19 @@ struct StudioShell: View {
             }
         }
 
+        /// What the tab bar says, which is not what the screen is called.
+        /// Five full titles across an iPhone overlap; the navigation bar still
+        /// carries the long form once you are on the screen.
+        var label: String {
+            switch self {
+            case .matchmaking: "Matches"
+            case .conversations: "Replies"
+            case .applicants: "Applicants"
+            case .directory: "People"
+            case .more: "More"
+            }
+        }
+
         var icon: String {
             switch self {
             case .matchmaking: "sparkles"
@@ -75,7 +88,7 @@ struct StudioShell: View {
                         }
                     }
                 }
-                .tabItem { Label(tab.title, systemImage: tab.icon) }
+                .tabItem { Label(tab.label, systemImage: tab.icon) }
                 .tag(tab)
             }
         }
@@ -89,8 +102,9 @@ struct StudioShell: View {
             set: { next in
                 if next == selection, next.path != nil {
                     app.web.scrollToTop(key: "studio.\(next.rawValue)")
-                } else {
+                } else if next != selection {
                     selection = next
+                    Haptics.play("selection")
                 }
             }
         )

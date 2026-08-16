@@ -32,7 +32,6 @@ import {
   recommenderFollowUpEmail,
   vouchBackRequestEmail,
   unfinishedApplicationEmail,
-  signInLinkUnusedEmail,
   nominationInviteEmail,
   nominationReceiptEmail,
 } from "./email";
@@ -47,7 +46,6 @@ import {
   FOLLOW_UP_DELAY_MS,
   REMINDER_SCHEDULE_MS,
   REQUIRED_RECOMMENDATIONS,
-  SIGNIN_RECOVERY_DELAY_MS,
   UNFINISHED_DELAY_MS,
   acceptIfRecommended,
   fastTrackFor,
@@ -72,6 +70,7 @@ import {
 } from "./sms";
 import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInvites, recordInviteDecision, LIVE_INTRO_STAGES, introReturnPath } from "./introductions";
 import { rateLimit } from "./ratelimit";
+import { sendMagicLink } from "./magic-link";
 import { calendarAge, parseCalendarDate } from "./age";
 import { normalizeCity } from "./cities";
 import { isStepId, stepAfter, type StepId } from "./application-steps";
@@ -123,32 +122,6 @@ function deliveryWindow(): string {
 // result regardless of whether the address exists, is rate-limited, or is
 // invalid, so the form cannot enumerate members or signal rate-limit state.
 export async function requestMagicLink(formData: FormData) {
-  const email = normalizeEmail(String(formData.get("email") || ""));
-  const h = await headers();
-
-  // Resolve the link base. Never trust the Host header for an outbound,
-  // security-sensitive URL: a forged Host would point the emailed magic link at
-  // an attacker domain and leak the token (account takeover). Require
-  // NEXT_PUBLIC_APP_URL in production; only fall back to the request host in
-  // local dev.
-  const configured = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-  const base =
-    configured ||
-    (process.env.NODE_ENV !== "production" ? `http://${h.get("host") || "localhost:3009"}` : null);
-
-  // Per-IP and per-email caps stop inbox-bombing a victim and burning the mail
-  // provider's quota. (In-memory; single instance. Swap to Upstash for multi.)
-  const xff = h.get("x-forwarded-for");
-  const ip = (
-    h.get("fly-client-ip") ||
-    (xff ? xff.split(",").map((s) => s.trim()).filter(Boolean).at(-1) : "") ||
-    h.get("x-real-ip") ||
-    "anon"
-  ).trim();
-  const validEmail = email.includes("@") && email.length <= 254;
-  const ipOk = (await rateLimit(`magic:ip:${ip}`, 10, 60 * 60 * 1000)).ok;
-  const emailOk = validEmail && (await rateLimit(`magic:email:${email}`, 3, 15 * 60 * 1000)).ok;
-
   // Every branch below has to be reflected back to the requester. This used to
   // redirect to `sent=1` unconditionally, so a typo'd address, a throttled
   // request, a missing NEXT_PUBLIC_APP_URL, and a hard provider failure all
@@ -156,56 +129,11 @@ export async function requestMagicLink(formData: FormData) {
   // enumeration concern here: this endpoint mails any address, so it reveals
   // nothing about who has an account. (requestOperatorMagicLink below is the
   // opposite case and deliberately stays silent.)
-  let outcome: "sent" | "email" | "throttled" | "send" = "sent";
-  if (!validEmail) {
-    outcome = "email";
-  } else if (!ipOk || !emailOk) {
-    outcome = "throttled";
-  } else if (!base) {
-    console.error("[auth] NEXT_PUBLIC_APP_URL must be set in production to send magic links");
-    outcome = "send";
-  } else {
-    const token = await createLoginToken(email);
-    const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
-    const { subject, html, text } = magicLinkEmail(link);
-    const result = await sendEmail({ to: email, subject, html, text });
-    if (!result.ok) {
-      console.error("[auth] magic link send failed:", result.error);
-      outcome = "send";
-    }
-    // The last hole in the funnel: an unused link. Queued now, due in three
-    // hours, and withdrawn the moment they sign in. The address is already
-    // ours and they asked for it themselves; until this existed they were
-    // invisible, because a Person row is only created when a link is clicked.
-    //
-    // Keyed on the address alone, so asking for three links in a row still
-    // produces at most one of these, ever.
-    try {
-      const existing = await prisma.person.findUnique({
-        where: { email },
-        select: { appliedAt: true },
-      });
-      if (!existing?.appliedAt) {
-        const msg = signInLinkUnusedEmail({
-          email,
-          applyUrl: `${base}/apply?email=${encodeURIComponent(email)}`,
-        });
-        await queueEmailDelivery({
-          kind: "signin_unused",
-          to: email,
-          subject: msg.subject,
-          html: msg.html,
-          text: msg.text,
-          idempotencyKey: makeDeliveryKey("signin_unused", email),
-          availableAt: new Date(Date.now() + SIGNIN_RECOVERY_DELAY_MS),
-        });
-      }
-    } catch (error) {
-      console.error(`[auth] could not schedule the unused-link follow-up: ${(error as Error).message}`);
-    }
-
-    void purgeExpiredAuth();
-  }
+  //
+  // The sending itself lives in lib/magic-link.ts, because the iOS shell draws
+  // its own sign-in screen and posts to /api/mobile/login. Two transports, one
+  // implementation of the rate limits and the link-origin rule.
+  const outcome = await sendMagicLink(String(formData.get("email") || ""));
 
   const rawAfter = String(formData.get("after") || "/login");
   const after = rawAfter.startsWith("/") && !rawAfter.startsWith("//") ? rawAfter : "/login";
