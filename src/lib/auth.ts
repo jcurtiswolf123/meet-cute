@@ -197,6 +197,79 @@ export async function createLoginToken(email: string): Promise<string> {
   return token;
 }
 
+// --- sign-in codes -----------------------------------------------------------
+//
+// The same email carries a link and a six-digit code, because on a phone the
+// link is the part that breaks.
+//
+// An iOS home-screen web app runs in its own WebKit data store, separate from
+// Safari's. A magic link tapped in Mail opens in Safari, so the session lands
+// in Safari's cookie jar and the installed app is still signed out. The user
+// taps the icon, sees the sign-in screen again, and has no way out of the loop.
+// A code is typed into whichever surface asked for it, so the session lands
+// where the person actually is. The same is true of a native WKWebView shell.
+//
+// A code is a LoginToken row like any other, so expiry, single use, the burn
+// and the purge are all the behaviour that already exists and is already
+// tested. Only the hashed material differs: a code is scoped to the address it
+// was sent to, since six digits are not unique on their own and two people must
+// never be able to hold the same one.
+const CODE_ALPHABET = "0123456789";
+const CODE_LENGTH = 6;
+
+function codeHashInput(email: string, code: string): string {
+  return `logincode:${normalizeEmail(email)}:${code}`;
+}
+
+function newCode(): string {
+  // rejection-sampled so the digits are uniform: `% 10` over a byte would make
+  // 0 through 5 slightly likelier than 6 through 9.
+  let out = "";
+  while (out.length < CODE_LENGTH) {
+    for (const byte of randomBytes(CODE_LENGTH)) {
+      if (byte >= 250) continue;
+      out += CODE_ALPHABET[byte % 10];
+      if (out.length === CODE_LENGTH) break;
+    }
+  }
+  return out;
+}
+
+/** Mint a six-digit sign-in code for an email. Returns the code to put in the
+ *  email body; only its hash is stored. */
+export async function createLoginCode(email: string): Promise<string> {
+  const normalized = normalizeEmail(email);
+  // `tokenHash` is unique and a code is only six digits, so two requests for the
+  // same address inside the same 15 minutes can collide. Three tries is beyond
+  // generous at a one-in-a-million-per-try collision rate.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const code = newCode();
+    try {
+      await prisma.loginToken.create({
+        data: {
+          tokenHash: hash(codeHashInput(normalized, code)),
+          email: normalized,
+          expiresAt: new Date(Date.now() + LOGIN_TTL_MS),
+        },
+      });
+      return code;
+    } catch {
+      /* unique collision, or a write that failed for its own reasons: try again */
+    }
+  }
+  throw new Error("could not mint a sign-in code");
+}
+
+/** Validate and burn a sign-in code. Returns the normalized email or null.
+ *  Callers must rate limit: six digits is a small space and the only thing
+ *  standing between it and a guess is how many guesses are allowed. */
+export async function consumeLoginCode(email: string, code: string): Promise<string | null> {
+  const normalized = normalizeEmail(email);
+  const digits = (code || "").replace(/\D/g, "");
+  if (!normalized || digits.length !== CODE_LENGTH) return null;
+  return consumeTokenHash(hash(codeHashInput(normalized, digits)));
+}
+
 /** Best-effort cleanup of expired sessions and spent/expired login tokens so
  *  those tables do not grow unbounded at scale. Safe to call opportunistically. */
 export async function purgeExpiredAuth(): Promise<void> {
@@ -216,7 +289,15 @@ export async function purgeExpiredAuth(): Promise<void> {
 /** Validate and burn a login token. Returns the normalized email or null. */
 export async function consumeLoginToken(rawToken: string): Promise<string | null> {
   if (!rawToken) return null;
-  const row = await prisma.loginToken.findUnique({ where: { tokenHash: hash(rawToken) } });
+  return consumeTokenHash(hash(rawToken));
+}
+
+/** The burn, shared by the emailed link and the typed code. The conditional
+ *  update is what makes it single use: two requests racing on the same row both
+ *  read `consumedAt: null`, and only the one whose UPDATE matches gets a count
+ *  of 1. */
+async function consumeTokenHash(tokenHash: string): Promise<string | null> {
+  const row = await prisma.loginToken.findUnique({ where: { tokenHash } });
   if (!row || row.consumedAt || row.expiresAt.getTime() < Date.now()) return null;
   const consumed = await prisma.loginToken.updateMany({
     where: { id: row.id, consumedAt: null, expiresAt: { gt: new Date() } },

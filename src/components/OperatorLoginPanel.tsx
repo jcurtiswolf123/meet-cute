@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { requestOperatorMagicLink } from "@/lib/actions";
 import { DemoOperatorLoginBlock } from "@/components/DemoOperatorLoginBlock";
+import { SignInCodeForm } from "@/components/SignInCodeForm";
 
 export function OperatorLoginPanel({
   sent,
   expired,
   notOperator,
+  email,
+  codeError,
 }: {
   sent?: boolean;
   expired?: boolean;
   notOperator?: boolean;
+  email?: string;
+  codeError?: string;
 }) {
   return (
     <div className="mx-auto max-w-md">
@@ -24,11 +29,7 @@ export function OperatorLoginPanel({
       </p>
 
       {sent ? (
-        <div className="card mt-8 p-6">
-          <p className="text-sm">
-            Check your email for a sign-in link. It expires in 15 minutes and works once.
-          </p>
-        </div>
+        <SignInCodeForm email={email} after="/studio/login" error={codeError} />
       ) : (
         <form action={requestOperatorMagicLink} className="mt-8 space-y-3">
           {notOperator && (

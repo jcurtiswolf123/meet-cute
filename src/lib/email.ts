@@ -1161,15 +1161,34 @@ export function nominationReceiptEmail(args: {
   return { subject, html: emailShell(inner, `We have written to ${theirFirst} once.`), text };
 }
 
-export function magicLinkEmail(link: string): { subject: string; html: string; text: string } {
+// The link and the code are both in here on purpose.
+//
+// The link is one tap in a browser and is the right answer there. It is the
+// wrong answer on a phone with the app installed: an iOS home-screen web app
+// has its own cookie store, so a link tapped in Mail signs you into Safari and
+// leaves the app exactly as signed out as it was. The code is typed into the
+// screen that asked for it, so it lands in the right place from any surface.
+// Whoever is reading has both and can use whichever fits.
+export function magicLinkEmail(
+  link: string,
+  code?: string,
+): { subject: string; html: string; text: string } {
   const subject = "Your Mutuals sign-in link";
-  const text = `Sign in to Mutuals:\n${link}\n\nThis link expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;
+  const codeText = code
+    ? `\n\nOr type this code in: ${code}\nUse the code if you are opening Mutuals from your home screen, because the link above opens in Safari instead.`
+    : "";
+  const text = `Sign in to Mutuals:\n${link}${codeText}\n\nThis expires in 15 minutes and can be used once. If you did not request it, ignore this email.`;
+  const codeHtml = code
+    ? `<p style="font-size:14px;line-height:1.6;color:#2a2320">Opening Mutuals from your home screen? Type this in instead, because the button above opens in Safari.</p>
+    <p style="margin:12px 0 24px;font-family:Helvetica,Arial,sans-serif;font-size:30px;letter-spacing:0.22em;font-weight:600;color:#7a1f2b">${code}</p>`
+    : "";
   const html = `<div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;padding:24px;color:#2a2320">
     <h1 style="font-size:22px;font-weight:500;color:#7a1f2b">Mutuals</h1>
-    <p style="font-size:15px;line-height:1.6">Tap to sign in. This link expires in 15 minutes and can be used once.</p>
+    <p style="font-size:15px;line-height:1.6">Tap to sign in. This expires in 15 minutes and can be used once.</p>
     <p style="margin:24px 0">
       <a href="${encodeURI(link)}" style="background:#7a1f2b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:999px;font-family:Helvetica,Arial,sans-serif;font-size:14px">Sign in to Mutuals</a>
     </p>
+    ${codeHtml}
     <p style="font-size:12px;color:#8a817c">If you did not request this, ignore this email.</p>
   </div>`;
   return { subject, html, text };

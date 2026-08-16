@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function StudioLogin({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; error?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string; email?: string }>;
 }) {
   const me = await getCurrentPerson();
   if (me?.isOperator) redirect("/studio");
@@ -20,6 +20,8 @@ export default async function StudioLogin({
         sent={sp.sent === "1"}
         expired={sp.error === "expired"}
         notOperator={sp.error === "not-operator"}
+        email={sp.email}
+        codeError={sp.error}
       />
     </main>
   );

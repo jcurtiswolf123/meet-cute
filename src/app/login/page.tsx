@@ -5,6 +5,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { DemoOperatorPicker } from "@/components/DemoOperatorPicker";
 import { allowMemberDemoLogin } from "@/lib/demo-login";
 import { magicLinkErrorMessage } from "@/lib/magic-link-status";
+import { SignInCodeForm } from "@/components/SignInCodeForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sign in" };
@@ -12,7 +13,7 @@ export const metadata = { title: "Sign in" };
 export default async function Login({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string; error?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string; email?: string }>;
 }) {
   const sp = await searchParams;
   const sent = sp.sent === "1";
@@ -31,13 +32,20 @@ export default async function Login({
           </a>
           .
         </p>
+        {/* The studio page has always linked here; nothing linked back. The
+            installed app starts at /app, which sends a signed-out visitor to
+            this page, so a matchmaker opening the app for the first time landed
+            on the member sign-in with no route to her own. */}
+        <p className="mt-2 text-sm text-muted">
+          Matchmaker?{" "}
+          <a href="/studio/login" className="underline decoration-claret/40 underline-offset-2">
+            Sign in to the studio
+          </a>
+          .
+        </p>
 
         {sent ? (
-          <div className="card mt-8 p-6">
-            <p className="text-sm">
-              Check your email for a sign-in link. It expires in 15 minutes and works once.
-            </p>
-          </div>
+          <SignInCodeForm email={sp.email} after="/login" error={sp.error} />
         ) : (
           <form action={requestMagicLink} className="mt-8 space-y-3">
             {errorMessage && (

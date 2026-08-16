@@ -14,6 +14,8 @@ import {
   requireOperator,
   requireSuperAdmin,
   createLoginToken,
+  createLoginCode,
+  consumeLoginCode,
   normalizeEmail,
   purgeExpiredAuth,
 } from "./auth";
@@ -74,7 +76,7 @@ import { connectMatch, logIntroMessage, stalledWhere, expiredWhere, sendEmailInv
 import { rateLimit } from "./ratelimit";
 import { calendarAge, parseCalendarDate } from "./age";
 import { normalizeCity } from "./cities";
-import { isStepId, stepAfter, type StepId } from "./application-steps";
+import { isStepId, seededNameFor, stepAfter, type StepId } from "./application-steps";
 import { formatEventDay, parseEventDate } from "./event-time";
 import { mutualFriends } from "./social";
 import { deleteUpload } from "./uploads";
@@ -167,7 +169,10 @@ export async function requestMagicLink(formData: FormData) {
   } else {
     const token = await createLoginToken(email);
     const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
-    const { subject, html, text } = magicLinkEmail(link);
+    // A code as well as a link: on a phone with Mutuals on the home screen the
+    // link signs Safari in and leaves the app signed out. See createLoginCode.
+    const code = await createLoginCode(email);
+    const { subject, html, text } = magicLinkEmail(link, code);
     const result = await sendEmail({ to: email, subject, html, text });
     if (!result.ok) {
       console.error("[auth] magic link send failed:", result.error);
@@ -210,7 +215,10 @@ export async function requestMagicLink(formData: FormData) {
   const rawAfter = String(formData.get("after") || "/login");
   const after = rawAfter.startsWith("/") && !rawAfter.startsWith("//") ? rawAfter : "/login";
   const base_ = after.split("?")[0];
-  const param = outcome === "sent" ? "sent=1" : `error=${outcome}`;
+  const param =
+    outcome === "sent"
+      ? `sent=1&email=${encodeURIComponent(email)}`
+      : `error=${outcome}`;
   redirect(`${base_}?${param}`);
 }
 
@@ -242,7 +250,8 @@ export async function requestOperatorMagicLink(formData: FormData) {
     if (person?.isOperator) {
       const token = await createLoginToken(email);
       const link = `${base}/auth/verify?token=${encodeURIComponent(token)}`;
-      const { subject, html, text } = magicLinkEmail(link);
+      const code = await createLoginCode(email);
+      const { subject, html, text } = magicLinkEmail(link, code);
       await sendEmail({ to: email, subject, html, text });
       void purgeExpiredAuth();
     }
@@ -250,7 +259,69 @@ export async function requestOperatorMagicLink(formData: FormData) {
     console.error("[auth] NEXT_PUBLIC_APP_URL must be set in production to send magic links");
   }
 
-  redirect("/studio/login?sent=1");
+  redirect(`/studio/login?sent=1&email=${encodeURIComponent(email)}`);
+}
+
+// Sign in with the six-digit code from the email, rather than the link.
+//
+// This is the path that makes the installed app usable. An iOS home-screen web
+// app has its own cookie store: a link tapped in Mail opens Safari, so the
+// session lands there and the app is still signed out. Typing the code into the
+// app puts the session in the app.
+//
+// The whole security of six digits is the guess budget, so it is capped three
+// ways: per address, per IP, and by the 15-minute expiry the row already
+// carries. A wrong code burns an attempt but never says whether the address
+// exists.
+export async function signInWithCode(formData: FormData) {
+  const email = normalizeEmail(String(formData.get("email") || ""));
+  const code = String(formData.get("code") || "");
+  const rawAfter = String(formData.get("after") || "/login");
+  const after = rawAfter.startsWith("/") && !rawAfter.startsWith("//") ? rawAfter : "/login";
+  const page = after.split("?")[0];
+  const back = (param: string) =>
+    redirect(`${page}?sent=1&email=${encodeURIComponent(email)}&${param}`);
+
+  const h = await headers();
+  const xff = h.get("x-forwarded-for");
+  const ip = (
+    h.get("fly-client-ip") ||
+    (xff ? xff.split(",").map((v) => v.trim()).filter(Boolean).at(-1) : "") ||
+    h.get("x-real-ip") ||
+    "anon"
+  ).trim();
+
+  // Five tries per address per 15 minutes, against a million codes, is a one in
+  // 200,000 chance of a hit inside one window. The IP cap is what stops the same
+  // attacker walking a list of addresses.
+  const emailOk = (await rateLimit(`code:email:${email}`, 5, 15 * 60 * 1000)).ok;
+  const ipOk = (await rateLimit(`code:ip:${ip}`, 20, 15 * 60 * 1000)).ok;
+  if (!emailOk || !ipOk) back("error=throttled");
+
+  const verified = await consumeLoginCode(email, code);
+  if (!verified) back("error=code");
+
+  // From here this is exactly what /auth/verify does with a link, and for the
+  // same reason: a code and a link prove the same thing, so they must not be
+  // allowed to drift into two different notions of who is signed in.
+  let person = await prisma.person.findUnique({ where: { email: verified! } });
+  if (!person) {
+    const name = seededNameFor(verified!);
+    person = await prisma.person.create({
+      data: { email: verified!, name, city: "NYC", status: "applicant" },
+    });
+  }
+
+  await cancelScheduledMail("signin_unused", verified!);
+  await setSession(person.id, h.get("user-agent") || undefined);
+  try {
+    await scheduleUnfinishedApplicationNudge(person);
+  } catch (error) {
+    console.error(`[auth] could not schedule the application chase: ${(error as Error).message}`);
+  }
+  void purgeExpiredAuth();
+
+  redirect(person.isOperator ? "/studio" : person.status === "applicant" ? "/apply" : "/app");
 }
 
 // Demo login. Local dev: any seeded user. Production: operators only, passphrase-gated.

@@ -1,0 +1,54 @@
+# XcodeGen input. The .xcodeproj is generated, not committed, so nobody has to
+# merge a pbxproj.
+#
+#   brew install xcodegen        # already on this Mac
+#   cd ios && xcodegen generate
+#
+# See ios/README.md for the build-and-install commands and for why a build from
+# here lasts seven days.
+name: Mutuals
+options:
+  bundleIdPrefix: com.joshuawolf
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: YHTTPDR58N
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  Mutuals:
+    type: application
+    platform: iOS
+    sources:
+      - path: Mutuals
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.joshuawolf.mutuals
+        PRODUCT_NAME: Mutuals
+        INFOPLIST_KEY_CFBundleDisplayName: Mutuals
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        # Portrait only, matching the manifest. The studio's tables are the one
+        # thing that would want landscape and they are card rows on a phone now.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UIStatusBarStyle: UIStatusBarStyleDarkContent
+        # The pages are cream and light-only, so the status bar must not flip to
+        # white text when the phone is in dark mode.
+        INFOPLIST_KEY_UIUserInterfaceStyle: Light
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"
+    info:
+      path: Mutuals/Info.plist
+      properties:
+        # Everything is https to hellomutuals.com, so App Transport Security
+        # stays at its default. No exception is declared here on purpose.
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
