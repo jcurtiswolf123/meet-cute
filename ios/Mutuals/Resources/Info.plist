@@ -74,6 +74,13 @@
     </dict>
   </array>
 
+  <!-- Where "Local dev" points when nobody has typed anything into Settings.
+       Empty in a normal build; set at build time for a build going onto a
+       phone, which cannot see the Mac's localhost:
+       xcodebuild ... MUTUALS_LOCAL_HOST=10.0.0.5:3060 -->
+  <key>MutualsLocalHost</key>
+  <string>$(MUTUALS_LOCAL_HOST)</string>
+
   <!-- The display face, bundled rather than left to a system fallback. Without
        it Theme.display() fell back to New York and the native chrome read as a
        serif the web app had already stopped using. -->

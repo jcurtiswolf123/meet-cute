@@ -63,6 +63,12 @@ final class AppState {
     init() {
         if let raw = UserDefaults.standard.string(forKey: Keys.backend), let b = Backend(rawValue: raw) {
             backend = b
+        } else if Backend.bakedLocalHost != nil {
+            // A build that was told at compile time where the Mac is, is a
+            // build made to talk to that Mac. Starting it on production would
+            // show the missing-endpoints screen and make somebody go looking
+            // through Settings on a phone to fix something we already knew.
+            backend = .local
         }
         web.backend = backend
     }

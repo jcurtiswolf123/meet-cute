@@ -39,10 +39,23 @@ enum Backend: String, CaseIterable, Identifiable {
             // `npm run dev` listens on 3009 and a session worktree gets its own.
             let raw = ProcessInfo.processInfo.environment["MUTUALS_LOCAL_HOST"]
                 ?? UserDefaults.standard.string(forKey: "localHost")
+                ?? Backend.bakedLocalHost
                 ?? "localhost"
             let host = raw.contains(":") ? raw : "\(raw):3009"
             return URL(string: "http://\(host)") ?? URL(string: "http://localhost:3009")!
         }
+    }
+
+    /// Baked in at build time for a build that is going onto a phone, so the
+    /// first launch already knows where the Mac is instead of asking somebody
+    /// to type an IP address into Settings on a device. Empty in every other
+    /// build, which is why this is nil rather than "".
+    static var bakedLocalHost: String? {
+        guard
+            let raw = Bundle.main.object(forInfoDictionaryKey: "MutualsLocalHost") as? String,
+            !raw.trimmingCharacters(in: .whitespaces).isEmpty
+        else { return nil }
+        return raw
     }
 
     var host: String { origin.host ?? "" }

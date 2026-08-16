@@ -172,6 +172,72 @@ struct SignInView: View {
 
         pasteButton
             .padding(.top, Theme.Space.md)
+
+        demoSignIn
+    }
+
+    /// One tap into the sandbox, as a member or as an operator.
+    ///
+    /// Only against Local dev, because the endpoint it calls does not exist
+    /// anywhere else: `/api/mobile/demo` is 404 unless the server is running
+    /// with MUTUALS_DEMO_LOGIN=1 and outside production, which only the sandbox
+    /// does. Pointed at production these buttons would do nothing, so they are
+    /// not drawn.
+    ///
+    /// This exists because the alternative on a real phone is generating a
+    /// magic link on the Mac and getting it onto the device for every single
+    /// test.
+    @ViewBuilder
+    private var demoSignIn: some View {
+        if app.backend == .local {
+            VStack(alignment: .leading, spacing: Theme.Space.sm) {
+                Text("SANDBOX ONLY")
+                    .font(Theme.body(11, weight: .semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(Theme.muted)
+
+                HStack(spacing: Theme.Space.sm) {
+                    demoButton("Sign in as a member", role: "member")
+                    demoButton("as an operator", role: "operator")
+                }
+            }
+            .padding(.top, Theme.Space.xl)
+        }
+    }
+
+    private func demoButton(_ title: String, role: String) -> some View {
+        Button {
+            Task { await demoSignIn(as: role) }
+        } label: {
+            Text(title)
+                .font(Theme.body(14, weight: .medium))
+                .foregroundStyle(Theme.ink)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .overlay(Capsule().stroke(Theme.line, lineWidth: 1))
+        }
+        .disabled(stage == .opening)
+        .pressable()
+    }
+
+    private func demoSignIn(as role: String) async {
+        problem = nil
+        stage = .opening
+        // Loaded in the web view for the same reason the magic link is: the
+        // response carries a Set-Cookie, and the cookie has to land in the jar
+        // every tab and the session probe read.
+        app.web.consumeSignInLink(.on(app.backend, "/api/mobile/demo?as=\(role)")) {
+            Task {
+                await app.refresh()
+                stage = app.session.signedIn ? .opening : .asking
+                if app.session.signedIn {
+                    Haptics.play("success")
+                } else {
+                    problem = "The sandbox did not sign us in. Is `npm run sandbox` running?"
+                    Haptics.play("error")
+                }
+            }
+        }
     }
 
     /// Burning the link.
