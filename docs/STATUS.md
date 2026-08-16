@@ -42,6 +42,39 @@ sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
 
+## 2026-08-16: the installed app could not be signed into at all
+
+Found while getting Mutuals onto a phone for Jess. The layout was fine; sign-in
+was impossible.
+
+An iOS home-screen web app runs in its own WebKit data store. The sign-in email
+is a link, so tapping it in Mail opens Safari, the session lands in Safari's
+cookie jar, and the installed app is still signed out. Tap the icon, sign-in
+screen, request a link, tap it, Safari again. No way out from inside the app,
+and a WKWebView shell has the identical problem.
+
+**The same email now carries a six-digit code**, and both sign-in screens take
+one, so the session lands wherever the person is. A code is an ordinary
+LoginToken row scoped to the address it was sent to, so expiry, single use, the
+burn and the purge are all behaviour that already existed. Digits are
+rejection-sampled, not `% 10`. Guesses are capped per address and per IP on top
+of the 15-minute expiry. `scripts/test-signin-code.ts` covers scoping, single
+use, expiry, junk, that a wrong guess does not burn the real code, that link and
+code are independent, that a resend leaves the older code working, and that the
+digits are uniform.
+
+Also fixed: a signed-out operator opening the app landed on the **member**
+sign-in page with no route to her own. The studio page had always linked to the
+member page and nothing linked back.
+
+**Native iOS is in `ios/`**, a WKWebView shell built with XcodeGen, installed
+and launched on the iPhone 16 Pro. Read `ios/README.md` first: the signing team
+is a free personal team, so the build stops launching after 7 days and **cannot
+be given to anybody else**. No TestFlight, no ad-hoc, no registering another
+person's device. Anyone who is not Joshua gets the installable web app instead,
+which has no expiry and needs no Apple account. Changing that means the paid
+Apple Developer Program.
+
 ## 2026-08-16: eleven rail items were four ways to look at one match
 
 **Live on Fly v225**, both `iad` machines health-checked, 23:19Z. Rollback point

@@ -90,7 +90,7 @@ the same commit, it is not the flake and needs a look.
 database, the delivery queue, the inbound-email webhook, venue freshness, and a
 typecheck. A red typecheck also triggers an AI fix attempt that opens a PR on a
 branch. **Those PRs are never merged automatically and should not be merged
-without reading the diff** — a patch that compiles by coercing a type rather
+without reading the diff**: a patch that compiles by coercing a type rather
 than fixing the mistake is the common failure, and it looks resolved.
 
 Sentry is wired for both client and server. The board is kept clean on purpose:
