@@ -24,7 +24,7 @@ function studioSections(waiting: number): SidebarSection[] {
     {
       label: "Workspace",
       items: [
-        { href: "/studio/matchmaking", label: "Matchmaking", icon: "sparkles" },
+        { href: "/studio/matchmaking", label: "Introduce", icon: "sparkles" },
         // Live, Board and All are tabs here now.
         { href: "/studio/matches", label: "Matches", icon: "heart" },
         // Applicants sit above the directory because reviewing them is the

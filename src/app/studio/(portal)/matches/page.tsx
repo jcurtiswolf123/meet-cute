@@ -22,9 +22,20 @@ function parseView(value: string | undefined): View {
   return (VIEWS as readonly string[]).includes(value ?? "") ? (value as View) : "live";
 }
 
+// The labels are three different words on purpose. "Matches / Matchmaking /
+// Live / Board / All" put the same idea in front of an operator five times and
+// left them reading the page to work out which was which. The rail says
+// Introduce (the act) and Matches (the record), and each tab names what is
+// actually in it.
+const TAB_LABEL: Record<View, string> = {
+  live: "In flight",
+  board: "Pipeline",
+  all: "History",
+};
+
 const BLURB: Record<View, string> = {
-  live: "Every introduction in flight, who has opted in, and whether it needs you.",
-  board: "Every open match, from suggestion to relationship. Where it stalls is where you act.",
+  live: "Sent and waiting on a decision. Who has opted in, and whether it needs you.",
+  board: "Every open pair, from suggestion to relationship. Where it stalls is where you act.",
   all: "Everyone you have introduced, past and present, including the closed ones.",
 };
 
@@ -51,10 +62,13 @@ export default async function Matches({
         ariaLabel="Match views"
         active={view}
         hrefFor={(key) => (key === "live" ? "/studio/matches" : `/studio/matches?view=${key}`)}
+        // The `view` keys stay live/board/all: they are what the redirects from
+        // /studio/conversations and /studio/pipeline point at, and renaming a
+        // label should not break a bookmark.
         tabs={[
-          { key: "live", label: "Live", count: live },
-          { key: "board", label: "Board", count: open },
-          { key: "all", label: "All", count: total },
+          { key: "live", label: TAB_LABEL.live, count: live },
+          { key: "board", label: TAB_LABEL.board, count: open },
+          { key: "all", label: TAB_LABEL.all, count: total },
         ]}
       />
 

@@ -164,7 +164,7 @@ export async function LiveView({ resent, closed }: { resent?: string; closed?: s
         <div className="card p-8 text-center text-sm text-muted">
           No live introductions. Start one from{" "}
           <Link href="/studio/matchmaking" className="text-ink underline">
-            Matchmaking
+            Introduce
           </Link>
           .
         </div>

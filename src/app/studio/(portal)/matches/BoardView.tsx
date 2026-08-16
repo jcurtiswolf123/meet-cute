@@ -146,7 +146,7 @@ export async function BoardView() {
       <h2 className="mt-8 font-sans tracking-[-0.012em] text-lg font-medium">Every open match</h2>
       {rows.length === 0 ? (
         <p className="mt-3 text-sm text-muted">
-          No open matches. Suggest one from Matchmaking, or use the override above.
+          No open matches. Send one from Introduce, or use the override above.
         </p>
       ) : (
         <>

@@ -77,7 +77,7 @@ export async function AllView() {
         <p className="text-sm text-muted">
           No introductions yet. Make your first match from{" "}
           <Link href="/studio/matchmaking" className="text-ink underline">
-            Matchmaking
+            Introduce
           </Link>
           .
         </p>

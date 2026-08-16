@@ -29,9 +29,30 @@ was complete, so an operator had to hold both in their head.
 
 **After: seven nav items.**
 
-    Workspace   Matchmaking, Matches, Applicants (badge), Directory
+    Workspace   Introduce, Matches, Applicants (badge), Directory
     Manage      Delivery, Events, Team
-    Header      Co-pilot, New match
+    Header      Co-pilot, New introduction
+
+## The first cut of the names was still five ways of saying match
+
+Joshua, on the first pass: "isn't it confusing to have three tabs named match".
+It was. The rail said Matchmaking next to Matches, the header said New match,
+and the tabs were Live, Board and All, which name a rendering rather than a
+thing. Five labels off one root and an operator has to read the page to work out
+which is which.
+
+The product already has two different nouns for two different jobs, and the send
+button has used one of them since 8/9: it reads "Introduce Ben and Sofia".
+
+    Introduce    the act. Pick two people, send. The composer, nothing else.
+    Matches      the record. Every pair, whatever state it is in.
+      In flight  sent, waiting on a decision
+      Pipeline   every open pair, by stage, oldest first
+      History    everything ever, closed included
+
+No word appears twice. The `?view=` keys stay `live` / `board` / `all`, because
+they are what the redirects from `/studio/conversations` and `/studio/pipeline`
+point at and a label should not be able to break a bookmark.
 
 `/studio/conversations`, `/studio/pipeline` and `/studio/venues` are 307
 redirects to their new tab, so every link in `actions.ts`, the co-pilot, the

@@ -32,7 +32,7 @@ export function StudioPortalHeader() {
           className="inline-flex h-7 items-center gap-1.5 rounded border border-line bg-studio-subtle px-2.5 text-[12px] font-medium text-ink transition hover:border-ink/20 hover:bg-ink/[0.025]"
         >
           <PortalIcon name="sparkles" />
-          New match
+          New introduction
         </Link>
       </div>
     </header>

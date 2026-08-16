@@ -197,7 +197,7 @@ async function main() {
     await quickSearch.fill("Team");
     assert.equal(await superPage.getByRole("link", { name: "Team", exact: true }).count(), 1);
     assert.equal(
-      await superPage.getByRole("link", { name: "Matchmaking", exact: true }).count(),
+      await superPage.getByRole("link", { name: "Introduce", exact: true }).count(),
       0,
     );
     await quickSearch.fill("");

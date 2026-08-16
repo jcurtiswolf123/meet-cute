@@ -83,7 +83,7 @@ export default async function Matchmaking({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Matchmaking</h1>
+        <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Introduce</h1>
         <p className="mt-1 max-w-prose text-sm text-muted">
           Pick two people and send the introduction. Everything already in flight lives on{" "}
           <Link href="/studio/matches" className="text-ink underline underline-offset-2">

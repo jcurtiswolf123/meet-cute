@@ -86,8 +86,12 @@ If you are the only session, the main checkout is fine and nothing changes.
 - Venue booking and calendar coordination are manual. Do not claim they are
   automated.
 - The studio rail is seven items and two of them may not draw the same rows.
-  Views of one object are tabs on that object's page (Matches: Live / Board /
-  All; Events: Dinners / Venues), and tools live in the header, not the rail.
+  Views of one object are tabs on that object's page (Matches: In flight /
+  Pipeline / History; Events: Dinners / Venues), and tools live in the header,
+  not the rail. Two labels may not share a root word: **Introduce** is the act
+  and **Matches** is the record, which is why the composer page is not called
+  Matchmaking. The `?view=` keys stay `live` / `board` / `all` whatever the
+  labels say, because the redirects point at them.
   `/studio/conversations`, `/studio/pipeline` and `/studio/venues` are redirects
   and must stay that way. See `docs/STUDIO-STREAMLINE-2026-08-16.md`.
 - The site installs to a phone home screen as a PWA. The service worker in

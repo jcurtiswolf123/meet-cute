@@ -51,8 +51,14 @@ with one set of actions and the whole roster as a table; Conversations drew the
 same introductions with different signal and no actions; Matches was the ledger;
 Status was the board, with a second composer on it, next to the Directory's
 third. Nobody could tell which copy carried the button they wanted. Matches is
-one page with Live / Board / All tabs, Events absorbed Venues, Co-pilot moved to
-the header, and Matchmaking is the composer and nothing else.
+one page with In flight / Pipeline / History tabs, Events absorbed Venues,
+Co-pilot moved to the header, and the composer is the composer and nothing else.
+
+**The names are two words now, not five off one root.** The first cut still read
+Matchmaking, Matches, New match, Live, Board, All. `Introduce` is the act and
+`Matches` is the record, which is what the send button has said since 8/9
+("Introduce Ben and Sofia"). The `?view=` keys stay `live` / `board` / `all`, so
+a relabel can never break a bookmark or a redirect.
 `/studio/conversations`, `/studio/pipeline` and `/studio/venues` are redirects,
 so `actions.ts`, the co-pilot and every bookmark still land.
 

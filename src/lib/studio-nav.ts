@@ -13,7 +13,7 @@ export const STUDIO_PAGES: Array<{
 }> = [
   {
     matches: (pathname) => pathname.startsWith("/studio/matchmaking"),
-    label: "Matchmaking",
+    label: "Introduce",
     icon: "sparkles",
   },
   {
