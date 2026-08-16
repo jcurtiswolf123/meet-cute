@@ -115,7 +115,7 @@ struct FailureView: View {
 
     var body: some View {
         VStack(spacing: Theme.Space.md) {
-            Text("Nothing loaded")
+            Text("This did not load")
                 .displayType(28)
                 .foregroundStyle(Theme.ink)
             Text(message)

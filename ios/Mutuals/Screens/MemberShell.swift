@@ -3,11 +3,15 @@ import SwiftUI
 /// What a member sees.
 ///
 /// Five tabs. Three of them (home, connections, profile) are the member items
-/// in the web app's sidebar. Refer earns one because putting a friend forward
-/// is the only thing a member does that grows the roster, and it was reachable
-/// from the app only by typing a URL. The rest live behind More, which is a
-/// native list rather than a web page, so dinners, coaching, and settings are
-/// one tap from anywhere instead of buried in a sheet.
+/// in the web app's sidebar. Recommending somebody earns one because putting a
+/// friend forward is the only thing a member does that grows the roster, and it
+/// was reachable from the app only by typing a URL. The rest live behind More,
+/// which is a native list rather than a web page, so dinners, coaching, and
+/// settings are one tap from anywhere instead of buried in a sheet.
+///
+/// The tab says Recommend because that is what the site calls it; only the
+/// route says refer. The screen keeps the short form too, since the page under
+/// it already opens with "Recommend someone" as its eyebrow.
 struct MemberShell: View {
     @Environment(AppState.self) private var app
     @State private var selection: MemberTab = .home
@@ -20,7 +24,7 @@ struct MemberShell: View {
             switch self {
             case .home: "Mutuals"
             case .connections: "Connections"
-            case .refer: "Refer"
+            case .refer: "Recommend"
             case .profile: "Profile"
             case .more: "More"
             }
@@ -30,7 +34,7 @@ struct MemberShell: View {
             switch self {
             case .home: "Home"
             case .connections: "Connections"
-            case .refer: "Refer"
+            case .refer: "Recommend"
             case .profile: "Profile"
             case .more: "More"
             }
@@ -129,15 +133,15 @@ struct MemberMore: View {
         var path: String { id }
     }
 
-    private let evenings: [Route] = [
-        .init(id: "/dinners", title: "Dinners", subtitle: "Tables you can put your name down for", icon: "fork.knife"),
-        .init(id: "/coaching", title: "Coaching", subtitle: "A session before the introduction, if you want one", icon: "sparkles"),
+    private let alsoYours: [Route] = [
+        .init(id: "/dinners", title: "Dinners", subtitle: "Twelve people, one long table", icon: "fork.knife"),
+        .init(id: "/coaching", title: "Coaching", subtitle: "Profile help, date prep, debriefs", icon: "sparkles"),
     ]
 
     var body: some View {
         List {
-            Section("Evenings") {
-                ForEach(evenings) { route in row(route) }
+            Section {
+                ForEach(alsoYours) { route in row(route) }
             }
 
             Section {

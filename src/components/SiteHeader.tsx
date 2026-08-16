@@ -21,7 +21,14 @@ export function SiteHeader({ overlay = false, light = false }: { overlay?: boole
     : "btn-primary";
 
   return (
-    <header className={overlay ? "absolute inset-x-0 top-0 z-50" : "border-b border-line bg-cream"}>
+    // Marked so the iOS shell can hide it: /refer, /dinners, and /coaching are
+    // public pages that a signed-in member reaches from a native tab, and this
+    // header offers them Sign in and Apply inside an app they are already
+    // signed into. See the [data-native="ios"] block in globals.css.
+    <header
+      data-site-header
+      className={overlay ? "absolute inset-x-0 top-0 z-50" : "border-b border-line bg-cream"}
+    >
       <a
         href="#main-content"
         className="sr-only z-[60] bg-ink px-4 py-3 text-cream focus:not-sr-only focus:absolute focus:left-4 focus:top-4"

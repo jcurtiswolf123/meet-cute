@@ -46,6 +46,14 @@ enum Backend: String, CaseIterable, Identifiable {
     }
 
     var host: String { origin.host ?? "" }
+
+    /// Host and port, the way somebody would type it into a browser. What the
+    /// connection errors should name: the host alone is missing the half that
+    /// is usually wrong.
+    var authority: String {
+        guard let port = origin.port else { return host }
+        return "\(host):\(port)"
+    }
 }
 
 extension URL {

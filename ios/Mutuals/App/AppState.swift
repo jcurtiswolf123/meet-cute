@@ -137,8 +137,12 @@ final class AppState {
         case NSURLErrorTimedOut:
             return "Mutuals took too long to answer."
         case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost:
+            // The port comes off the origin. This used to append :3009 to
+            // whatever host was set, so a phone pointed at a session worktree
+            // on :3060 was told nothing was listening on :3009, which is true
+            // and useless.
             return backend == .local
-                ? "Nothing is listening on \(backend.host):3009. Is `npm run dev` running?"
+                ? "Nothing is listening on \(backend.authority). Is `npm run dev` running on your Mac, and is the phone on the same network?"
                 : "Cannot reach hellomutuals.com."
         default:
             return "Something went wrong reaching Mutuals."

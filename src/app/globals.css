@@ -444,6 +444,7 @@ textarea:focus-visible {
 @layer components {
   [data-native="ios"] [data-portal-sidebar],
   [data-native="ios"] [data-portal-mobilebar],
+  [data-native="ios"] [data-site-header],
   [data-native="ios"] [data-site-footer] {
     display: none;
   }

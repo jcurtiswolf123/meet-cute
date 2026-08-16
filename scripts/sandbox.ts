@@ -43,6 +43,13 @@ function portFor(slug: string): number {
 // The usual dev port, because the sandbox is now what `npm run dev` means.
 // Pointing a dev server at the live roster is `npm run dev:live`, on 3019.
 const APP_PORT = Number(process.env.SANDBOX_PORT) || (IS_SESSION ? portFor(SLUG) : 3009);
+// The origin the sandbox calls itself, which is what /auth/verify redirects a
+// sign-in to. 127.0.0.1 is right for a browser and a simulator on this Mac and
+// wrong for a phone: the app would be pointed at the Mac's LAN address, the
+// verify redirect would land on 127.0.0.1, and the app would decide the
+// redirect belonged to somebody else and hand it to an in-app browser that
+// cannot reach it either. `SANDBOX_HOST=10.0.0.5 npm run dev` for a phone.
+const APP_HOST = process.env.SANDBOX_HOST || "127.0.0.1";
 const DB_NAME = IS_SESSION ? `mutuals_s_${SLUG.replace(/-/g, "_")}` : "mutuals_sandbox";
 const DB_URL = `postgresql://postgres@127.0.0.1:${PORT}/${DB_NAME}?schema=meetcute`;
 
@@ -99,7 +106,7 @@ function writeEnvFile() {
     `MUTUALS_ENV=sandbox`,
     `DATABASE_URL=${DB_URL}`,
     `DIRECT_URL=${DB_URL}`,
-    `NEXT_PUBLIC_APP_URL=http://127.0.0.1:${APP_PORT}`,
+    `NEXT_PUBLIC_APP_URL=http://${APP_HOST}:${APP_PORT}`,
     `MUTUALS_DEMO_LOGIN=1`,
     `SESSION_SECRET=sandbox-only-not-a-secret-0000000000000000`,
     ...OUTBOUND_KEYS.map((k) => `${k}=`),

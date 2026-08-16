@@ -12,6 +12,7 @@ struct SettingsSheet: View {
 
     @State private var localHost = UserDefaults.standard.string(forKey: "localHost") ?? "localhost"
     @State private var confirmSignOut = false
+    @FocusState private var hostFieldFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -63,15 +64,24 @@ struct SettingsSheet: View {
                     }
                     if app.backend == .local {
                         HStack {
-                            Text("Mac address").font(Theme.body(15))
+                            Text("Your Mac").font(Theme.body(15))
                             Spacer()
-                            TextField("localhost", text: $localHost)
+                            // Committed on return or when the field gives up
+                            // focus, not on every keystroke. Saving per
+                            // character threw away every web view and re-probed
+                            // the session eleven times while somebody typed an
+                            // IP address, which is exactly when the app is
+                            // least able to afford it.
+                            TextField("10.0.0.5:3060", text: $localHost)
                                 .multilineTextAlignment(.trailing)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                                 .keyboardType(.URL)
+                                .focused($hostFieldFocused)
                                 .onSubmit(saveLocalHost)
-                                .onChange(of: localHost) { _, _ in saveLocalHost() }
+                                .onChange(of: hostFieldFocused) { _, focused in
+                                    if !focused { saveLocalHost() }
+                                }
                         }
                     }
                 } header: {
@@ -86,7 +96,7 @@ struct SettingsSheet: View {
 
                 Section {
                     LabeledContent("Version", value: version)
-                    LabeledContent("Host", value: app.backend.host)
+                    LabeledContent("Host", value: app.backend.authority)
                 }
             }
             .listStyle(.insetGrouped)
@@ -94,7 +104,11 @@ struct SettingsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }.foregroundStyle(Theme.ink)
+                    Button("Done") {
+                        saveLocalHost()
+                        dismiss()
+                    }
+                    .foregroundStyle(Theme.ink)
                 }
             }
             .confirmationDialog(
@@ -122,7 +136,10 @@ struct SettingsSheet: View {
 
     private func saveLocalHost() {
         let cleaned = localHost.trimmingCharacters(in: .whitespaces)
-        UserDefaults.standard.set(cleaned.isEmpty ? "localhost" : cleaned, forKey: "localHost")
+        let next = cleaned.isEmpty ? "localhost" : cleaned
+        guard next != UserDefaults.standard.string(forKey: "localHost") else { return }
+        UserDefaults.standard.set(next, forKey: "localHost")
+        localHost = next
         if app.backend == .local {
             app.web.reset()
             Task { await app.refresh() }
