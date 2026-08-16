@@ -105,12 +105,33 @@ body {
     transform: none;
   }
 
+  /* A 2-up grid on a phone, one row from `sm` up.
+     It was `flex-col sm:flex-row`, and every use sits inside a
+     `flex-wrap items-end justify-between` page header, so on a 390px screen
+     three numbers became a tall narrow column shrink-wrapped to its own text
+     with half the width empty beside it, and Matchmaking's five ate the whole
+     first screen. `w-full` is what stops the shrink-wrap; the grid is what
+     stops the height. */
   .ledger {
-    @apply flex flex-col divide-y divide-line overflow-hidden rounded-lg border border-line bg-panel shadow-card sm:flex-row sm:divide-x sm:divide-y-0;
+    @apply grid w-full grid-cols-2 overflow-hidden rounded-lg border border-line bg-panel shadow-card sm:flex sm:w-auto sm:flex-row;
   }
 
+  /* Hairlines drawn by the cell rather than by `divide-*`: divide puts a left
+     border on every child but the first, which on a two-column grid draws one
+     down the middle of column one. Same shape the pipeline strip already uses.
+     The trailing borders land under the container's own and are clipped by
+     `overflow-hidden`. */
   .ledger-cell {
-    @apply flex flex-1 flex-col gap-1 px-5 py-4;
+    @apply flex flex-1 flex-col gap-1 border-b border-r border-line px-5 py-4 last:border-r-0 sm:border-b-0;
+  }
+
+  /* An odd number of cells leaves a hole in the bottom-right of the two-column
+     grid. The last one takes the whole row instead. Only below `sm`, where the
+     ledger is a grid at all. */
+  @media (width < theme("screens.sm")) {
+    .ledger-cell:last-child:nth-child(odd) {
+      grid-column: span 2 / span 2;
+    }
   }
 
   .ledger-num {

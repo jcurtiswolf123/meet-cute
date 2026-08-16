@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Avatar } from "@/components/ui";
 import { logout } from "@/lib/actions";
+import { studioPage } from "@/lib/studio-nav";
 
 // A faithful Twenty (twentyhq/twenty) style navigation sidebar: a vertical,
 // stacked left rail with a workspace header, small-caps section labels, icon +
@@ -25,6 +26,9 @@ export function PortalSidebar({
   workspace,
   subtitle,
   sections,
+  // Reachable from the drawer but never from the desktop rail. The desktop
+  // header carries these as buttons; a phone has no header to put them in.
+  mobileOnlySections = [],
   homeHref,
   userName,
   avatarUrl,
@@ -35,6 +39,7 @@ export function PortalSidebar({
   workspace: string;
   subtitle?: string;
   sections: SidebarSection[];
+  mobileOnlySections?: SidebarSection[];
   homeHref: string;
   userName: string;
   avatarUrl?: string | null;
@@ -43,6 +48,9 @@ export function PortalSidebar({
   defaultCollapsed?: boolean;
 }) {
   const pathname = usePathname();
+  // The studio names the current page in its mobile bar; the member app has
+  // four items and a heading on every page, so it does not need to.
+  const mobileTitle = homeHref.startsWith("/studio") ? studioPage(pathname).label : undefined;
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const [hoverExpanded, setHoverExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -187,18 +195,31 @@ export function PortalSidebar({
         {rail}
       </aside>
 
-      <div className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-studio-subtle px-4 py-2.5 md:hidden">
+      {/* The mobile bar. It used to read "Mutuals" and nothing else: the page
+          name lives in the desktop header, which is `hidden md:flex`, so a phone
+          had no idea which of seven pages it was on. The safe-area top padding
+          keeps the bar clear of the notch once the app is installed to the home
+          screen and runs without Safari's chrome. */}
+      <div
+        className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-studio-subtle px-4 py-2.5 md:hidden"
+        style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
+      >
         <button
           ref={openButtonRef}
           onClick={() => setMobileOpen(true)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-ink transition hover:bg-studio-canvas"
+          className="-ml-2 flex h-11 w-11 items-center justify-center rounded-lg text-ink transition hover:bg-studio-canvas"
           aria-label="Open menu"
           aria-expanded={mobileOpen}
           aria-controls="mobile-navigation"
         >
           <PortalIcon name="menu" />
         </button>
-        <span className="text-base font-semibold tracking-[-0.01em] text-ink">{workspace}</span>
+        <div className="min-w-0 text-center">
+          <div className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
+            {mobileTitle ?? workspace}
+          </div>
+          {mobileTitle && <div className="text-[10px] uppercase tracking-[0.1em] text-muted">{workspace}</div>}
+        </div>
         <Avatar url={avatarUrl} name={userName} size={28} />
       </div>
 
@@ -223,7 +244,7 @@ export function PortalSidebar({
             <SidebarInner
               workspace={workspace}
               subtitle={subtitle}
-              sections={sections}
+              sections={[...sections, ...mobileOnlySections]}
               userName={userName}
               avatarUrl={avatarUrl}
               collapsed={false}

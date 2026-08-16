@@ -36,7 +36,7 @@ function cleanUrl(form: FormData, key: string): string | null {
 }
 
 function refresh() {
-  revalidatePath("/studio/venues");
+  revalidatePath("/studio/events");
 }
 
 export async function saveVenue(formData: FormData) {

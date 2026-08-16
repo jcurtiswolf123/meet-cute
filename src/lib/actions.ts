@@ -328,7 +328,7 @@ export async function decideMatch(matchId: string, decision: "yes" | "pass") {
   }
   revalidatePath("/app");
   revalidatePath("/app/matches");
-  revalidatePath("/studio/pipeline");
+  revalidatePath("/studio/matches");
 }
 
 export async function addVouch(subjectId: string, note: string) {
@@ -1505,7 +1505,7 @@ export async function manualMatch(formData: FormData) {
   await prisma.match.create({
     data: { personAId: aId, personBId: bId, createdById: op.id, stage: "suggested", rationale: rationale || null },
   });
-  revalidatePath("/studio/pipeline");
+  revalidatePath("/studio/matches");
 }
 
 // Operator: create a suggestion (a Match in "suggested" stage).
@@ -1539,7 +1539,7 @@ export async function createSuggestion(aId: string, bId: string, rationale: stri
   await prisma.match.create({
     data: { personAId: aId, personBId: bId, rationale, createdById: me ?? undefined, stage: "suggested" },
   });
-  revalidatePath("/studio/pipeline");
+  revalidatePath("/studio/matches");
   revalidatePath(`/studio/person/${aId}`);
   redirect(`/studio/person/${aId}?suggest=created`);
 }
@@ -1741,7 +1741,7 @@ export async function createIntroduction(formData: FormData) {
   ]);
   revalidatePath("/studio");
   revalidatePath("/studio/matchmaking");
-  revalidatePath("/studio/conversations");
+  revalidatePath("/studio/matches");
   revalidatePath("/studio/matches");
   revalidatePath("/studio/delivery");
   // The intro can be started from either person's profile, so refresh both.
@@ -1764,7 +1764,7 @@ export async function resendIntro(formData: FormData) {
 
   await sendEmailInvites(matchId);
   revalidatePath("/studio/matchmaking");
-  revalidatePath("/studio/conversations");
+  revalidatePath("/studio/matches");
   revalidatePath(`/studio/conversations/${matchId}`);
 }
 
@@ -1824,7 +1824,7 @@ export async function closeIntroduction(formData: FormData) {
     }),
   ]);
   revalidatePath("/studio/matchmaking");
-  revalidatePath("/studio/conversations");
+  revalidatePath("/studio/matches");
   revalidatePath(`/studio/conversations/${matchId}`);
 }
 
@@ -1851,9 +1851,9 @@ export async function bulkResendStalled() {
     }
   }
 
-  revalidatePath("/studio/conversations");
+  revalidatePath("/studio/matches");
   revalidatePath("/studio/matchmaking");
-  redirect(`/studio/conversations?resent=${resent}`);
+  redirect(`/studio/matches?resent=${resent}`);
 }
 
 // Operator bulk action: close every introduction that expired (no reply for
@@ -1886,9 +1886,9 @@ export async function bulkCloseExpired() {
     }),
   ]);
 
-  revalidatePath("/studio/conversations");
+  revalidatePath("/studio/matches");
   revalidatePath("/studio/matchmaking");
-  redirect(`/studio/conversations?closed=${res.count}`);
+  redirect(`/studio/matches?closed=${res.count}`);
 }
 
 // Operator: force the connection now (e.g. both said yes by phone/in person).
@@ -2103,7 +2103,7 @@ export async function messageGroup(formData: FormData) {
     kind: "operator",
   });
   revalidatePath(`/studio/conversations/${matchId}`);
-  revalidatePath("/studio/conversations");
+  revalidatePath("/studio/matches");
 }
 
 // Operator: send a free-form text to one person (notify / nudge / check in).

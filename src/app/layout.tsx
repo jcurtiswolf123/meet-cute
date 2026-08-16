@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ServiceWorker } from "@/components/ServiceWorker";
 
 const display = Instrument_Serif({
   subsets: ["latin"],
@@ -43,6 +44,35 @@ export const metadata: Metadata = {
     type: "website",
   },
   twitter: { card: "summary_large_image" },
+  // Installed to a home screen, the app is "Mutuals", not the SEO title.
+  applicationName: "Mutuals",
+  appleWebApp: {
+    capable: true,
+    title: "Mutuals",
+    // The bar behind the status bar takes the page's own colour instead of
+    // black, which is what `default` gives on a cream page.
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-64.png", sizes: "64x64", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/icon-180.png", sizes: "180x180", type: "image/png" }],
+  },
+};
+
+// `viewport-fit=cover` is what lets the app paint under the notch and the home
+// indicator, which is the point of a standalone install; the `env(safe-area-*)`
+// padding in globals.css and the portal bars is what keeps content out of them.
+// `maximumScale` is deliberately absent: capping zoom locks out anybody who
+// needs to enlarge text.
+export const viewport: Viewport = {
+  themeColor: "#f4f1ea",
+  colorScheme: "light",
+  viewportFit: "cover",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -56,6 +86,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${display.variable} ${sans.variable} ${mono.variable}`}
     >
       <head>
+        {/* Next emits the modern `mobile-web-app-capable`, which Safari has
+            treated as an alias since iOS 16.4. The legacy spelling is what
+            anything older reads, and without it the icon opens in a browser tab
+            rather than as an app. One tag, so both are covered. */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
         {/* Scroll reveals render at opacity 0 and are animated in by the client
             bundle. Without JavaScript nothing would ever reveal them, leaving the
             marketing pages blank below the hero, so force them visible instead. */}
@@ -65,6 +100,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="font-sans antialiased">
         {children}
+        <ServiceWorker />
       </body>
     </html>
   );

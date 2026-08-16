@@ -1,193 +1,21 @@
-import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { requireOperatorPage } from "@/lib/page-auth";
-import { Avatar } from "@/components/ui";
-import { conversationHealth, toneClass, relativeAge } from "@/lib/conversation-health";
-import { stalledWhere, expiredWhere, STALLED_DAYS, EXPIRED_DAYS } from "@/lib/introductions";
-import { bulkResendStalled, bulkCloseExpired } from "@/lib/actions";
-import { SubmitButton } from "@/components/forms";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-// The operator console shows whole names. Truncating to a first name is a
-// member-facing privacy rule (someone deciding whether to meet you should not
-// be able to look you up first), and it has no business here: two members can
-// share a first name, and "Jess + Jessica" told the operator nothing.
-function displayName(name: string) {
-  return name.trim() || name;
-}
-
-// Operator console: visibility into every active introduction conversation.
-// Shows who has opted in, a health badge, and the last activity, with a row per
-// intro that links to the full transcript + a jump-in box.
-export default async function Conversations({
+// Merged into `/studio/matches?view=live` on 2026-08-16. The route stays as a
+// redirect because `actions.ts` redirects here after a bulk resend or close,
+// the co-pilot links here, and the docs and operator bookmarks point here.
+// The transcript at `/studio/conversations/[id]` is untouched and is still the
+// canonical place to read one thread.
+export default async function ConversationsRedirect({
   searchParams,
 }: {
   searchParams: Promise<{ resent?: string; closed?: string }>;
 }) {
-  await requireOperatorPage();
   const sp = await searchParams;
-  const now = new Date();
-  const [intros, stalledCount, expiredCount] = await Promise.all([
-    prisma.match.findMany({
-      where: { stage: { in: ["invited", "mutual_yes", "connected"] } },
-      relationLoadStrategy: "join",
-      include: {
-        // One avatar each: the pair column named two people and drew neither of
-        // them, so an operator scanning the board read strings for a job that
-        // is about who these two are.
-        personA: { select: { id: true, name: true, photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } } } },
-        personB: { select: { id: true, name: true, photos: { where: { status: { not: "rejected" } }, orderBy: { order: "asc" }, take: 1, select: { url: true } } } },
-        introMessages: { orderBy: { createdAt: "desc" }, take: 1, select: { createdAt: true, body: true } },
-      },
-      orderBy: { updatedAt: "desc" },
-    }),
-    prisma.match.count({ where: stalledWhere(now) }),
-    prisma.match.count({ where: expiredWhere(now) }),
-  ]);
-
-  const rows = intros.map((m) => {
-    const lastMessageAt = m.introMessages[0]?.createdAt ?? null;
-    const health = conversationHealth({
-      stage: m.stage,
-      aDecision: m.aDecision,
-      bDecision: m.bDecision,
-      aName: m.personA.name,
-      bName: m.personB.name,
-      notifiedAt: m.notifiedAAt ?? m.notifiedBAt ?? null,
-      connectedAt: m.connectedAt,
-      lastMessageAt,
-    });
-    return { m, health, lastMessageAt, lastBody: m.introMessages[0]?.body ?? null };
-  });
-
-  const needsAttention = rows.filter((r) => r.health.needsAttention).length;
-  const connected = rows.filter((r) => r.m.stage === "connected").length;
-  const optIn = (m: { aDecision: string; bDecision: string }) =>
-    `${m.aDecision === "yes" ? "Y" : m.aDecision === "pass" ? "N" : "-"} / ${m.bDecision === "yes" ? "Y" : m.bDecision === "pass" ? "N" : "-"}`;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-sans tracking-[-0.012em] text-2xl font-medium">Conversations</h1>
-        <p className="mt-1 text-sm text-muted">
-          Every active introduction, who has opted in, and whether it needs you. Open one to read the
-          thread and jump in.
-        </p>
-      </div>
-
-      {(sp.resent !== undefined || sp.closed !== undefined) && (
-        <div className="rounded-xl border border-ink/25 bg-studio-canvas px-4 py-3 text-sm text-ink">
-          {sp.resent !== undefined && <span>Resent {sp.resent} stalled {Number(sp.resent) === 1 ? "intro" : "intros"}. </span>}
-          {sp.closed !== undefined && <span>Closed {sp.closed} expired {Number(sp.closed) === 1 ? "intro" : "intros"}.</span>}
-        </div>
-      )}
-
-      {/* Three counts, previously drawn as three separate cards. Every other
-          studio page states its numbers with the shared ledger strip. */}
-      <div className="ledger">
-        {[
-          { label: "Active", value: rows.length },
-          { label: "Needs attention", value: needsAttention },
-          { label: "Connected", value: connected },
-        ].map((k) => (
-          <div key={k.label} className="ledger-cell">
-            <div className="ledger-num">{k.value}</div>
-            <div className="ledger-label">{k.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {(stalledCount > 0 || expiredCount > 0) && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-studio-subtle px-4 py-3">
-          <span className="text-xs uppercase tracking-wide text-muted">Bulk actions</span>
-          {stalledCount > 0 && (
-            <form action={bulkResendStalled}>
-              <SubmitButton className="btn-ghost text-sm" pendingText="Resending...">
-                Resend {stalledCount} stalled (no reply {STALLED_DAYS}d+)
-              </SubmitButton>
-            </form>
-          )}
-          {expiredCount > 0 && (
-            <form action={bulkCloseExpired}>
-              <SubmitButton className="btn-ghost text-sm" pendingText="Closing...">
-                Close {expiredCount} expired (silent {EXPIRED_DAYS}d+)
-              </SubmitButton>
-            </form>
-          )}
-        </div>
-      )}
-
-      {rows.length === 0 ? (
-        <div className="card p-8 text-center text-sm text-muted">
-          No active conversations yet. Start an introduction from{" "}
-          <Link href="/studio/matchmaking" className="text-ink underline">Matchmaking</Link>.
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-xl2 border border-line bg-panel">
-          <table className="w-full min-w-[640px] text-sm">
-            <thead className="border-b border-line bg-studio-subtle text-left text-xs uppercase tracking-wide text-muted">
-              <tr>
-                <th className="px-4 py-3 font-medium">Pair</th>
-                <th className="px-4 py-3 font-medium">Opt-in (A/B)</th>
-                <th className="px-4 py-3 font-medium">Health</th>
-                <th className="px-4 py-3 font-medium">Last activity</th>
-                <th className="px-4 py-3 font-medium">Thread</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ m, health, lastMessageAt, lastBody }) => (
-                <tr key={m.id} className="border-b border-line/70 hover:bg-studio-canvas/60">
-                  <td className="px-4 py-3 font-medium text-ink">
-                    <span className="flex items-center gap-2.5">
-                      <span className="flex -space-x-2">
-                        <Avatar url={m.personA.photos[0]?.url} name={m.personA.name} size={32} />
-                        <Avatar url={m.personB.photos[0]?.url} name={m.personB.name} size={32} />
-                      </span>
-                      <span className="flex flex-wrap items-center gap-x-1.5">
-                        <Link href={`/studio/person/${m.personA.id}`} className="hover:underline">
-                          {displayName(m.personA.name)}
-                        </Link>
-                        <span className="text-muted">+</span>
-                        <Link href={`/studio/person/${m.personB.id}`} className="hover:underline">
-                          {displayName(m.personB.name)}
-                        </Link>
-                      </span>
-                    </span>
-                    {m.conversationSid && (
-                      <span className="ml-2 inline-flex items-center rounded-full border border-ink/25 bg-studio-canvas px-2 py-0.5 text-[10px] uppercase tracking-wide text-ink">
-                        group
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-xs text-muted">{optIn(m)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${toneClass(health.tone)}`}>
-                      {health.label}
-                    </span>
-                  </td>
-                  <td className="max-w-[24ch] truncate px-4 py-3 text-muted">
-                    {lastBody ? <span title={lastBody}>{lastBody}</span> : "-"}
-                    {lastMessageAt && (
-                      <span
-                        className="block text-[11px] text-muted"
-                        title={lastMessageAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                      >
-                        {relativeAge(lastMessageAt, now)}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link href={`/studio/conversations/${m.id}`} className="text-ink underline underline-offset-2">
-                      Open
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
+  const query = new URLSearchParams();
+  if (sp.resent !== undefined) query.set("resent", sp.resent);
+  if (sp.closed !== undefined) query.set("closed", sp.closed);
+  const suffix = query.toString();
+  redirect(suffix ? `/studio/matches?${suffix}` : "/studio/matches");
 }

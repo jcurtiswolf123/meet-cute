@@ -199,7 +199,12 @@ export function IntroComposer({
           {/* The pair, at the size a pairing is judged at. Picking used to be
               two typeahead fields, so the operator held both people in their
               head and read a name to check the choice. */}
-          <div className="mt-2 flex flex-wrap items-center gap-3">
+          {/* Two slots side by side. They used to `flex-wrap`, which on a phone
+              broke to one slot per line with the "+" left hanging off the end of
+              the first, reading as part of it. A grid keeps the pairing legible
+              at any width: the two slots share the row and the "+" sits between
+              them. */}
+          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
             <Slot
               person={locked ?? a}
               label="First person"
@@ -336,13 +341,13 @@ function Slot({
 }) {
   if (!person) {
     return (
-      <div className="flex h-[3.75rem] w-48 items-center gap-2.5 rounded-lg border border-dashed border-line px-3 text-sm text-muted">
+      <div className="flex h-[3.75rem] w-full min-w-0 items-center gap-2.5 rounded-lg border border-dashed border-line px-3 text-sm text-muted sm:w-48">
         {label}
       </div>
     );
   }
   return (
-    <div className="flex h-[3.75rem] w-48 items-center gap-2.5 rounded-lg border border-studio-line bg-studio-subtle px-3">
+    <div className="flex h-[3.75rem] w-full min-w-0 items-center gap-2.5 rounded-lg border border-studio-line bg-studio-subtle px-3 sm:w-48">
       <Avatar url={person.photoUrl} name={person.name} size={40} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-ink">{person.name}</span>

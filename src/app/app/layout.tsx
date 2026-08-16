@@ -22,7 +22,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const me = await requireMemberPage();
 
   return (
-    <div className="flex min-h-screen flex-col bg-cream md:flex-row">
+    // dvh rather than vh: on iOS Safari, 100vh is the height with the toolbars
+    // hidden, so a short page pushed its own footer under the address bar.
+    <div className="flex min-h-dvh flex-col bg-cream md:flex-row">
       <PortalSidebar
         workspace="Mutuals"
         sections={MEMBER_SECTIONS}
@@ -31,7 +33,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         userName={me.name}
       />
       <div className="min-w-0 flex-1">
-        <main className="mx-auto w-full max-w-5xl px-6 py-10">{children}</main>
+        {/* Roomier on a laptop, tighter on a phone, and clear of the home
+            indicator once the app is installed to the home screen. */}
+        <main
+          className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10"
+          style={{ paddingBottom: "max(2rem, calc(env(safe-area-inset-bottom) + 1.5rem))" }}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );
