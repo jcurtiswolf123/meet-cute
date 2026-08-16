@@ -25,7 +25,7 @@ error: No Account for Team "J8M8Z862Z7". Add a new account in Accounts settings
 error: No profiles for 'com.joshuawolf.mutuals' were found
 ```
 
-Fix: Xcode → Settings → Accounts → **+** → Apple ID → sign in with the account
+Fix: Xcode, then Settings, then Accounts, then **+**, then Apple ID, and sign in with the account
 that owns that team. Automatic signing takes it from there; a free personal team
 is enough for this app, because the associated-domains entitlement is not wired
 into the build (`CODE_SIGN_ENTITLEMENTS` is empty). That costs universal links
@@ -36,8 +36,8 @@ pass used throughout.
 the build fails with "The developer disk image could not be mounted on this
 device."
 
-Fix, on the phone: unlock it and leave it unlocked, then Settings → Privacy &
-Security → Developer Mode → on, which asks for a restart. Plug it in, and answer
+Fix, on the phone: unlock it and leave it unlocked, then Settings, then Privacy &
+Security, then Developer Mode, and turn it on, which asks for a restart. Plug it in, and answer
 Trust This Computer.
 
 ## Then, one run
@@ -68,7 +68,7 @@ xcrun devicectl device install app \
   ~/Library/Developer/Xcode/DerivedData/Mutuals-device/Build/Products/Debug-iphoneos/Mutuals.app
 ```
 
-First launch on a personal team: Settings → General → VPN & Device Management →
+First launch on a personal team: Settings, then General, then VPN & Device Management, and
 trust the developer certificate. A personal-team build expires after seven days
 and needs the same two commands again.
 
