@@ -44,6 +44,18 @@ no-registration SMS path, default provider still twilio)
 
 ## 2026-08-16: eleven rail items were four ways to look at one match
 
+**Live on Fly v225**, both `iad` machines health-checked, 23:19Z. Rollback point
+is v224 and no migration went out, so a rollback is code only. Verified on
+hellomutuals.com: health 200s, the manifest parses, the service worker registers
+at scope `/` with nothing but `offline.html` and static assets in its cache,
+`/studio/pipeline` lands on `/studio/login` in a browser, an unauthenticated
+studio response carries no sidebar and no rows, and the app log is clean.
+
+Deploy trap for next time: `flyctl` does not read `~/.fly/config.yml` in a
+scripted shell here. `export FLY_API_TOKEN=$(sed -n 's/^access_token: //p'
+~/.fly/config.yml)` first. The tokens in `~/.gstack/credentials/` are the wrong
+org and cannot see this app.
+
 Full write-up, with what every page actually drew: `docs/STUDIO-STREAMLINE-2026-08-16.md`.
 
 **Seven rail items, down from eleven.** Matchmaking drew the live introductions

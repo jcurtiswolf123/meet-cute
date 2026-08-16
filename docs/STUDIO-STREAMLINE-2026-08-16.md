@@ -138,6 +138,40 @@ All run on this branch, against the sandbox database, 2026-08-16.
   than a browser error.
 - Before and after screenshots at 390x844 and 1440x900 in `docs/qa/2026-08-16/`.
 
+### Deployed, and checked live
+
+Fly **v225**, both `iad` machines started and health-checked, 2026-08-16 23:19Z.
+Rollback point is **v224**: `flyctl releases -a meet-cute`, then
+`flyctl deploy --image <the v224 image>`. No migration went out with this, so a
+rollback is code only and the schema needs nothing.
+
+On hellomutuals.com after the deploy:
+
+- `/healthz` and `/readyz` 200 in ~0.2s. Eight public routes 200.
+- `manifest.webmanifest` serves as `application/manifest+json` and parses:
+  name Mutuals, `start_url` /app, display standalone, 4 icons. `sw.js`,
+  `offline.html` and every icon 200.
+- The service worker registers at scope `/`, and the only non-asset thing in its
+  cache is `offline.html`. No page HTML.
+- `/studio/pipeline` lands on `/studio/login` in a real browser. Unauthenticated
+  studio responses carry no sidebar, no roster and no match rows.
+- No error lines in the app log after the release.
+
+### One gotcha for whoever deploys next
+
+`flyctl` on this Mac does not pick up `~/.fly/config.yml` from a scripted shell:
+`flyctl auth whoami` says "no access token available" while the token is sitting
+in that file. Read it out and pass it explicitly:
+
+```bash
+export FLY_API_TOKEN=$(sed -n 's/^access_token: //p' ~/.fly/config.yml)
+npm run deploy
+```
+
+The tokens in `~/.gstack/credentials/` are the wrong ones: `fly-api-token.txt` is
+expired, and the joinhandshake and crown tokens authenticate but answer
+`Could not find App "meet-cute"` because the app is in the personal org.
+
 ## Still open
 
 - The mobile drawer carries Co-pilot under a "Tools" heading. If more tools
