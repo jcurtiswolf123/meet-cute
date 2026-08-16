@@ -55,6 +55,14 @@
   <!-- A member uploads a face. The uploader is the web app's own file input;
        WKWebView raises the system camera and library sheets for it, and iOS
        kills the app if these strings are missing. -->
+  <!-- Talking to `npm run dev` on the Mac means connecting to another device on
+       the same wifi, and iOS blocks that until it is asked for. Without this
+       key the request is denied with no prompt and no error worth reading: the
+       app simply never reaches the Mac. Only Local dev needs it; production is
+       an ordinary internet host. -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Mutuals connects to the development server running on your Mac.</string>
+
   <key>NSCameraUsageDescription</key>
   <string>Take a photo for your Mutuals profile.</string>
   <key>NSPhotoLibraryUsageDescription</key>

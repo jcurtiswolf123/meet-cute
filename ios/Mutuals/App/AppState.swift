@@ -147,8 +147,12 @@ final class AppState {
             // whatever host was set, so a phone pointed at a session worktree
             // on :3060 was told nothing was listening on :3009, which is true
             // and useless.
+            // Three things fail this way and only one of them is the server.
+            // The quiet one is iOS local network permission: a phone talking to
+            // a Mac on the same wifi needs it, a denial looks exactly like a
+            // dead server, and there is no second prompt once it is refused.
             return backend == .local
-                ? "Nothing is listening on \(backend.authority). Is `npm run dev` running on your Mac, and is the phone on the same network?"
+                ? "Cannot reach \(backend.authority). Check that `npm run dev` is running on the Mac, that this phone is on the same wifi, and that Mutuals is allowed Local Network access in Settings, Privacy and Security."
                 : "Cannot reach hellomutuals.com."
         default:
             return "Something went wrong reaching Mutuals."
