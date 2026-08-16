@@ -2,11 +2,15 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-09 (photos open full size everywhere a person is judged,
-matching says what will happen before it happens, and the Directory stopped
-waiting on six database round trips in a row: see the section below. Before
-that: the gate is any two friends, and somebody can be put
-forward at `/refer` before they ever apply. Before that:
+Last updated: 2026-08-16 (studio streamline: four match views (Matchmaking,
+Conversations, Matches, Pipeline) merged into one Matches page with three tabs
+(Live, Board, All); Events page split into Dinners/Venues tabs; sidebar from
+11 items down to 7; co-pilot moved to header; mobile header shows page name,
+safe-area insets for notch, PWA support with manifest and service worker).
+Before that: photos open full size everywhere a person is judged, matching says
+what will happen before it happens, and the Directory stopped waiting on six
+database round trips in a row. Before that: the gate is any two friends, and
+somebody can be put forward at `/refer` before they ever apply. Before that:
 an applicant can change an answer after applying:
 "Edit your application" had pointed at `/apply`, which sent anybody carrying
 `appliedAt` straight back to the waiting page, so the button was a loop for the
@@ -198,6 +202,72 @@ this product gets and until now they hit a thank-you page and vanished.
 Honest limit: two recommenders per member at a 50% reply rate would need 100%
 conversion to be self-sustaining. This lowers acquisition cost and produces
 unusually warm leads. It is not exponential growth and should not be sold as it.
+
+## 2026-08-16: studio streamline and phone install
+
+Four match views (live introductions, conversations, read-only ledger, kanban
+pipeline) were four navigation items drawing the same data from different
+angles. Merged them into `/studio/matches` with three tabs:
+
+- **Live**: Every introduction in flight, health badges, opt-in status, last
+  message, bulk resend stalled, bulk close expired. Replaces /studio/conversations
+  (list page, not the transcript). Shows "Resend", "Connect now", "Close", "Ask
+  for feedback", "Follow up" actions. One row carries all the reading and all
+  the acting. Built as `LiveView`, a server component with its own count query.
+  
+- **Board**: Every open match from suggestion through connection, sorted by how
+  long it has sat still, because where it stalls is where you act. Replaces
+  /studio/pipeline (which was labelled "Status"). Grid of eight stage buckets
+  at the top, card rows on phone, scrollable table on desktop. Manual override
+  to force a suggestion. Built as `BoardView` with `openMatchCount()`.
+  
+- **All**: Read-only ledger of every match ever, grouped by outcome. Replaces
+  /studio/matches (the old read-only view). Closed matches live only here.
+  Built as `AllView` with `totalMatchCount()`.
+
+Old URLs redirect: `/studio/conversations` and `/studio/pipeline` land on the
+new tabbed page. The transcript at `/studio/conversations/<id>` is untouched.
+
+**Events page**: Dinners and Venues are the same question twice (where do these
+people go). Now two tabs on `/studio/events`. The form collapses into a disclosure
+matching the Matchmaking quick-add pattern. `/studio/venues` redirects to
+`/studio/events?view=venues`.
+
+**Navigation**: From eleven items to seven.
+
+Workspace (was five, now four):
+- Matchmaking (kept)
+- Conversations → removed, folded into Matches/Live
+- Matches (kept, but now with three tabs)
+- Applicants (kept, badge count)
+- Directory (kept, now in main rail without "Status" above it)
+- Pipeline → removed, folded into Matches/Board
+
+Manage (was four, now two):
+- Delivery (kept)
+- Events (kept, absorbs Dinners and Venues as tabs)
+- Venues → removed, folded into Events/Venues as a tab
+- (Co-pilot was here, now in the header)
+
+Header (desktop only):
+- New match composer (was a rail item on Matchmaking, now a header button)
+- Co-pilot (was in Manage, now a header button)
+
+Mobile drawer (phone only):
+- Co-pilot (no header on mobile, so it lives in the drawer)
+
+**Mobile bar**: Previously read "Mutuals" on every page. Now shows the current
+page name (Matches, Applicants, Events, etc) with "Mutuals" in small text
+below. Module `studio-nav.ts` maps pathname to { label, icon } for both the
+mobile bar and the desktop header.
+
+Safe-area insets on the sticky mobile bar for notch and home indicator once
+the app is installed to home screen.
+
+**PWA support**: Manifest with theme colors, icons, display mode. Service
+worker with offline fallback. Maskable icons for home-screen installation.
+
+Full details in `docs/STUDIO-STREAMLINE-2026-08-16.md`.
 
 ## 2026-08-03: the form controls are ours now, not the operating system's
 
