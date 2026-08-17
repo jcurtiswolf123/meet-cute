@@ -127,7 +127,6 @@ function forwardDomain(): string {
  *  reports addressed to `dmarc@hellomutuals.com` have to land somewhere too. */
 async function forwardToHuman(data: Record<string, unknown>, body: { text: string; html: string }) {
   const to = process.env.INBOUND_FORWARD_TO || "josh@shiftsupportnetwork.com";
-  const from = process.env.RESEND_FROM || "Mutuals <hello@hellomutuals.com>";
   const sender = addressList(data.from)[0] || "unknown sender";
   // Never forward our own forward back to ourselves, and never forward a message
   // the forwarding mailbox itself sent: either one is a loop.

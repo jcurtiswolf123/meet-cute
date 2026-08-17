@@ -492,13 +492,23 @@ export function applicationApprovedEmail(args: {
     `Good news: you are in. Welcome to Mutuals.\n\n` +
     `From here, a matchmaker introduces you to one person at a time - no public profile, no feed, no endless messaging. When we find someone we think you should meet, the introduction comes by email and you decide for yourself.\n\n` +
     `Take a minute to round out your profile and tell us what you are looking for:\n${args.appUrl}\n\n` +
+    `One favour first: add hello@hellomutuals.com to your contacts. Gmail files introductions under Promotions ` +
+    `otherwise, and that is the email you will not want to miss.\n\n` +
     `Warmly,\nMutuals`;
   const inner =
     h1("Welcome to Mutuals.") +
     p(`Hi ${esc(first)}, you are in. From here a matchmaker introduces you to <strong>one person at a time</strong> - no public profile, no feed, no endless messaging.`) +
     p(`When we find someone we think you should meet, the introduction comes by email and you decide for yourself. If you both say yes, we connect you.`) +
     `<p style="margin:24px 0 0">${emailButton("Round out your profile", args.appUrl)}</p>` +
-    small("The more we know about what you are looking for, the better the introductions.");
+    small("The more we know about what you are looking for, the better the introductions.") +
+    // Gmail files the introduction email under Promotions no matter how the
+    // message is written: plain text, no images, no button and a human From all
+    // land there. A sender in the recipient's contacts is the one signal that
+    // reliably overrides the classifier, so the welcome email, which does land
+    // in Primary, is where we ask for it.
+    small(
+      `Add <strong>hello@hellomutuals.com</strong> to your contacts. Gmail files introductions under Promotions otherwise, and that is the one email you will not want to miss.`,
+    );
   return { subject, html: emailShell(inner, "You're in - welcome to Mutuals."), text };
 }
 
