@@ -13,6 +13,7 @@
 //
 // Escape hatches, both deliberate and both loud:
 //   DEPLOY_ALLOW_ROLLBACK=1   a real rollback to a known-good release
+//   DEPLOY_ALLOW_DIRTY=1      shipping uncommitted work on purpose
 //   production reports no commit / is unreachable   warns, does not block
 import { execFileSync } from "node:child_process";
 
@@ -24,6 +25,35 @@ function git(...args: string[]) {
 
 async function main() {
   const head = git("rev-parse", "HEAD");
+
+  // A commit stamp is only worth anything if it describes what shipped, and
+  // `flyctl deploy` sends the working directory, not the commit. Deploying a
+  // dirty tree runs code that is in no commit while /healthz reports HEAD, so
+  // the ancestry check below, and anyone reading it later, trusts a label that
+  // was never true. That is the same class of confusion as the rollback this
+  // script exists to stop, and it is invisible rather than merely wrong.
+  //
+  // Checked before the network call so it fails in a second rather than after
+  // a fetch. Untracked files are included: a route handler that has never been
+  // added is exactly the kind of thing that would ship unrecorded.
+  if (process.env.DEPLOY_ALLOW_DIRTY !== "1") {
+    const dirty = git("status", "--porcelain");
+    if (dirty) {
+      const lines = dirty.split("\n");
+      console.error(
+        `deploy-guard: the working tree is dirty, so the deploy would not match ${head.slice(0, 7)}.\n` +
+          `  ${lines.length} uncommitted change(s):\n` +
+          lines
+            .slice(0, 10)
+            .map((l) => `    ${l}`)
+            .join("\n") +
+          (lines.length > 10 ? `\n    ... and ${lines.length - 10} more` : "") +
+          "\n  Commit or stash first, so /healthz names the code that is actually running.\n" +
+          "  If you mean to ship uncommitted work: DEPLOY_ALLOW_DIRTY=1 npm run deploy",
+      );
+      process.exit(1);
+    }
+  }
 
   if (process.env.DEPLOY_ALLOW_ROLLBACK === "1") {
     console.log(`deploy-guard: DEPLOY_ALLOW_ROLLBACK=1, skipping the ancestry check (HEAD ${head.slice(0, 7)}).`);
