@@ -105,6 +105,12 @@ If you are the only session, the main checkout is fine and nothing changes.
   loop. `createLoginCode` in `src/lib/auth.ts` mints the code as an ordinary
   LoginToken row scoped to the address. Never widen the guess budget: six digits
   are only safe because of the rate limits in `signInWithCode`.
+- `src/app/api/mobile/*` is the iOS shell's half of the contract and has to be
+  deployed for the app to draw anything. The shell asks `/api/mobile/session`
+  before it renders, and a production build without it puts "hellomutuals.com is
+  running a build without the app endpoints" on the phone. The sending logic for
+  `/login` and `/api/mobile/login` is shared in `src/lib/magic-link.ts` on
+  purpose: two transports, one set of rate limits and one link-origin rule.
 - `ios/` is a native shell around the same site, built with XcodeGen: its own
   sign-in screen, member and studio tabs, a `window.mutuals` bridge, and web
   views underneath. It was replaced by a 200-line WKWebView wrapper on
