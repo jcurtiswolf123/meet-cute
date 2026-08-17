@@ -93,7 +93,38 @@ so the fix is not "be careful".
   08938b4`.
 
 **The guard only sees `npm run deploy`.** A bare `flyctl deploy` walks straight
-past it, and that is now the reason not to use one.
+past it, and that is now the reason not to use one. It also only binds a tree
+that already contains it, which is how production went backwards a fourth time
+as v235 after the guard existed: `session/ios` had neither the guard nor a
+`predeploy` hook, so there was nothing there to skip.
+
+**The actual fix was the merge, not the guard.** `session/ios` was not deploying
+carelessly, it was shipping six commits of email work that existed nowhere else:
+a real From address, the contact-save ask, the address guard that refuses
+undeliverable addresses, and the invite rewritten as a letter. Every time it
+deployed, the studio work went; every time anyone else deployed, the email work
+went. Neither tree contained the other, so the loop could not stop.
+
+`session/ios` is merged into master as `52c70bb`, eleven conflicts resolved by
+hand, all 25 `test:launch` suites green. One thing that merge caught which
+nobody had noticed: **the display font**. The serif was dropped deliberately on
+8/15 on `session/ios` and master never got it, so every deploy from master had
+been putting Instrument Serif back on the public site. Live now reads Bricolage
+Grotesque, checked in the shipped HTML.
+
+Two traps found running the suite here, both worth knowing before the next one:
+
+- **`RESEND_API_KEY` is set in the launchd user environment on this Mac**, not in
+  any rc file, so every process inherits it. With it set, the new address guard
+  correctly refuses the `@example.test` fixtures and `test:launch:chaser` fails
+  for a reason that has nothing to do with the code. Run the suite with it unset.
+  The wider exposure (any process on the machine can send as Josh) is surfaced
+  to him separately and deliberately not changed here, because unsetting it
+  would take the send-engine and the outreach workers down with it.
+- **`prisma migrate deploy` cannot build this schema from empty** (a migration
+  references `Photo` before it exists). A fresh sandbox needs `db push`, the
+  seed, and the `Person_super_admin_requires_operator` CHECK applied by hand, or
+  `test:launch:roles` fails on a missing rejection.
 
 Verified live afterwards, authenticated as an operator: seven-item rail; the
 `/studio/conversations`, `/studio/pipeline` and `/studio/venues` redirects each
