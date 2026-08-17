@@ -60,14 +60,21 @@ MSG
     exit 1
   fi
   echo "==> building for device $DEVICE_ID"
+  # -derivedDataPath pins where the product lands. Without it there are two
+  # Mutuals-* directories under DerivedData and a glob picks the older one by
+  # name, which on 2026-08-16 installed a build from the night before and
+  # looked exactly like a change that had not taken.
   xcodebuild -project Mutuals.xcodeproj -scheme Mutuals -configuration Debug \
-    -destination "id=$DEVICE_ID" -allowProvisioningUpdates build
+    -destination "id=$DEVICE_ID" -derivedDataPath build/device \
+    -allowProvisioningUpdates build
+  # Same -derivedDataPath, or this reports the default location and installs
+  # whatever is sitting there instead of what was just built.
   APP=$(xcodebuild -project Mutuals.xcodeproj -scheme Mutuals -configuration Debug \
-    -destination "id=$DEVICE_ID" -showBuildSettings 2>/dev/null \
+    -destination "id=$DEVICE_ID" -derivedDataPath build/device -showBuildSettings 2>/dev/null \
     | awk -F' = ' '/ BUILT_PRODUCTS_DIR /{d=$2} / FULL_PRODUCT_NAME /{n=$2} END{print d"/"n}')
-  echo "==> installing $APP"
+  echo "==> installing $APP  (built $(date -r "$APP/Mutuals" '+%H:%M:%S'))"
   xcrun devicectl device install app --device "$DEVICE_ID" "$APP"
-  xcrun devicectl device process launch --device "$DEVICE_ID" com.joshuawolf.mutuals
+  xcrun devicectl device process launch --device "$DEVICE_ID" --terminate-existing com.joshuawolf.mutuals
   exit 0
 fi
 
