@@ -92,6 +92,27 @@ already sitting in a member's inbox still resolve.
 The exact shipped template, rendered by `matchInviteEmail` and sent through
 `sendEmail`, landed in **Primary** on 2026-08-16. Live on Fly as v235.
 
+## Why the test suite cannot mail a real person
+
+A live `RESEND_API_KEY` was sitting in the `env` block of `~/.claude/settings.json`
+until 2026-08-16, which meant every Claude Code session and every command it
+spawned inherited it. `~/.env.sandbox` blanks it, so the documented procedure was
+always safe, but a suite run without sourcing it reached `sendEmail` with a live
+provider key. It has been removed from that file; a session started before the
+removal still carries it in its own process.
+
+The address guard is what stands between that and a real send. Audited
+2026-08-16: every fixture domain in `scripts/test-*.ts` that reaches a send path
+is `.test`, `example.com`, `example.invalid` or `tbd.com`, and all four are
+refused. The files carrying `gmail.com` fixtures (`test-address-guard`,
+`test-operator-roles`, `test-operator-portal`, `test-seeded-name`) never call
+`sendEmail`, `queueDelivery` or `drainDeliveryJobs`.
+
+So the suite as it stands cannot mail for real. That is a property of the
+fixtures, not a guarantee: **a new test with a routable fixture address would
+send**, from any session that still has the key. Use a refused domain in test
+fixtures, and source `.env.sandbox` before running anything that delivers.
+
 ## Checking it again
 
 ```bash
