@@ -2,7 +2,11 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-16 (production had silently lost the studio streamline and
+Last updated: 2026-08-17 (nudge withdrawal was scoped to an address instead of
+to the ask, so one friend answering for one applicant cancelled the queued
+nudges of every other applicant who had named them. Live as 54a5e62. Entry
+below.)
+Before that: 2026-08-16 (production had silently lost the studio streamline and
 the PWA to a deploy from a stale tree, and master is now production again:
 master == the deployed commit, `/healthz` reports which commit it is serving,
 and `npm run deploy` refuses to ship a tree that does not contain what is live
@@ -55,6 +59,53 @@ a suggested pair can be introduced; the database is healthy, the latency cost is
 sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
+
+## 2026-08-17: one friend's answer cancelled four other applicants' nudges
+
+Found from Joshua asking why 24 emails were queued on hellomutuals.com and never
+sent. **The 24 were not stuck.** Every one was a future-dated nudge riding the
+outbox as designed: 21 recommendation reminders at two, five and ten days, 3
+recommender follow-ups at 36 hours, the earliest due that same evening. The
+worker was healthy and on time (590 sent, a follow-up sent at 04:26Z that day at
+its due minute, 2 failed all year). The studio says "queued" and does not say
+"due", which is the whole reason a correct queue reads as a broken one.
+
+Looking anyway found a real defect underneath, and it was in the opposite
+direction: reminders that were cancelled without ever being sent.
+
+**Withdrawal keyed on kind plus recipient address.** That is correct for mail
+about the recipient themselves (an unused sign-in link, an unfinished
+application: one person, one address, one thing outstanding) and wrong for mail
+about somebody else. One address on production had been named by five different
+applicants. They vouched for one of them, and
+`cancelScheduledMail("recommendation_reminder", email)` withdrew the nudges for
+the other four: **12 jobs cancelled, unsent**, and four applicants left waiting
+on a friend nobody would chase again. Nothing errored, and the cancelled rows
+say "Cancelled because it was no longer needed."
+
+- **Nudges are withdrawn by their own job keys now.**
+  `recommendationReminderKeys(token)` derives them, and both the enqueue in
+  `actions.ts` and the cancel read that one function, so a nudge cannot be
+  queued under a key nothing knows how to cancel.
+- **Acceptance withdraws the rest.** `cancelRemindersForApplicant` runs when the
+  gate closes and on any operator decision, because approving early and
+  declining both settle the question the nudges were going to ask, and neither
+  one touches a recommendation row. Until now those routes left them queued: a
+  member accepted on 8/11 still had two chase emails scheduled for 8/19, to two
+  placeholder addresses (`@tbd.com`, `@tbd2.com`) that could never deliver.
+- **`scripts/test-reminder-withdrawal.ts`**, in `test:launch`, is the case that
+  was wrong: two applicants naming the same friend, one answers, the other's
+  three nudges survive. Checked in both directions, it fails on the old
+  recipient-scoped withdrawal.
+- **`scripts/repair-stale-reminders.ts`** cleared what was already in the outbox.
+  Run against production: 2 withdrawn, 22 legitimately scheduled left.
+- **`scripts/requeue-collateral-reminders.ts`** is the other half and is dry-run
+  by default. It stages 3 asks, one nudge each, a day apart rather than replaying
+  all three at once, because the address in question is being asked about several
+  different people. **Not run:** it mails a real person and that is Joshua's call.
+
+Live as 54a5e62, deployed from master through the guard, `deploy-check` 20 of 20
+against production, all 26 `test:launch` suites green.
 
 ## 2026-08-16 night: production lost work that was already live, twice, silently
 
