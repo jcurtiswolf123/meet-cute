@@ -2,7 +2,16 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-16 (studio streamline: four match views (Matchmaking,
+Last updated: 2026-08-16 (the iOS shell reaches production: `/api/mobile/session`,
+`/login`, `/logout` and `/demo` are deployed, and until they were the app on a
+phone showed only "hellomutuals.com is running a build without the app
+endpoints". Those four routes had lived on `session/ios`, unmerged, since 8/15.
+The native shell itself is back in `ios/` after a morning as a 200-line
+WKWebView wrapper, signed with the one team this Mac has (`YHTTPDR58N`, free, so
+7 days), and pointed at production rather than the Mac's dev server so it works
+off the cable. Deployed from `ios/restore-native-shell`, not master: master is
+still at 8/12 and a deploy from it would roll production back.)
+Before that: studio streamline: four match views (Matchmaking,
 Conversations, Matches, Pipeline) merged into one Matches page with three tabs
 (Live, Board, All); Events page split into Dinners/Venues tabs; sidebar from
 11 items down to 7; co-pilot moved to header; mobile header shows page name,
