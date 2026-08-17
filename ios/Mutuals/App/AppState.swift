@@ -62,7 +62,18 @@ final class AppState {
 
     init() {
         if let raw = UserDefaults.standard.string(forKey: Keys.backend), let b = Backend(rawValue: raw) {
-            backend = b
+            // Unless it cannot work from here. A phone left on Local dev with
+            // no address configured resolves to localhost:3009, which is the
+            // phone itself: every launch fails to reach a server that does not
+            // exist, and the only way out is a Settings screen behind a shell
+            // that state never draws. The stored choice is corrected rather
+            // than merely overridden, so it does not come back next launch.
+            if b.isUsableHere {
+                backend = b
+            } else {
+                backend = .production
+                UserDefaults.standard.set(Backend.production.rawValue, forKey: Keys.backend)
+            }
         } else if Backend.bakedLocalHost != nil {
             // A build that was told at compile time where the Mac is, is a
             // build made to talk to that Mac. Starting it on production would

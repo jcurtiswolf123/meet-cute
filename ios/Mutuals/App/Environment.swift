@@ -37,10 +37,7 @@ enum Backend: String, CaseIterable, Identifiable {
             // so it needs the Mac's address on the network. Set in Settings, or
             // MUTUALS_LOCAL_HOST in the scheme. A port may be included;
             // `npm run dev` listens on 3009 and a session worktree gets its own.
-            let raw = ProcessInfo.processInfo.environment["MUTUALS_LOCAL_HOST"]
-                ?? UserDefaults.standard.string(forKey: "localHost")
-                ?? Backend.bakedLocalHost
-                ?? "localhost"
+            let raw = Backend.configuredLocalHost ?? "localhost"
             let host = raw.contains(":") ? raw : "\(raw):3009"
             return URL(string: "http://\(host)") ?? URL(string: "http://localhost:3009")!
         }
@@ -56,6 +53,47 @@ enum Backend: String, CaseIterable, Identifiable {
             !raw.trimmingCharacters(in: .whitespaces).isEmpty
         else { return nil }
         return raw
+    }
+
+    /// Where Local dev actually points, or nil if nobody has said.
+    ///
+    /// The three sources in the order they win, with empty treated as unset:
+    /// the scheme's `MUTUALS_LOCAL_HOST`, the address typed into Settings, and
+    /// the one baked in at build time. Nil is the honest answer for a build
+    /// that was never told, and it is what lets the app refuse to sit on Local
+    /// dev on a device where `localhost` is the phone itself.
+    static var configuredLocalHost: String? {
+        for candidate in [
+            ProcessInfo.processInfo.environment["MUTUALS_LOCAL_HOST"],
+            UserDefaults.standard.string(forKey: "localHost"),
+            bakedLocalHost,
+        ] {
+            if let value = candidate?.trimmingCharacters(in: .whitespaces), !value.isEmpty {
+                return value
+            }
+        }
+        return nil
+    }
+
+    /// Whether this backend can be reached from the machine the app is on.
+    ///
+    /// Local dev with nothing configured resolves to `localhost:3009`, which on
+    /// the simulator is the Mac and on a phone is the phone. There is no server
+    /// there, there never will be, and a build stuck on it shows "cannot reach
+    /// localhost:3009" on every launch with the only way out buried in
+    /// Settings. Production is always reachable in the sense that matters here:
+    /// it is a real host on the internet.
+    var isUsableHere: Bool {
+        switch self {
+        case .production:
+            return true
+        case .local:
+            #if targetEnvironment(simulator)
+            return true
+            #else
+            return Backend.configuredLocalHost != nil
+            #endif
+        }
     }
 
     var host: String { origin.host ?? "" }
