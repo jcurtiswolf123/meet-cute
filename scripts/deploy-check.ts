@@ -68,7 +68,10 @@ function expectedFonts(): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .map((s) => s.toLowerCase())
+    // `Inter as Sans` is a legal import and the class token is built from the
+    // loader name, not the local alias, so the alias has to come off or the
+    // expected set contains "inter as sans" and can never match anything.
+    .map((s) => s.split(/\s+as\s+/)[0].trim().toLowerCase())
     .sort();
 }
 
