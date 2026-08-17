@@ -115,6 +115,29 @@ On a **free** Apple ID the app expires after seven days and has to be rebuilt.
 On a paid membership it lasts a year, and TestFlight is the way to hand it to
 anybody else.
 
+## The endpoints, and which of them exist in production
+
+The shell asks `/api/mobile/session` before it draws anything, so a deployment
+without these puts "hellomutuals.com is running a build without the app
+endpoints" on the phone. That is the app's own copy, from `AppState.swift`, not
+an iOS message, which is why searching Apple's documentation for it finds
+nothing.
+
+| route | production | why |
+|---|---|---|
+| `/api/mobile/session` | yes | who this cookie is, and whether they see the studio |
+| `/api/mobile/code` | yes | the six digits, burned in the app rather than in Safari |
+| `/api/mobile/login` | yes | the JSON half of `/login` |
+| `/api/mobile/logout` | yes | needs `X-Mutuals-Client` |
+| `/api/mobile/demo` | **404, by design** | `isLocalDemoLogin()` needs `NODE_ENV` to not be production |
+
+So the contract is four routes in a sandbox and four in production, but `demo`
+is a deliberate 404 rather than a missing deploy. Do not "fix" it, and do not
+let the shell treat its absence as a broken deployment: the one-tap buttons are
+already drawn only when the backend is Local dev. A credential-free login
+against the live roster is the thing that must not exist, because the only
+non-operator accounts there are real members.
+
 ## After the cable comes out
 
 A build made by `./run.sh --device` keeps working unplugged, but only because
