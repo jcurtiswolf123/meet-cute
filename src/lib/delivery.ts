@@ -4,6 +4,7 @@ import type { DeliveryJob, Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { connectionEmail, matchThreadEmail, sendEmail, unfinishedApplicationEmail } from "./email";
 import { dateIdeasFor } from "./date-ideas";
+import { REMINDER_SCHEDULE_MS } from "./recommendations";
 import { datePickToken, datePickUrl } from "./date-pick";
 import {
   PRELUDE_TEMPLATES,
@@ -146,6 +147,68 @@ export async function cancelScheduledMail(kind: string, recipient: string): Prom
     },
   });
   return cancelled.count;
+}
+
+/**
+ * Withdraw scheduled mail by the exact jobs it is, not by who it is addressed to.
+ *
+ * `cancelScheduledMail` keys on kind plus recipient, which is correct for mail
+ * that is about the recipient themselves (an unused sign-in link, an unfinished
+ * application: one person, one address, one thing outstanding). It is wrong for
+ * mail that is about somebody else. A friend named by five applicants has one
+ * address and five separate asks, so answering for one of them withdrew the
+ * nudges for the other four, unsent, and those four applicants were left waiting
+ * on a friend who was never chased again. Twelve production nudges went that way
+ * before this existed.
+ */
+export async function cancelScheduledMailByKeys(keys: string[]): Promise<number> {
+  if (keys.length === 0) return 0;
+  const cancelled = await prisma.deliveryJob.updateMany({
+    where: { idempotencyKey: { in: keys }, status: "pending" },
+    data: {
+      status: "cancelled",
+      lockedAt: null,
+      leaseToken: null,
+      lastError: "Cancelled because it was no longer needed.",
+    },
+  });
+  return cancelled.count;
+}
+
+/**
+ * The keys of the three nudges queued alongside one recommendation request.
+ *
+ * They are derived, not stored, so this is the only place that has to agree with
+ * the enqueue in `actions.ts`. A nudge added to `REMINDER_SCHEDULE_MS` is
+ * withdrawn by that agreement rather than by remembering to update a second list.
+ */
+export function recommendationReminderKeys(token: string): string[] {
+  return REMINDER_SCHEDULE_MS.map((_, index) =>
+    makeDeliveryKey("recommendation_reminder", token, `auto${index}`),
+  );
+}
+
+/** Withdraw the nudges for one friend's ask, and nobody else's. */
+export async function cancelRecommendationReminders(token: string): Promise<number> {
+  return cancelScheduledMailByKeys(recommendationReminderKeys(token));
+}
+
+/**
+ * Withdraw every outstanding nudge for an applicant, whoever it was going to.
+ *
+ * Answering withdraws one friend's nudges; being accepted withdraws the lot,
+ * because the question they were asking has been settled by then. Acceptance can
+ * arrive by a route that never touches a recommendation at all (an operator
+ * approving early, a nomination that carried words), and until this existed
+ * those routes left the nudges queued: a member accepted on 2026-08-11 still had
+ * two chase emails scheduled for friends of hers a week later.
+ */
+export async function cancelRemindersForApplicant(applicantId: string): Promise<number> {
+  const requests = await prisma.recommendation.findMany({
+    where: { applicantId },
+    select: { token: true },
+  });
+  return cancelScheduledMailByKeys(requests.flatMap((request) => recommendationReminderKeys(request.token)));
 }
 
 export async function queueSmsDelivery(args: {

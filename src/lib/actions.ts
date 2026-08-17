@@ -87,8 +87,11 @@ import {
 } from "./events";
 import { allowMemberDemoLogin, allowOperatorDemoLogin } from "./demo-login";
 import {
+  cancelRecommendationReminders,
+  cancelRemindersForApplicant,
   cancelScheduledMail,
   makeDeliveryKey,
+  recommendationReminderKeys,
   queueConversationDelivery,
   queueEmailDelivery,
   queueSmsDelivery,
@@ -901,7 +904,9 @@ async function queueRecommendationRequests(
             html: nudge.html,
             text: nudge.text,
             replyTo: recommendationReplyTo(request.token),
-            idempotencyKey: makeDeliveryKey("recommendation_reminder", request.token, `auto${index}`),
+            // The same derivation the withdrawal uses, so a nudge can never be
+            // queued under a key nothing knows how to cancel.
+            idempotencyKey: recommendationReminderKeys(request.token)[index],
             availableAt: new Date(Date.now() + delay),
           });
         }
@@ -1045,7 +1050,7 @@ export async function declineRecommendation(formData: FormData): Promise<void> {
   if (!token) return;
   const answer = await recordAnswer(token, { decline: true });
   if (!answer.ok) redirect(`/r/${token}?done=1`);
-  await cancelScheduledMail("recommendation_reminder", answer.request.email);
+  await cancelRecommendationReminders(token);
   redirect(`/r/${token}?declined=1`);
 }
 
@@ -1059,10 +1064,15 @@ export async function afterRecommendationAnswer(
 ): Promise<void> {
   const { request, applicant, alreadyAnswered } = answer;
 
-  // Every queued nudge for this friend, withdrawn in one call.
-  await cancelScheduledMail("recommendation_reminder", request.email);
+  // Every queued nudge for THIS ask, withdrawn in one call. Scoped to the token
+  // rather than the address: one friend can be named by several applicants, and
+  // answering for one of them is not an answer for the others.
+  await cancelRecommendationReminders(token);
 
   const outcome = await acceptIfRecommended(request.applicantId);
+  // Accepted settles the question every remaining nudge was going to ask, so the
+  // rest of this applicant's friends stop being chased on their behalf.
+  if (outcome.justAccepted) await cancelRemindersForApplicant(request.applicantId);
   // Also for someone who is already a member. acceptIfRecommended only copies
   // the quote on the way in, so a recommendation written after an operator
   // approved the applicant never reached the profile or the introduction.
@@ -1282,6 +1292,13 @@ export async function setMemberStatus(formData: FormData) {
     action as "approve" | "decline",
     reason || null,
   );
+
+  // An operator decision is an acceptance or a refusal, and either one settles
+  // the question every remaining nudge was going to ask. Without this, approving
+  // early left three chase emails per outstanding friend scheduled against
+  // somebody who was already a member, and declining kept chasing friends of an
+  // applicant who is no longer one.
+  await cancelRemindersForApplicant(id);
 
   // Welcome the new member: "you're in, you'll start getting matches." Queued
   // through the outbox so a provider hiccup retries instead of stranding the
