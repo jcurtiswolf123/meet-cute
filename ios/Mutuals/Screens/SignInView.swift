@@ -16,16 +16,33 @@ import UIKit
 struct SignInView: View {
     @Environment(AppState.self) private var app
 
-    @State private var email = ""
+    @State private var email = SignInView.rememberedEmail
+    @State private var code = ""
     @State private var stage: Stage = .asking
     @State private var problem: String?
     @FocusState private var emailFocused: Bool
+    @FocusState private var codeFocused: Bool
 
     enum Stage: Equatable {
         case asking
         case sending
         case sent
         case opening
+    }
+
+    /// The address this phone signed in with last, so the field is filled on
+    /// launch instead of asking somebody to type their own address into their
+    /// own phone every time a seven-day build is replaced.
+    ///
+    /// Falls back to the operator account on this Mac's builds. That is a
+    /// convenience, not a credential: it fills a text field and nothing else,
+    /// and the six digits still have to come out of that mailbox.
+    private static let rememberedEmailKey = "mutuals.lastEmail"
+    private static let defaultEmail = "josh@shiftsupportnetwork.com"
+
+    static var rememberedEmail: String {
+        let saved = UserDefaults.standard.string(forKey: rememberedEmailKey) ?? ""
+        return saved.isEmpty ? defaultEmail : saved
     }
 
     var body: some View {
@@ -269,13 +286,16 @@ struct SignInView: View {
 
         // Verbatim for the same reason as the placeholder: Markdown would
         // autolink the address and paint it in the tint.
-        Text(verbatim: "A sign-in link is on its way to \(email). It expires in 15 minutes and works once.")
+        Text(verbatim: "We sent \(email) a six-digit code. Type it below. It expires in 15 minutes and works once.")
             .font(Theme.body(15))
             .foregroundStyle(Theme.muted)
             .padding(.top, Theme.Space.sm)
 
+        codeEntry
+            .padding(.top, Theme.Space.lg)
+
         VStack(alignment: .leading, spacing: Theme.Space.sm) {
-            Text("If tapping the link opens Safari instead of Mutuals, copy it and come back here.")
+            Text("Or, if you would rather use the link: tapping it opens Safari, so copy it and come back here.")
                 .font(Theme.body(13))
                 .foregroundStyle(Theme.muted)
             pasteButton
@@ -285,7 +305,7 @@ struct SignInView: View {
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.card).stroke(Theme.line, lineWidth: 1)
         )
-        .padding(.top, Theme.Space.lg)
+        .padding(.top, Theme.Space.md)
 
         Button {
             stage = .asking
@@ -297,6 +317,56 @@ struct SignInView: View {
                 .underline()
         }
         .padding(.top, Theme.Space.md)
+    }
+
+    /// The six digits, typed here rather than followed in Mail.
+    ///
+    /// This is the way in on a phone. A link tapped in Mail opens Safari, which
+    /// signs Safari in and leaves the app exactly as signed out as it was, with
+    /// no way out of the loop. The code is typed into the screen that asked for
+    /// it, so the session lands in the app's own cookie jar.
+    @ViewBuilder
+    private var codeEntry: some View {
+        ZStack(alignment: .leading) {
+            if code.isEmpty {
+                Text(verbatim: "000000")
+                    .font(Theme.body(22, weight: .medium))
+                    .tracking(8)
+                    .foregroundStyle(Theme.muted)
+                    .allowsHitTesting(false)
+            }
+
+            TextField("", text: $code)
+                .font(Theme.body(22, weight: .medium))
+                .tracking(8)
+                .foregroundStyle(Theme.ink)
+                .tint(Theme.oxblood)
+                .keyboardType(.numberPad)
+                .textContentType(.oneTimeCode)
+                .focused($codeFocused)
+                // Digits only, six of them. Pasting "Your code is 481920" from
+                // the email should work rather than be rejected for the words.
+                .onChange(of: code) { _, next in
+                    let digits = String(next.filter(\.isNumber).prefix(6))
+                    if digits != next { code = digits }
+                    if digits.count == 6 { Task { await submitCode() } }
+                }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 13)
+        .background(Theme.panel, in: RoundedRectangle(cornerRadius: Theme.Radius.field))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.field)
+                .stroke(codeFocused ? Theme.oxblood : Theme.line, lineWidth: codeFocused ? 2 : 1)
+        )
+        .onAppear { codeFocused = true }
+
+        if let problem {
+            Text(problem)
+                .font(Theme.body(14))
+                .foregroundStyle(Theme.oxblood)
+                .padding(.top, Theme.Space.sm)
+        }
     }
 
     private var pasteButton: some View {
@@ -354,6 +424,50 @@ struct SignInView: View {
             problem = "Could not reach Mutuals. Check your connection."
             Haptics.play("error")
         }
+    }
+
+    /// Burn the six digits and keep the session.
+    ///
+    /// Loaded in a web view rather than a URLSession for the same reason the
+    /// link is: the response carries a Set-Cookie, and the cookie has to land
+    /// in the jar every tab and the session probe read.
+    private func submitCode() async {
+        let digits = code.filter(\.isNumber)
+        guard digits.count == 6, stage != .opening else { return }
+        codeFocused = false
+        problem = nil
+        stage = .opening
+
+        let address = email.trimmingCharacters(in: .whitespaces)
+        let path = "/api/mobile/code?email=\(escape(address))&code=\(digits)"
+        app.web.consumeSignInLink(.on(app.backend, path)) {
+            Task {
+                await app.refresh()
+                if app.session.signedIn {
+                    remember(address)
+                    Haptics.play("success")
+                } else {
+                    stage = .sent
+                    code = ""
+                    problem = "That code is wrong, expired, or already used. Send a new one."
+                    Haptics.play("error")
+                }
+            }
+        }
+    }
+
+    /// Percent-encoding for a query value. `.urlQueryAllowed` leaves `&` and
+    /// `+` alone, and an address containing either would truncate the query or
+    /// arrive with a space where the plus was.
+    private func escape(_ value: String) -> String {
+        var allowed = CharacterSet.urlQueryAllowed
+        allowed.remove(charactersIn: "&+=?#")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+    }
+
+    private func remember(_ address: String) {
+        guard !address.isEmpty else { return }
+        UserDefaults.standard.set(address, forKey: Self.rememberedEmailKey)
     }
 
     /// Take the sign-in link off the clipboard, when it is one.
