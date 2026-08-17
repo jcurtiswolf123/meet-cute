@@ -34,13 +34,36 @@ itself the bulk signal.
 Markup is not the cause. Neither is the button, the footer, the From display
 name, or the images (the tested samples carried none).
 
-## What actually moves it
+Two more samples separated the subject line from the body:
 
-A sender in the recipient's contacts overrides the classifier. The welcome
-email lands in Primary and is the last thing a member reads before introductions
-start, so it now asks them to add `hello@hellomutuals.com` to their contacts.
-Replies help too, and the invite already asks for one: a member who answers Y or
-N trains Gmail that this sender is correspondence.
+| Variant | Result |
+| --- | --- |
+| Subject `An introduction to Fennimore`, two-line body, no link | **Primary** |
+| Subject `Thursday`, full invite body | Promotions |
+
+It is the body. A name, an age, a neighbourhood, an About, a Looking for, a
+Deal-breakers and a vouch quote reads to the classifier as a listing.
+
+## The fix
+
+Walking the body back, still one sample at a time:
+
+| Variant | Result |
+| --- | --- |
+| Greeting, one sentence, profile link, reply Y/N | **Primary** |
+| Above plus one descriptive line and one vouch line | **Primary** |
+
+So the invite is a short letter now and the profile moved to `/i/<token>`, which
+already showed every photo, the bio, looking for, deal-breakers and the prompts
+next to the Yes and Pass buttons. What travels in the email is who they are in a
+line, the vouch, and a link. Reply Y or N still answers without opening
+anything. `scripts/test-lifecycle-emails.ts` fails if the shell, a table layout,
+an image or a pill button comes back.
+
+Belt and braces: a sender in the recipient's contacts overrides the classifier
+outright, so the welcome email, which lands in Primary, asks members to add
+`hello@hellomutuals.com` to their contacts. Replies help too, and every invite
+asks for one.
 
 ## DNS, as of 2026-08-16
 
@@ -62,6 +85,11 @@ sender as Reply-To. Verified end to end on 2026-08-16.
 Invite replies now use `r+<token>@hellomutuals.com`;
 `inbound.shiftsupportnetwork.com` stays in `RESEND_INBOUND_DOMAIN` so invites
 already sitting in a member's inbox still resolve.
+
+## Verified after the change
+
+The exact shipped template, rendered by `matchInviteEmail` and sent through
+`sendEmail`, landed in **Primary** on 2026-08-16. Live on Fly as v235.
 
 ## Checking it again
 
