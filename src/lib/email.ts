@@ -61,6 +61,94 @@ export type EmailSendResult =
   | { ok: true; providerMessageId?: string }
   | { ok: false; retryable: boolean; error: string };
 
+// --- Address guard -----------------------------------------------------------
+//
+// A young sending domain is judged partly on how often it mails an address that
+// does not exist. In the first sixteen days this one sent to `tbd@tbd.com` three
+// times, `tbd@tbd2.com` three times, `gmail.con`, `gmail.cl`, and a
+// `roles-e2e.test` address left over from a test run. Every one of those was a
+// hard bounce, and the retries made each one count more than once.
+//
+// None of them needed a network call to spot. This refuses them before the send,
+// as a permanent failure, so the outbox shows an operator the bad address rather
+// than burning reputation on it.
+
+/** TLDs reserved by RFC 2606 and RFC 6761, plus the ones test fixtures reach for. */
+const UNROUTABLE_TLDS = new Set(["test", "invalid", "localhost", "local", "example"]);
+
+/** Second-level labels that are a person typing "I do not have this yet". */
+const PLACEHOLDER_LABELS = new Set(["tbd", "example", "none", "na", "noemail", "nomail", "unknown"]);
+
+const COMMON_MAIL_DOMAINS = [
+  "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "aol.com", "proton.me",
+];
+
+/** The big mailbox providers, by their one real registrable domain. A domain
+ *  whose only label is one of these but whose TLD is something else is a slip of
+ *  the hand: gmail.cl, gmail.co, yahoo.con. Only checked on a two-label domain,
+ *  so a genuine aol.co.uk is left alone. */
+const PROVIDER_TLD: Record<string, string> = {
+  gmail: "com", yahoo: "com", hotmail: "com", outlook: "com", icloud: "com", aol: "com",
+};
+
+/** One insert, delete, substitution, or swap of neighbours apart. The swap is
+ *  what catches gmial.com, which is two plain edits away but one slip. */
+function withinOneEdit(a: string, b: string): boolean {
+  if (a.length === b.length) {
+    const diffs: number[] = [];
+    for (let k = 0; k < a.length; k += 1) if (a[k] !== b[k]) diffs.push(k);
+    if (diffs.length === 2 && diffs[1] === diffs[0] + 1) {
+      const swapped = a.slice(0, diffs[0]) + a[diffs[1]] + a[diffs[0]] + a.slice(diffs[1] + 1);
+      if (swapped === b) return true;
+    }
+  }
+  return withinOnePlainEdit(a, b);
+}
+
+function withinOnePlainEdit(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i += 1;
+      j += 1;
+      continue;
+    }
+    edits += 1;
+    if (edits > 1) return false;
+    if (a.length > b.length) i += 1;
+    else if (a.length < b.length) j += 1;
+    else {
+      i += 1;
+      j += 1;
+    }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
+/** Why this address must never be sent to, or null when it looks deliverable.
+ *  Deliberately conservative: it only rejects what is provably not an address. */
+export function undeliverableReason(address: string): string | null {
+  const addr = bareAddress(address).toLowerCase();
+  if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(addr)) return "not an email address";
+  const domain = addr.split("@")[1];
+  const labels = domain.split(".");
+  const tld = labels[labels.length - 1];
+  if (UNROUTABLE_TLDS.has(tld)) return `reserved TLD .${tld}`;
+  // `tbd.com` and `tbd2.com` are the same placeholder with a digit on the end.
+  const second = labels[labels.length - 2]?.replace(/\d+$/, "") ?? "";
+  if (PLACEHOLDER_LABELS.has(second)) return `placeholder domain ${domain}`;
+  if (labels.length === 2 && PROVIDER_TLD[second] && PROVIDER_TLD[second] !== tld) {
+    return `${domain} looks like a typo for ${second}.${PROVIDER_TLD[second]}`;
+  }
+  for (const known of COMMON_MAIL_DOMAINS) {
+    if (domain !== known && withinOneEdit(domain, known)) return `${domain} looks like a typo for ${known}`;
+  }
+  return null;
+}
+
 export async function sendEmail({
   to,
   subject,
@@ -76,6 +164,16 @@ export async function sendEmail({
   const isProd = process.env.NODE_ENV === "production";
   const toList = Array.isArray(to) ? to : [to];
   const toLabel = toList.join(", ");
+  // One bad address on a joint email (the connection email carries both people)
+  // fails the whole send rather than half-delivering it: the operator needs to
+  // see that the pair cannot be mailed, not wonder why one side never replied.
+  for (const addr of toList) {
+    const reason = undeliverableReason(addr);
+    if (reason) {
+      console.error(`[email] refusing to send to ${addr}: ${reason}`);
+      return { ok: false, retryable: false, error: `undeliverable address (${reason})` };
+    }
+  }
   // Dev convenience: surface just the sign-in link to the server console so the
   // flow stays testable locally even when mail does not actually go out (no key,
   // or a send failure such as an unverified sender domain). Never in production.
