@@ -2,7 +2,12 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-16 (the iOS shell reaches production: `/api/mobile/session`,
+Last updated: 2026-08-16 (production had silently lost the studio streamline and
+the PWA to a deploy from a stale tree, and master is now production again:
+master == the deployed commit, `/healthz` reports which commit it is serving,
+and `npm run deploy` refuses to ship a tree that does not contain what is live
+or a tree with uncommitted changes. Details in the incident entry below.)
+Before that: the iOS shell reaches production: `/api/mobile/session`,
 `/login`, `/logout` and `/demo` are deployed, and until they were the app on a
 phone showed only "hellomutuals.com is running a build without the app
 endpoints". Those four routes had lived on `session/ios`, unmerged, since 8/15.
@@ -50,6 +55,53 @@ a suggested pair can be introduced; the database is healthy, the latency cost is
 sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
+
+## 2026-08-16 night: production lost work that was already live, twice, silently
+
+Found by Joshua looking at hellomutuals.com/studio and saying it was not
+streamlined. It was not. The rail had its old eleven items, `/studio/venues`
+still drew its own page, and `/manifest.webmanifest` and `/sw.js` were 404,
+about four hours after all three shipped as v225.
+
+What happened, in order. v225 deployed the streamline and the PWA from
+`studio/streamline-and-pwa`. v226 and v227 put the iOS work out from
+`ios/restore-native-shell`. Then v228 and v229 landed from a tree cut before
+the streamline, and v231 and v232 landed from a tree that had the four
+`/api/mobile` routes grafted onto a pre-streamline master, which is why
+production could answer `/api/mobile/session` with a 200 and `/manifest.webmanifest`
+with a 404 at the same time, a combination no commit on any branch produces.
+Nothing failed. No test broke. The deploys reported success because they were
+successful: they shipped exactly what they were given.
+
+Three sessions were deploying this app tonight from three checkouts, and one of
+them is still unidentified. That is the condition this repo actually runs in,
+so the fix is not "be careful".
+
+- **master is production again.** It was 34 commits behind at one point tonight,
+  which is what made "deploy from the branch" normal and made every deploy a
+  question of which branch. master now equals the deployed commit and every
+  deploy goes from there.
+- **`/healthz` reports its commit.** `npm run deploy` already passed the SHA as
+  `NEXT_DEPLOYMENT_ID`; it just was not readable from outside. Now
+  `curl -s https://hellomutuals.com/healthz` answers what is running, which is
+  the question nobody could answer for the first hour of this.
+- **`scripts/deploy-guard.ts` runs as `predeploy` and refuses two things:** a
+  HEAD that does not contain the live commit, and a dirty working tree (which
+  would ship code that is in no commit while stamping `/healthz` with HEAD).
+  `DEPLOY_ALLOW_ROLLBACK=1` and `DEPLOY_ALLOW_DIRTY=1` are the deliberate ways
+  past. Its first live run printed `forward-only. 3 commit(s) ahead of live
+  08938b4`.
+
+**The guard only sees `npm run deploy`.** A bare `flyctl deploy` walks straight
+past it, and that is now the reason not to use one.
+
+Verified live afterwards, authenticated as an operator: seven-item rail; the
+`/studio/conversations`, `/studio/pipeline` and `/studio/venues` redirects each
+land on their new tab in a real browser (they answer 200 to an unauthenticated
+curl because that is the login wall, not a missing redirect); manifest, service
+worker and offline page serve; `/api/mobile/code` answers; every studio and
+public page renders with no console errors and no horizontal overflow at 390px.
+`/api/mobile/demo` is 404 in production on purpose, gated by `isLocalDemoLogin`.
 
 ## 2026-08-16: the installed app could not be signed into at all
 

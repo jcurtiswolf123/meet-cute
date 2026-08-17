@@ -34,6 +34,26 @@ that talks to a database needs `set -a; . ./.env.sandbox; set +a` first. Use
 out loud when you do. `npm run dev:live` (:3019) is the deliberate way to point
 a dev server at real data.
 
+## How to deploy
+
+```bash
+export FLY_API_TOKEN=$(sed -n 's/^access_token: //p' ~/.fly/config.yml)
+npm run deploy                      # never a bare `flyctl deploy`
+curl -s https://hellomutuals.com/healthz   # {"ok":true,...,"commit":"<sha>"}
+```
+
+`flyctl` on this Mac does not pick `~/.fly/config.yml` up from a scripted shell,
+and the tokens in `~/.gstack/credentials/` are the wrong org.
+
+**Deploy from master, and only forward.** Three sessions deployed this app from
+three checkouts on 2026-08-16 and production twice lost work that was already
+live, because `flyctl deploy` ships whatever tree it is pointed at. `predeploy`
+now runs `scripts/deploy-guard.ts`, which reads the live commit off `/healthz`
+and refuses a HEAD that does not contain it, and refuses a dirty tree.
+`DEPLOY_ALLOW_ROLLBACK=1` and `DEPLOY_ALLOW_DIRTY=1` are the deliberate ways
+past. A bare `flyctl deploy` skips the guard entirely, which is the reason not
+to use one.
+
 ## Working alongside other sessions
 
 **If another Claude session might be working in this repo, start your own
