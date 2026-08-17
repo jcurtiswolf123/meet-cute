@@ -63,7 +63,8 @@
     "test:launch:chaser": "node --env-file-if-exists=.env --import tsx scripts/test-chaser-freshness.ts",
     "photos:backfill": "node --env-file-if-exists=.env --import tsx scripts/backfill-photo-objects.ts",
     "test:launch:pairs": "node --env-file-if-exists=.env --import tsx scripts/test-pair-states.ts",
-    "test:launch:signincode": "node --env-file-if-exists=.env --import tsx scripts/test-signin-code.ts"
+    "test:launch:signincode": "node --env-file-if-exists=.env --import tsx scripts/test-signin-code.ts",
+    "predeploy": "node --import tsx scripts/deploy-guard.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
