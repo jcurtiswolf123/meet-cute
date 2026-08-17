@@ -11,9 +11,10 @@ the domain was created on 2026-08-01: 914 delivered, 7 bounced (0.75%), 7
 suppressed, zero complaints. Gmail stamps every message `spf=pass dkim=pass
 dmarc=pass`, with `dkim.d=hellomutuals.com`, so DMARC aligns on both axes.
 
-One template does not reach the Primary tab: **the match invite**. It files under
-Promotions on every shape tested. Everything else (sign-in link, vouch request,
-vouch thanks, application received, welcome) lands in Primary.
+One template used to miss the Primary tab: **the match invite**, which filed
+under Promotions on every shape tested until the body was cut. It reaches
+Primary as shipped. Everything else (sign-in link, vouch request, vouch thanks,
+application received, welcome) has always landed in Primary.
 
 ## What was tried on the match invite
 
