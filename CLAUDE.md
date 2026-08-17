@@ -54,6 +54,20 @@ and refuses a HEAD that does not contain it, and refuses a dirty tree.
 past. A bare `flyctl deploy` skips the guard entirely, which is the reason not
 to use one.
 
+`postdeploy` then runs `scripts/deploy-check.ts`, which asserts what production
+is actually serving: the commit, the font families (derived from the
+`next/font/google` import in `src/app/layout.tsx`, so a change in the tree that
+does not reach production fails on its own), the manifest and service worker,
+the four `/api/mobile` routes including that `demo` is still gated to a 404, the
+public pages, and that a signed-out `/studio` carries no roster. Run it alone
+with `npm run deploy:check`, or against another origin with `BASE=`.
+
+That check exists because a regression can ride in on a legitimate forward
+deploy: the display font reverted to a serif for a day, and three sessions read
+the shipped HTML without seeing it, because each grepped for what it already
+suspected. **If you change one of those behaviours deliberately, change what
+the check asserts in the same commit.**
+
 ## Working alongside other sessions
 
 **If another Claude session might be working in this repo, start your own

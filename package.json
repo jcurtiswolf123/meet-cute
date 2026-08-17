@@ -65,7 +65,9 @@
     "test:launch:pairs": "node --env-file-if-exists=.env --import tsx scripts/test-pair-states.ts",
     "test:launch:signincode": "node --env-file-if-exists=.env --import tsx scripts/test-signin-code.ts",
     "test:launch:addresses": "node --import tsx scripts/test-address-guard.ts",
-    "predeploy": "node --import tsx scripts/deploy-guard.ts"
+    "predeploy": "node --import tsx scripts/deploy-guard.ts",
+    "deploy:check": "node --import tsx scripts/deploy-check.ts",
+    "postdeploy": "npm run deploy:check"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

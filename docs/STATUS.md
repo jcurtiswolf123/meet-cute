@@ -112,6 +112,20 @@ nobody had noticed: **the display font**. The serif was dropped deliberately on
 been putting Instrument Serif back on the public site. Live now reads Bricolage
 Grotesque, checked in the shipped HTML.
 
+**The gap the font found is closed too.** Neither the commit stamp nor the guard
+would have caught it: the deploy that reverted the serif was a legitimate
+forward deploy of the right commit. `postdeploy` now runs
+`scripts/deploy-check.ts`, which compares a whole small surface against what the
+repo says, rather than confirming whatever the person deploying already
+suspected. Twenty assertions: the running commit, the font families derived from
+the `next/font/google` import so a tree-only change fails by itself, the
+manifest contents, the service worker and offline page (by body, because a
+missing file here has answered 200 with the 404 page before), the four
+`/api/mobile` routes including that `demo` is still gated to a 404, nine public
+pages, and that a signed-out `/studio` carries no roster. Verified in both
+directions: green against production, and it fails with the right message when
+the expected commit is wrong and when the font is changed in the tree only.
+
 Two traps found running the suite here, both worth knowing before the next one:
 
 - **`RESEND_API_KEY` is set in the launchd user environment on this Mac**, not in
