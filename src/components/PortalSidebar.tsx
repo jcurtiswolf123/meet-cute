@@ -195,12 +195,16 @@ export function PortalSidebar({
         {rail}
       </aside>
 
-      {/* The mobile bar. It used to read "Mutuals" and nothing else: the page
-          name lives in the desktop header, which is `hidden md:flex`, so a phone
-          had no idea which of seven pages it was on. The safe-area top padding
-          keeps the bar clear of the notch once the app is installed to the home
-          screen and runs without Safari's chrome. */}
+      {/* The phone's own top bar. It used to read "Mutuals" and nothing else:
+          the page name lives in the desktop header, which is `hidden md:flex`,
+          so a phone had no idea which of seven pages it was on. The safe-area
+          top padding keeps it clear of the notch once the app is installed to
+          the home screen and runs without Safari's chrome. Hidden inside the
+          iOS shell, which draws a native navigation bar and a native tab bar
+          over the same routes: see the [data-native="ios"] block in
+          globals.css. */}
       <div
+        data-portal-mobilebar
         className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-line bg-studio-subtle px-4 py-2.5 md:hidden"
         style={{ paddingTop: "max(0.625rem, env(safe-area-inset-top))" }}
       >

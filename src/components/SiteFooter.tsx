@@ -3,7 +3,7 @@ import { Logo } from "@/components/ui";
 
 export function SiteFooter() {
   return (
-    <footer className="bg-ink text-cream">
+    <footer data-site-footer className="bg-ink text-cream">
       <div className="container-mc grid gap-16 py-16 md:grid-cols-12 md:py-section-md">
         <div className="md:col-span-5">
           <Logo light />

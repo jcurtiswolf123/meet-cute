@@ -142,17 +142,48 @@ function main() {
     profileUrl: "https://hellomutuals.com/i/tok",
   });
   assertWellFormed("matchInvite", invite);
-  assertOnBrand("matchInvite", invite);
+  // The invite is the one template that deliberately does NOT ride the shell.
+  // Carrying the whole profile put it in Gmail's Promotions tab in every shape
+  // tested, so it is a short letter now and the profile lives on the linked
+  // page. See docs/DELIVERABILITY.md before adding chrome back to it.
+  assert.ok(invite.html.includes(BRAND_INK), "matchInvite: missing brand ink");
+  assert.ok(!invite.html.includes(BRAND_CREAM), "matchInvite: shell canvas is back, it belongs on a page");
+  assert.ok(!/<table/i.test(invite.html), "matchInvite: table layout is back");
+  assert.ok(!/<img/i.test(invite.html), "matchInvite: photos are back, they belong on the profile page");
+  assert.ok(!/border-radius:999px/.test(invite.html), "matchInvite: pill button is back");
+  for (const hex of RETIRED) {
+    assert.ok(!invite.html.includes(hex), `matchInvite: still uses retired palette ${hex}`);
+  }
   assert.match(invite.subject, /introduction to Alex/i);
   assert.match(invite.text, /reply Y/i);
   assert.match(invite.html, /hellomutuals\.com\/i\/tok/);
-  // The profile travels in the email itself, in the member's own words.
-  for (const own of ["I draw buildings all day", "Someone who argues about food", "A perfect Sunday", "most curious person I know"]) {
+  // What still travels in the email: who they are in a line, and the vouch.
+  for (const own of ["Alex, 34, in Cobble Hill", "Architect who cooks", "most curious person I know"]) {
     assert.ok(invite.html.includes(own.replace(/'/g, "&#39;")), `matchInvite html is missing "${own}"`);
     assert.ok(invite.text.includes(own), `matchInvite text is missing "${own}"`);
   }
-  assert.match(invite.html, /api\/invite\/tok\/photo\/p1\.webp/);
+  // What no longer does, because it is what made the email read as a listing.
+  for (const moved of ["I draw buildings all day", "Someone who argues about food", "A perfect Sunday", "Smoking"]) {
+    assert.ok(!invite.text.includes(moved), `matchInvite still carries "${moved}"; it belongs on the page`);
+  }
   assert.match(invite.text, /You both moved from Chicago last year/);
+  // A long vouch is cut rather than dropped.
+  const longVouch = matchInviteEmail({
+    toName: "Maya",
+    other: { name: "Alex Chen", recommendation: "x".repeat(400), voucherName: "Priya" },
+    profileUrl: "https://hellomutuals.com/i/tok",
+  });
+  assert.ok(longVouch.text.includes("..."), "matchInvite: a long vouch should be cut, not dropped");
+  assert.ok(longVouch.text.length < 700, "matchInvite: a long vouch should not blow the length back up");
+  // A profile with nothing filled in still reads as a sentence, not a stub.
+  const sparse = matchInviteEmail({
+    toName: "Maya",
+    other: { name: "Sam" },
+    profileUrl: "https://hellomutuals.com/i/tok2",
+  });
+  assertWellFormed("matchInvite(sparse)", sparse);
+  assert.ok(!/\n\n\n/.test(sparse.text), "matchInvite(sparse): gap where a dropped line used to be");
+  assert.ok(!/^Sam\.$/m.test(sparse.text), "matchInvite(sparse): bare name line under the introduction");
 
   const connection = connectionEmail({
     toName: "Maya Rosen",

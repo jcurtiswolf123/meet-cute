@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ServiceWorker } from "@/components/ServiceWorker";
 
-const display = Instrument_Serif({
+// Display was Instrument Serif until 2026-08-15. At headline sizes it read as
+// a wedding invitation rather than as a product, which is the opposite of what
+// a curated service is selling, and the iOS app inherited it in every web view.
+// Bricolage Grotesque is set tight and heavy instead: it carries the same
+// editorial weight without the script feel, and it is the face bundled in the
+// app so native chrome and web content speak once. See DESIGN.md.
+const display = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: "400",
+  weight: ["500", "600", "700"],
   variable: "--font-display",
   display: "optional",
 });
@@ -80,9 +86,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // data-scroll-behavior opts the smooth scrolling in globals.css out of Next's
     // route transitions. Without it every navigation animated its scroll reset,
     // and Next warns about exactly this in the console.
+    // suppressHydrationWarning covers one attribute and is not a licence to
+    // ignore real mismatches: the iOS app injects data-native="ios" here at
+    // document start so the CSS that hides the web sidebar applies on the
+    // first paint, which React then reads as a server/client difference and
+    // logged on every page load in the app.
     <html
       lang="en"
       data-scroll-behavior="smooth"
+      suppressHydrationWarning
       className={`${display.variable} ${sans.variable} ${mono.variable}`}
     >
       <head>

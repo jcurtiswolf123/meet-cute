@@ -147,10 +147,15 @@ async function main() {
     );
     for (const capture of inviteDeliveries) {
       assert.match(String(capture.payload.replyTo), /^Mutuals <r\+[A-Za-z0-9_-]+@/);
-      assert.match(String(capture.payload.html), /Yes, introduce us/i);
+      // Two ways to answer, neither of them a styled call-to-action button: the
+      // link to the profile page, and a plain Y/N reply. The button and the
+      // full profile came out on 2026-08-16 because they put this email in
+      // Gmail's Promotions tab. See docs/DELIVERABILITY.md.
+      assert.match(String(capture.payload.html), /Reply Y/i);
+      assert.match(String(capture.payload.html), /\/i\/[A-Za-z0-9_-]+/);
     }
-    // Each side's email carries the OTHER person's own profile words inline, so
-    // the decision can be made without opening the link.
+    // Each side's email names the OTHER person and carries their headline. The
+    // bio and looking-for now live on the linked page.
     for (const [me, other] of [
       [yesA, yesB],
       [yesB, yesA],
@@ -160,12 +165,14 @@ async function main() {
       )!;
       const html = String(capture.payload.html);
       const text = String(capture.payload.text);
-      for (const own of [other.headline!, other.bio!, other.lookingFor!]) {
-        assert.ok(html.includes(own), `invite to ${me.name} is missing "${own}"`);
-        assert.ok(text.includes(own), `invite text to ${me.name} is missing "${own}"`);
+      assert.ok(html.includes(other.headline!), `invite to ${me.name} is missing "${other.headline}"`);
+      assert.ok(text.includes(other.headline!), `invite text to ${me.name} is missing "${other.headline}"`);
+      for (const onThePage of [other.bio!, other.lookingFor!]) {
+        assert.ok(!text.includes(onThePage), `invite to ${me.name} still carries "${onThePage}"`);
       }
       // and never the recipient's own profile back at them
       assert.ok(!html.includes(me.bio!), `invite to ${me.name} echoed their own bio`);
+      assert.ok(!html.includes(me.headline!), `invite to ${me.name} echoed their own headline`);
     }
 
     const yesAToken = yesInvites.find((invite) => invite.personId === yesA.id)!.token;

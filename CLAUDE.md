@@ -152,6 +152,8 @@ If you are the only session, the main checkout is fine and nothing changes.
   folded into what, the mobile fixes, and how to install the app on a phone
 - `docs/EMAIL-TESTING.md` : how to test the reply-by-email match path, including
   against real inboxes
+- `docs/DELIVERABILITY.md` : where each template actually lands in Gmail, the
+  domain's DNS and authentication state, and `scripts/placement-check.py`
 - `docs/REHEARSAL.md` : walking the whole introduction flow on the live site with
   Jess and two member accounts
 - `docs/APPLICATION-FLOW.md` : every step from /apply to an accepted member,

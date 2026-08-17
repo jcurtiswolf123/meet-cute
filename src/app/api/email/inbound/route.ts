@@ -99,6 +99,56 @@ function inboundDomains(): string[] {
     .filter(Boolean);
 }
 
+/** Every address on the message, in the shapes Resend uses (string, `Name <a@b>`,
+ *  or an object with `address`/`email`). */
+function addressList(...fields: unknown[]): string[] {
+  const out: string[] = [];
+  const push = (v: unknown) => {
+    if (typeof v === "string") out.push(v);
+    else if (v && typeof v === "object") {
+      const a = (v as { address?: string; email?: string }).address ?? (v as { email?: string }).email;
+      if (a) out.push(a);
+    }
+  };
+  for (const f of fields) (Array.isArray(f) ? f : [f]).forEach(push);
+  return out.map((a) => a.match(/<([^<>]+@[^<>]+)>/)?.[1]?.trim() ?? a.trim()).filter(Boolean);
+}
+
+/** The domain we own the mailbox side of: mail sent here has to go somewhere a
+ *  person reads. Falls back to the first inbound domain. */
+function forwardDomain(): string {
+  return (process.env.INBOUND_FORWARD_DOMAIN || "hellomutuals.com").toLowerCase();
+}
+
+/** Where mail to that domain that carries no invite token ends up. Without this
+ *  the From address on every outbound email is a black hole: the MX accepts the
+ *  message, no token matches, and the reply is dropped. Somebody writing back to
+ *  `hello@hellomutuals.com` has to reach a human, and the DMARC aggregate
+ *  reports addressed to `dmarc@hellomutuals.com` have to land somewhere too. */
+async function forwardToHuman(data: Record<string, unknown>, body: { text: string; html: string }) {
+  const to = process.env.INBOUND_FORWARD_TO || "josh@shiftsupportnetwork.com";
+  const sender = addressList(data.from)[0] || "unknown sender";
+  // Never forward our own forward back to ourselves, and never forward a message
+  // the forwarding mailbox itself sent: either one is a loop.
+  if (sender.toLowerCase() === to.toLowerCase()) return;
+  const originalTo = addressList(data.to).join(", ");
+  const subject = String(data.subject ?? "(no subject)");
+  const header =
+    `Forwarded from ${originalTo || forwardDomain()}\n` +
+    `From: ${sender}\nSubject: ${subject}\n\n`;
+  const { sendEmail } = await import("@/lib/email");
+  await sendEmail({
+    to,
+    subject: `[hellomutuals inbox] ${subject}`,
+    text: header + (body.text || "(no text part)"),
+    html:
+      `<p style="font-family:-apple-system,Helvetica,Arial,sans-serif;font-size:13px;color:#67635d">` +
+      `Forwarded from ${originalTo || forwardDomain()}<br/>From: ${sender}</p><hr/>` +
+      (body.html || `<pre>${body.text || "(no text part)"}</pre>`),
+    replyTo: sender,
+  });
+}
+
 // Fetch the full received message (the webhook carries metadata only) so we can
 // read the reply body. Provider or database failures throw so Resend retries the
 // signed webhook. The decision transition is atomic, so a retry is safe.
@@ -156,7 +206,24 @@ export async function POST(req: NextRequest) {
       tokenFromRecipients(data.to, domains) ||
       tokenFromRecipients(data.reply_to, domains) ||
       tokenFromRecipients((data.headers as Record<string, unknown> | undefined)?.["to"], domains);
-    if (!token) return new Response("no token", { status: 200 });
+    if (!token) {
+      // No token, but addressed to our own domain: a person wrote to the From
+      // address rather than replying to an invite. Forward it instead of
+      // dropping it. Other projects share this account's inbound stream, so
+      // anything on another domain is still ignored without a body fetch.
+      const ours = addressList(data.to, (data.headers as Record<string, unknown> | undefined)?.["to"]).some(
+        (a) => a.toLowerCase().endsWith("@" + forwardDomain()),
+      );
+      if (!ours) return new Response("no token", { status: 200 });
+      let fwdText = String(data.text ?? "");
+      let fwdHtml = String(data.html ?? "");
+      if (!fwdText.trim() && !fwdHtml.trim()) {
+        const emailId = String(data.email_id ?? data.id ?? "");
+        ({ text: fwdText, html: fwdHtml } = await fetchReceivedBody(emailId));
+      }
+      await forwardToHuman(data, { text: fwdText, html: fwdHtml });
+      return new Response("forwarded", { status: 200 });
+    }
 
     // Body only for our own messages. Prefer any inline parts, else fetch them.
     let bodyText = String(data.text ?? "");

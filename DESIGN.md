@@ -16,11 +16,17 @@
 
 ## Typography
 
-- Display: Instrument Serif, weight 400. Use for public headlines and short editorial statements.
+- Display: Bricolage Grotesque, weights 500 through 700, set tight (-0.022em by
+  default, tighter still above 36 pixels). Use for headlines and short editorial
+  statements. It replaced Instrument Serif on 2026-08-15: at headline sizes the
+  serif read as an invitation rather than a product, and the iOS app inherited
+  it in every web view.
 - Body and UI: Instrument Sans, weights 400 through 700. Use for navigation, copy, labels, buttons, and app controls.
 - Data: Instrument Sans with tabular numerals.
 - Code and operator-only technical text: JetBrains Mono.
-- Loading: `next/font/google`, bundled by Next.js.
+- Loading: `next/font/google`, bundled by Next.js. The iOS app bundles a static
+  SemiBold cut of the same display face (`Theme.displayFace`), so a native title
+  and the page under it are one voice rather than two.
 - Scale: 11, 14, 16, 18, 24, 36, 48, 60, 80, 104, and 128 pixels.
 - Body copy: 16 to 18 pixels, 1.6 line height, and no more than 65 characters per line.
 

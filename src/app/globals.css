@@ -23,6 +23,14 @@ body {
 }
 
 @layer components {
+  /* Display type is set tight by default. The old serif carried its own
+     optical spacing at headline sizes; a grotesk does not, and left at the
+     browser default it reads loose and generic. A tracking-* utility still
+     wins over this, because utilities beat components. */
+  .font-display {
+    letter-spacing: -0.022em;
+  }
+
   .container-mc {
     @apply mx-auto w-full max-w-7xl px-6 sm:px-8 lg:px-10;
   }
@@ -444,3 +452,52 @@ textarea:focus-visible {
   }
 }
 
+
+/* ---------------------------------------------------------------------------
+ * Inside the native iOS shell.
+ *
+ * The app draws a real UITabBar and a real navigation bar over these same
+ * routes, so the web chrome underneath them would be a second set of the same
+ * controls. `data-native="ios"` is set at document start by a WKUserScript in
+ * ios/Mutuals, not by the server, because reading the user agent in the root
+ * layout would make every static marketing page dynamic.
+ * ------------------------------------------------------------------------ */
+@layer components {
+  [data-native="ios"] [data-portal-sidebar],
+  [data-native="ios"] [data-portal-mobilebar],
+  [data-native="ios"] [data-site-header],
+  [data-native="ios"] [data-site-footer] {
+    display: none;
+  }
+
+  /* The native tab bar sits over the bottom of the web view, and the status bar
+   * over the top. Give the content the room back. */
+  [data-native="ios"] body {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  }
+
+  [data-native="ios"] main {
+    padding-top: 12px;
+  }
+
+  /* iOS zooms a text field whose font is under 16px on focus, and never zooms
+   * back out. Every field in the studio is 12 to 14px by design. */
+  [data-native="ios"] input,
+  [data-native="ios"] textarea,
+  [data-native="ios"] select {
+    font-size: max(16px, 1em);
+  }
+
+  /* A long press on a link inside a web view raises the system share sheet over
+   * the page. Content is still selectable; only the callout is suppressed. */
+  [data-native="ios"] a,
+  [data-native="ios"] button {
+    -webkit-touch-callout: none;
+  }
+
+  /* The studio shell is h-dvh with its own scroller. Inside the app that leaves
+   * the last row under the tab bar. */
+  [data-native="ios"] .studio-shell {
+    height: 100%;
+  }
+}

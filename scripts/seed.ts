@@ -162,10 +162,10 @@ async function main() {
     data: { name: "Jess", email: "jesswolflord@gmail.com", city: "NYC", isOperator: true, isSuperAdmin: true, status: "active", headline: "Overall lead, matchmaker" },
   });
   const zoe = await db.person.create({
-    data: { name: "Zoe", email: "zoe@meetcute.co", city: "NYC", isOperator: true, status: "active", headline: "NYC co-lead, roster + member experience" },
+    data: { name: "Zoe", email: "zoe@hellomutuals.com", city: "NYC", isOperator: true, status: "active", headline: "NYC co-lead, roster + member experience" },
   });
   const erik = await db.person.create({
-    data: { name: "Erik", email: "erik@meetcute.co", city: "SF", isOperator: true, isCoach: true, status: "active", headline: "SF lead, brand, couples coaching" },
+    data: { name: "Erik", email: "erik@hellomutuals.com", city: "SF", isOperator: true, isCoach: true, status: "active", headline: "SF lead, brand, couples coaching" },
   });
 
   // ---- coaches -------------------------------------------------------------

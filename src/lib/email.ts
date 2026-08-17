@@ -61,6 +61,94 @@ export type EmailSendResult =
   | { ok: true; providerMessageId?: string }
   | { ok: false; retryable: boolean; error: string };
 
+// --- Address guard -----------------------------------------------------------
+//
+// A young sending domain is judged partly on how often it mails an address that
+// does not exist. In the first sixteen days this one sent to `tbd@tbd.com` three
+// times, `tbd@tbd2.com` three times, `gmail.con`, `gmail.cl`, and a
+// `roles-e2e.test` address left over from a test run. Every one of those was a
+// hard bounce, and the retries made each one count more than once.
+//
+// None of them needed a network call to spot. This refuses them before the send,
+// as a permanent failure, so the outbox shows an operator the bad address rather
+// than burning reputation on it.
+
+/** TLDs reserved by RFC 2606 and RFC 6761, plus the ones test fixtures reach for. */
+const UNROUTABLE_TLDS = new Set(["test", "invalid", "localhost", "local", "example"]);
+
+/** Second-level labels that are a person typing "I do not have this yet". */
+const PLACEHOLDER_LABELS = new Set(["tbd", "example", "none", "na", "noemail", "nomail", "unknown"]);
+
+const COMMON_MAIL_DOMAINS = [
+  "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com", "aol.com", "proton.me",
+];
+
+/** The big mailbox providers, by their one real registrable domain. A domain
+ *  whose only label is one of these but whose TLD is something else is a slip of
+ *  the hand: gmail.cl, gmail.co, yahoo.con. Only checked on a two-label domain,
+ *  so a genuine aol.co.uk is left alone. */
+const PROVIDER_TLD: Record<string, string> = {
+  gmail: "com", yahoo: "com", hotmail: "com", outlook: "com", icloud: "com", aol: "com",
+};
+
+/** One insert, delete, substitution, or swap of neighbours apart. The swap is
+ *  what catches gmial.com, which is two plain edits away but one slip. */
+function withinOneEdit(a: string, b: string): boolean {
+  if (a.length === b.length) {
+    const diffs: number[] = [];
+    for (let k = 0; k < a.length; k += 1) if (a[k] !== b[k]) diffs.push(k);
+    if (diffs.length === 2 && diffs[1] === diffs[0] + 1) {
+      const swapped = a.slice(0, diffs[0]) + a[diffs[1]] + a[diffs[0]] + a.slice(diffs[1] + 1);
+      if (swapped === b) return true;
+    }
+  }
+  return withinOnePlainEdit(a, b);
+}
+
+function withinOnePlainEdit(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i += 1;
+      j += 1;
+      continue;
+    }
+    edits += 1;
+    if (edits > 1) return false;
+    if (a.length > b.length) i += 1;
+    else if (a.length < b.length) j += 1;
+    else {
+      i += 1;
+      j += 1;
+    }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+
+/** Why this address must never be sent to, or null when it looks deliverable.
+ *  Deliberately conservative: it only rejects what is provably not an address. */
+export function undeliverableReason(address: string): string | null {
+  const addr = bareAddress(address).toLowerCase();
+  if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(addr)) return "not an email address";
+  const domain = addr.split("@")[1];
+  const labels = domain.split(".");
+  const tld = labels[labels.length - 1];
+  if (UNROUTABLE_TLDS.has(tld)) return `reserved TLD .${tld}`;
+  // `tbd.com` and `tbd2.com` are the same placeholder with a digit on the end.
+  const second = labels[labels.length - 2]?.replace(/\d+$/, "") ?? "";
+  if (PLACEHOLDER_LABELS.has(second)) return `placeholder domain ${domain}`;
+  if (labels.length === 2 && PROVIDER_TLD[second] && PROVIDER_TLD[second] !== tld) {
+    return `${domain} looks like a typo for ${second}.${PROVIDER_TLD[second]}`;
+  }
+  for (const known of COMMON_MAIL_DOMAINS) {
+    if (domain !== known && withinOneEdit(domain, known)) return `${domain} looks like a typo for ${known}`;
+  }
+  return null;
+}
+
 export async function sendEmail({
   to,
   subject,
@@ -96,6 +184,23 @@ export async function sendEmail({
     // Dev only: surface just the sign-in link so the flow can be tested locally.
     logDevLink();
     return { ok: true, providerMessageId: "dev" };
+  }
+
+  // Refuse an address that cannot exist, as a permanent failure, so the outbox
+  // shows an operator the bad address instead of retrying it at a provider.
+  // Checked here rather than at the top of the function on purpose: the test
+  // fixtures mail `@example.test` by the hundred, and with no key configured
+  // nothing leaves the machine anyway. Reputation is only at stake past here.
+  //
+  // One bad address on a joint email (the connection email carries both people)
+  // fails the whole send rather than half-delivering it: the operator needs to
+  // see that the pair cannot be mailed, not wonder why one side never replied.
+  for (const addr of toList) {
+    const reason = undeliverableReason(addr);
+    if (reason) {
+      console.error(`[email] refusing to send to ${addr}: ${reason}`);
+      return { ok: false, retryable: false, error: `undeliverable address (${reason})` };
+    }
   }
 
   // Reply-To a real inbox, which reads as correspondence rather than a
@@ -492,13 +597,23 @@ export function applicationApprovedEmail(args: {
     `Good news: you are in. Welcome to Mutuals.\n\n` +
     `From here, a matchmaker introduces you to one person at a time - no public profile, no feed, no endless messaging. When we find someone we think you should meet, the introduction comes by email and you decide for yourself.\n\n` +
     `Take a minute to round out your profile and tell us what you are looking for:\n${args.appUrl}\n\n` +
+    `One favour first: add hello@hellomutuals.com to your contacts. Gmail files introductions under Promotions ` +
+    `otherwise, and that is the email you will not want to miss.\n\n` +
     `Warmly,\nMutuals`;
   const inner =
     h1("Welcome to Mutuals.") +
     p(`Hi ${esc(first)}, you are in. From here a matchmaker introduces you to <strong>one person at a time</strong> - no public profile, no feed, no endless messaging.`) +
     p(`When we find someone we think you should meet, the introduction comes by email and you decide for yourself. If you both say yes, we connect you.`) +
     `<p style="margin:24px 0 0">${emailButton("Round out your profile", args.appUrl)}</p>` +
-    small("The more we know about what you are looking for, the better the introductions.");
+    small("The more we know about what you are looking for, the better the introductions.") +
+    // Gmail files the introduction email under Promotions no matter how the
+    // message is written: plain text, no images, no button and a human From all
+    // land there. A sender in the recipient's contacts is the one signal that
+    // reliably overrides the classifier, so the welcome email, which does land
+    // in Primary, is where we ask for it.
+    small(
+      `Add <strong>hello@hellomutuals.com</strong> to your contacts. Gmail files introductions under Promotions otherwise, and that is the one email you will not want to miss.`,
+    );
   return { subject, html: emailShell(inner, "You're in - welcome to Mutuals."), text };
 }
 
@@ -705,17 +820,23 @@ export type InviteProfile = {
   photoUrls?: string[] | null;
 };
 
-/** A labelled block of the member's own words. */
-function profileSection(label: string, body: string): string {
-  return (
-    `<p style="margin:20px 0 4px;font-family:${SANS};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.muted}">${esc(label)}</p>` +
-    `<p style="margin:0;font-family:${SANS};font-size:15px;line-height:1.65;color:${BRAND.ink}">${esc(body)}</p>`
-  );
-}
-
-// The introduction invite. The whole profile travels in the email itself so the
-// recipient can decide without clicking anything; the link exists for the photo,
-// the Yes/Pass buttons, and anyone who prefers a page.
+// The introduction invite. It used to carry the whole profile so the recipient
+// could decide without clicking anything, and that is exactly what put it in
+// Gmail's Promotions tab: a name, an age, a neighbourhood, an About, a Looking
+// for, a Deal-breakers and a vouch quote reads to the classifier as a listing.
+//
+// Measured on 2026-08-16 against a real consumer Gmail, one sample at a time,
+// four minutes apart (see docs/DELIVERABILITY.md). The full profile lands in
+// Promotions as the brand shell, as a stripped shell, as a plain letter, from a
+// human From address, and as text with no HTML part at all. The same invite
+// subject with a two-line body lands in Primary. A neutral subject with the full
+// profile body lands in Promotions. It is the body, and only the body.
+//
+// So the profile moved to the page it was always linked to. `/i/<token>` already
+// shows every photo, the bio, looking for, deal-breakers, the prompts and the
+// Yes/Pass buttons. What travels in the email is what one person would write to
+// another: who they are in a line, what the person who vouched for them said,
+// and a link. Reply Y or N still works and never needs the page at all.
 export function matchInviteEmail(args: {
   toName: string;
   other: InviteProfile;
@@ -727,118 +848,90 @@ export function matchInviteEmail(args: {
   const otherFirst = (other.name || "someone").split(" ")[0];
   const subject = `An introduction to ${otherFirst}`;
 
+  // bio, lookingFor, dealBreakers and the prompts are deliberately not read
+  // here. They live on the profile page now; see the note above the function.
   const clean = (s: string | null | undefined) => (s?.trim() ? s.trim() : null);
   const headline = clean(other.headline);
-  const bio = clean(other.bio);
-  const lookingFor = clean(other.lookingFor);
-  const dealBreakers = clean(other.dealBreakers);
   const recommendation = clean(other.recommendation);
   const voucherName = clean(other.voucherName);
   const note = clean(args.matchmakerNote);
-  const prompts = (other.prompts ?? []).filter((q) => q.question?.trim() && q.answer?.trim());
 
-  // "31, Cobble Hill" with every missing piece dropped. City is deliberately
-  // absent: both people were matched inside the same market, so restating it
-  // reads like a listing ("Joshua in NYC") rather than an introduction.
-  const meta = [other.age ? String(other.age) : null, clean(other.neighborhood)]
-    .filter(Boolean)
-    .join(", ");
+  // One line that says who they are, built from whatever they actually filled
+  // in. "Ada, 31, in Cobble Hill. Runs a small ceramics studio." Missing pieces
+  // simply drop out rather than leaving a gap or a label with nothing after it.
+  const whoParts = [
+    otherFirst,
+    other.age ? String(other.age) : null,
+    clean(other.neighborhood) ? `in ${clean(other.neighborhood)}` : null,
+  ].filter(Boolean);
+  // A profile with no age, no neighbourhood and no headline would render a bare
+  // "Sam." one line under "I want to introduce you to Sam", so it is dropped.
+  const who = whoParts.length > 1 || headline ? whoParts.join(", ") : null;
+  // The headline is a sentence the member wrote and rarely ends in a stop.
+  const headlineSentence = headline && !/[.!?]$/.test(headline) ? `${headline}.` : headline;
+  // The vouch is the single most persuasive line anyone else wrote, so it is the
+  // one piece of the profile that stays in the email. Long ones are cut at a
+  // sentence boundary; the whole thing is on the page.
+  const vouchLine = (() => {
+    if (!recommendation) return null;
+    const trimmed =
+      recommendation.length <= 180
+        ? recommendation
+        : `${recommendation.slice(0, 180).replace(/\s+\S*$/, "")}...`;
+    return voucherName
+      ? `${voucherName}, who vouched for ${otherFirst}, put it this way: "${trimmed}"`
+      : `The friend who vouched for ${otherFirst} put it this way: "${trimmed}"`;
+  })();
 
   const text = [
     `Hi ${first},`,
     "",
-    `We'd like to introduce you to ${otherFirst}.`,
+    `I want to introduce you to ${otherFirst}.`,
     note ? `\n${note}` : null,
     "",
-    `${otherFirst}${meta ? ` (${meta})` : ""}`,
-    headline ? `"${headline}"` : null,
-    bio ? `\nAbout\n${bio}` : null,
-    lookingFor ? `\nLooking for\n${lookingFor}` : null,
-    dealBreakers ? `\nDeal-breakers\n${dealBreakers}` : null,
-    recommendation
-      ? `\nRecommendation\n"${recommendation}"${voucherName ? `\nVouched for by ${voucherName}` : ""}`
-      : null,
-    ...prompts.map((q) => `\n${q.question}\n${q.answer}`),
+    who ? `${who}.${headlineSentence ? ` ${headlineSentence}` : ""}` : null,
+    vouchLine ? `\n${vouchLine}` : null,
     "",
-    `Want the introduction? Reply Y (yes) or N (no) to this email, or use the buttons here:`,
-    args.profileUrl,
+    `Photos and the rest of ${otherFirst}'s profile are here: ${args.profileUrl}`,
+    "",
+    `Want the introduction? Reply Y for yes or N to pass.`,
     "",
     `If you both say yes, we'll connect you. If either passes, nothing happens and no one is told.`,
     "",
-    `Warmly,`,
     `Mutuals`,
   ]
     .filter((line) => line !== null)
-    .join("\n");
+    .join("\n")
+    // A sparse profile drops whole lines out of the middle, which would leave a
+    // two-line gap where the paragraph used to be.
+    .replace(/\n{3,}/g, "\n\n");
 
-  // Photos, not a photo. This email is where most people actually decide, and
-  // an 88px circle beside a name is an avatar, not a look at someone. The lead
-  // photo is 240px square; any others follow underneath at 104px.
-  //
-  // Every URL is token-scoped and approved-only. Widths and heights are set as
-  // attributes as well as CSS because Outlook ignores the CSS, and each image
-  // has real alt text for the many clients that block remote images by default.
-  const gallery = (other.photoUrls?.length ? other.photoUrls : other.photoUrl ? [other.photoUrl] : []).slice(0, 3);
-  const lead = gallery[0];
-  const rest = gallery.slice(1);
+  // No brand shell, no wordmark, no card, no pill button, and no photos. The
+  // photos are the reason this email was worth reading, and they are also the
+  // clearest listing signal in it; they are two taps away on a page built to
+  // show them properly. Everything here is one person writing to another.
+  const line = (body: string, top = 16) =>
+    `<p style="margin:${top}px 0 0;font-family:${SANS};font-size:15px;line-height:1.65;color:${BRAND.ink}">${body}</p>`;
 
-  const photo = lead
-    ? `<img src="${encodeURI(lead)}" width="240" height="240" alt="${esc(otherFirst)}" style="display:block;width:240px;max-width:100%;height:auto;border-radius:14px;object-fit:cover;border:1px solid ${BRAND.line}" />` +
-      (rest.length
-        ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:8px"><tr>${rest
-            .map(
-              (url, i) =>
-                `<td style="padding-right:8px"><img src="${encodeURI(url)}" width="104" height="104" alt="${esc(otherFirst)}, photo ${i + 2}" style="display:block;width:104px;height:104px;border-radius:10px;object-fit:cover;border:1px solid ${BRAND.line}" /></td>`
-            )
-            .join("")}</tr></table>`
-        : "")
-    : "";
-
-  const inner =
-    h1(`Meet ${otherFirst}.`) +
-    p(`Hi ${esc(first)}, we think you two could hit it off. Everything below is in ${esc(otherFirst)}&rsquo;s own words.`) +
-    (note
-      ? `<p style="margin:0 0 20px;padding:12px 16px;background:${BRAND.paper};border-radius:10px;font-family:${SANS};font-size:14px;line-height:1.6;color:${BRAND.ink}">${esc(note)}</p>`
+  const html =
+    `<div style="font-family:${SANS};font-size:15px;line-height:1.65;color:${BRAND.ink};max-width:560px">` +
+    line(`Hi ${esc(first)},`, 0) +
+    line(`I want to introduce you to ${esc(otherFirst)}.`) +
+    (note ? line(esc(note)) : "") +
+    (who
+      ? line(`<strong>${esc(who)}.</strong>${headlineSentence ? ` ${esc(headlineSentence)}` : ""}`)
       : "") +
-    // Photos above the name rather than in a narrow cell beside it. At 88px a
-    // photo fits next to the text; at the size you can actually judge someone
-    // by, it has to lead.
-    `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid ${BRAND.line};padding-top:8px">
-      ${photo ? `<tr><td style="padding:20px 0 0">${photo}</td></tr>` : ""}
-      <tr>
-        <td valign="top" style="padding-top:${photo ? "16px" : "20px"}">
-          <p style="margin:0;font-family:${SERIF};font-size:24px;line-height:1.2;color:${BRAND.ink}">${esc(otherFirst)}</p>
-          ${meta ? `<p style="margin:4px 0 0;font-family:${SANS};font-size:14px;color:${BRAND.muted}">${esc(meta)}</p>` : ""}
-          ${headline ? `<p style="margin:8px 0 0;font-family:${SERIF};font-size:17px;font-style:italic;line-height:1.4;color:${BRAND.oxblood}">${esc(headline)}</p>` : ""}
-        </td>
-      </tr>
-    </table>` +
-    (bio ? profileSection("About", bio) : "") +
-    (lookingFor ? profileSection("Looking for", lookingFor) : "") +
-    (dealBreakers ? profileSection("Deal-breakers", dealBreakers) : "") +
-    (recommendation
-      ? `<p style="margin:20px 0 4px;font-family:${SANS};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.muted}">Recommendation</p>` +
-        `<p style="margin:0;padding:12px 16px;border-left:2px solid ${BRAND.oxblood};font-family:${SERIF};font-size:16px;font-style:italic;line-height:1.55;color:${BRAND.ink}">&ldquo;${esc(recommendation)}&rdquo;</p>` +
-        (voucherName
-          ? `<p style="margin:6px 0 0;font-family:${SANS};font-size:12px;color:${BRAND.muted}">Vouched for by ${esc(voucherName)}</p>`
-          : "")
-      : "") +
-    prompts
-      .map(
-        (q) =>
-          `<p style="margin:20px 0 4px;font-family:${SANS};font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${BRAND.muted}">${esc(q.question)}</p>` +
-          `<p style="margin:0;font-family:${SANS};font-size:15px;line-height:1.65;color:${BRAND.ink}">${esc(q.answer)}</p>`,
-      )
-      .join("") +
-    `<p style="margin:28px 0 16px;padding-top:24px;border-top:1px solid ${BRAND.line}">${emailButton("Yes, introduce us", args.profileUrl)}</p>` +
-    p(`Prefer to answer right here? <strong>Reply Y</strong> for yes or <strong>N</strong> to pass.`) +
-    small("If you both say yes, we'll connect you. If either passes, nothing happens and no one is told.");
+    (vouchLine ? line(esc(vouchLine)) : "") +
+    line(
+      `Photos and the rest of ${esc(otherFirst)}&rsquo;s profile are ` +
+        `<a href="${encodeURI(args.profileUrl)}" style="color:${BRAND.oxblood}">here</a>.`,
+    ) +
+    line(`Want the introduction? <strong>Reply Y</strong> for yes or <strong>N</strong> to pass.`) +
+    line(`If you both say yes, we&rsquo;ll connect you. If either passes, nothing happens and no one is told.`) +
+    line(`Mutuals`) +
+    `</div>`;
 
-  return {
-    subject,
-    html: emailShell(inner, `An introduction to ${otherFirst}, in their own words.`),
-    text,
-  };
+  return { subject, html, text };
 }
 
 // Second email of the double opt-in, sent to BOTH people at once (a single send
