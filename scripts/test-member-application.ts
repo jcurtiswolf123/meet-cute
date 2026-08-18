@@ -68,7 +68,7 @@ async function main() {
     // a check that the page always claims success, which is the opposite of
     // what it should verify. Accept either honest outcome, and require the
     // visible copy to match the one we got.
-    await memberPage.waitForURL(/\/apply\?(sent=1|error=send)$/);
+    await memberPage.waitForURL(/\/apply\?(sent=1|error=send)(&|$)/);
     const sent = /sent=1/.test(memberPage.url());
     const bodyText = await memberPage.locator("main").innerText();
     if (sent) {
