@@ -39,7 +39,7 @@ async function main() {
   await p.getByRole("button", { name: "Send me a link" }).waitFor({ timeout: 25000 });
   await p.getByLabel("Email").fill(email);
   await p.getByRole("button", { name: "Send me a link" }).click();
-  await p.waitForURL(/\/apply\?(sent=1|error=send)$/, { timeout: 20000 });
+  await p.waitForURL(/\/apply\?(sent=1|error=send)(&|$)/, { timeout: 20000 });
 
   const queued = await prisma.deliveryJob.findFirst({ where: { kind: "signin_unused", recipient: email } });
   assert.ok(queued, "an unused link must schedule a follow-up");
@@ -52,7 +52,7 @@ async function main() {
   await p.getByRole("button", { name: "Send me a link" }).waitFor({ timeout: 25000 });
   await p.getByLabel("Email").fill(email);
   await p.getByRole("button", { name: "Send me a link" }).click();
-  await p.waitForURL(/\/apply\?(sent=1|error=send)$/, { timeout: 20000 });
+  await p.waitForURL(/\/apply\?(sent=1|error=send)(&|$)/, { timeout: 20000 });
   assert.equal(await prisma.deliveryJob.count({ where: { kind: "signin_unused", recipient: email } }), 1,
     "asking for three links still produces at most one follow-up");
   console.log("asking again does not queue a second");
