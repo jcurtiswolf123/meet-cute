@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { chromium } from "playwright";
+import { journeyContext } from "./journey-client";
 import { createLoginToken } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
 import { answered, waitForRow } from "./journey-waits";
@@ -55,7 +56,7 @@ async function main() {
   let adaId: string | null = null;
 
   try {
-    const memberContext = await browser.newContext();
+    const memberContext = await journeyContext(browser);
     const memberPage = await memberContext.newPage();
     await memberPage.goto(`${baseUrl}/apply`);
     await memberPage.getByLabel("Email").fill(memberEmail);
@@ -282,7 +283,7 @@ async function main() {
     // page then asks for the words, and she gives them. The second writes
     // straight out. Both are answers; only the written ones can be quoted.
     for (const [index, request] of requests.entries()) {
-      const friendContext = await browser.newContext();
+      const friendContext = await journeyContext(browser);
       const friendPage = await friendContext.newPage();
       await friendPage.goto(`${baseUrl}/r/${request.token}`);
       await friendPage
@@ -332,7 +333,7 @@ async function main() {
     );
 
     const memberToken = await createSession(member.id);
-    const approvedMemberContext = await browser.newContext();
+    const approvedMemberContext = await journeyContext(browser);
     await approvedMemberContext.addCookies([
       {
         name: "mc_session",
@@ -411,7 +412,7 @@ async function main() {
       1,
       "The approved member must satisfy the Studio directory query.",
     );
-    const operatorContext = await browser.newContext();
+    const operatorContext = await journeyContext(browser);
     await operatorContext.addCookies([
       {
         name: "mc_session",
@@ -465,7 +466,7 @@ async function main() {
     // gets, and the whole growth argument is that she converts. When she does,
     // Journey counts as one of her two.
     const adaRequest = requests.find((r) => r.email === firstRecommenderEmail)!;
-    const adaContext = await browser.newContext();
+    const adaContext = await journeyContext(browser);
     const adaPage = await adaContext.newPage();
     const adaToken = await createLoginToken(firstRecommenderEmail);
     await adaPage.goto(`${baseUrl}/apply?from=${adaRequest.token}`);

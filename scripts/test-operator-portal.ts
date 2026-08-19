@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { chromium, type Page } from "playwright";
+import { journeyContext } from "./journey-client";
 import { prisma } from "../src/lib/prisma";
 import { waitForRow } from "./journey-waits";
 
@@ -184,7 +185,7 @@ async function main() {
   const cookieUrl = new URL(baseUrl);
 
   try {
-    const ordinaryContext = await browser.newContext();
+    const ordinaryContext = await journeyContext(browser);
     await ordinaryContext.addCookies([
       {
         name: "mc_session",
@@ -219,7 +220,7 @@ async function main() {
     assert.equal(new URL(ordinaryPage.url()).pathname, "/studio/matchmaking");
     await ordinaryContext.close();
 
-    superContext = await browser.newContext();
+    superContext = await journeyContext(browser);
     await superContext.addCookies([
       {
         name: "mc_session",

@@ -20,6 +20,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { chromium, type BrowserContext } from "playwright";
+import { journeyContext } from "./journey-client";
 import { createLoginToken } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
 import { answered, waitForRow } from "./journey-waits";
@@ -62,7 +63,7 @@ async function main() {
   try {
     // --- ChoiceGroup: still a radio group, and it moves by keyboard --------
     const rawToken = await createLoginToken(applicantEmail);
-    const context = await browser.newContext();
+    const context = await journeyContext(browser);
     const page = await context.newPage();
     await page.goto(`${baseUrl}/auth/verify?token=${encodeURIComponent(rawToken)}`);
     await page.waitForURL(/\/apply$/);
@@ -133,7 +134,7 @@ async function main() {
       },
     });
     operatorId = operator.id;
-    const studioContext = await browser.newContext();
+    const studioContext = await journeyContext(browser);
     await signIn(studioContext, operator.id);
     const studio = await studioContext.newPage();
     await studio.goto(`${baseUrl}/studio`);
