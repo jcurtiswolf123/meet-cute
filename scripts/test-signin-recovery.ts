@@ -21,6 +21,7 @@
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
+import { journeyContext } from "./journey-client";
 import { createLoginToken } from "../src/lib/auth";
 import { prisma } from "../src/lib/prisma";
 const base = process.env.MEMBER_E2E_BASE_URL || `http://127.0.0.1:${process.env.PORT ?? "3009"}`;
@@ -32,7 +33,8 @@ if (!databaseUrl || !["127.0.0.1", "localhost"].includes(new URL(databaseUrl).ho
 async function main() {
   const email = `unused-${randomUUID()}@example.test`;
   const b = await chromium.launch({ headless: true });
-  const p = await b.newPage();
+  const ctx = await journeyContext(b);
+  const p = await ctx.newPage();
 
   // Ask for a link and never use it.
   await p.goto(`${base}/apply`);
@@ -67,7 +69,7 @@ async function main() {
 
   // And the prefill works.
   await p.goto(`${base}/login`, { waitUntil: "domcontentloaded" });
-  const ctx2 = await b.newContext();
+  const ctx2 = await journeyContext(b);
   const p2 = await ctx2.newPage();
   await p2.goto(`${base}/apply?email=${encodeURIComponent(email)}`);
   await p2.getByRole("button", { name: "Send me a link" }).waitFor({ timeout: 25000 });

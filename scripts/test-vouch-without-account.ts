@@ -16,6 +16,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { chromium } from "playwright";
+import { journeyContext } from "./journey-client";
 import { prisma } from "../src/lib/prisma";
 import {
   acceptIfRecommended,
@@ -80,7 +81,7 @@ async function main() {
     ]);
 
     // 2. The page, in a browser carrying no cookie of any kind.
-    const context = await browser.newContext();
+    const context = await journeyContext(browser);
     const page = await context.newPage();
     await page.goto(recommendationUrl(first.token).replace("https://hellomutuals.com", baseUrl));
     await page.getByRole("heading", { name: /asked you to vouch/ }).waitFor();
