@@ -84,12 +84,28 @@ async function main() {
       );
     }
 
-    // The token is created before the send either way, so the applicant can
-    // still be let in by an operator when mail is down.
+    // The credentials are minted before the send either way, so the applicant
+    // can still be let in by an operator when mail is down.
+    //
+    // Two rows, not one. Since b17ec7e (2026-08-16) the same request mints a
+    // link AND a six-digit code, because a link tapped in Mail opens Safari and
+    // leaves an installed home-screen app signed out. lib/auth.ts stores the
+    // code as a LoginToken row like any other, so expiry, single use and the
+    // purge are the behaviour that already exists. This assertion was written
+    // on 2026-07-25 and still said 1, so it has failed since the code landed;
+    // nobody saw it because test:journey:application is not in the test:launch
+    // chain.
+    //
+    // Two live rows is a stronger statement than it looks. purgeExpiredAuth()
+    // runs inside this same request and deletes anything consumed or expired,
+    // so a credential minted already burnt or already stale is gone before this
+    // count is taken and shows up here as a missing row, not as a bad one.
+    // Measured: marking either row consumed at creation, or dating it a second
+    // in the past, both fail this line with 1 !== 2.
     assert.equal(
       await prisma.loginToken.count({ where: { email: memberEmail } }),
-      1,
-      "The signup request must create a one-time login token.",
+      2,
+      "The signup request must mint two usable credentials: one sign-in link and one code.",
     );
 
     const rawToken = await createLoginToken(memberEmail);
