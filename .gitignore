@@ -30,3 +30,7 @@ graphify-out/
 # is never committed and nobody has to merge a pbxproj.
 ios/*.xcodeproj/
 ios/build/
+
+# scratch: member photos staged for an import (see scripts/add-member.ts).
+# Real people, so it must never be committed.
+tmp/
