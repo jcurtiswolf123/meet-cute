@@ -2,7 +2,10 @@
 
 _Single source of truth for current state. Update at the end of every work session._
 
-Last updated: 2026-08-17 (nudge withdrawal was scoped to an address instead of
+Last updated: 2026-08-22 (an operator can now add a member who arrives with a
+photo and a written profile instead of initials and one sentence, and Jared
+Wolf is on the live roster as the first one. Entry below.)
+Before that: 2026-08-17 (nudge withdrawal was scoped to an address instead of
 to the ask, so one friend answering for one applicant cancelled the queued
 nudges of every other applicant who had named them. Live as 54a5e62. Entry
 below.)
@@ -59,6 +62,51 @@ a suggested pair can be introduced; the database is healthy, the latency cost is
 sjc app plus us-east-2
 Neon; canonical domain is hellomutuals.com; Prelude still wired as the
 no-registration SMS path, default provider still twilio)
+
+## 2026-08-22: an operator-added member can arrive as a finished profile
+
+`quickAddPerson` has been the only way to put somebody on the roster who did not
+apply, and it takes a name, a channel and a blurb. No photo, no age, no gender,
+and none of the three long fields the profile is actually read from. A member
+added that way shows up in the directory as initials and one sentence, and the
+introduction email built around a face has no face to use.
+
+`scripts/add-member.ts` is the other half, for when the operator already holds
+the material. One JSON file in, one Person plus photos out. It prints the
+database host before it does anything, dry runs unless passed `--commit`, and
+refuses a second run over the same email unless passed `--update`, which
+refreshes the fields and appends photos up to the six cap.
+
+Photos go through the same `normalizeImage` -> `writeUpload` path an ordinary
+upload does. That is not a detail: phone photos carry EXIF GPS, and any import
+that wrote the original bytes would put a member's home coordinates on the
+platform.
+
+**Jared Wolf is the first, and he is live.** NYC, 34, Upper East Side, status
+`active`, `openToMatch` false, two photos. Rehearsed end to end on the sandbox
+first, then created on production; the photos themselves were uploaded through
+the live app's `/api/photos` so they got both copies (the AWS keys are Fly
+secrets, so a local import can only write the Postgres one). Every session
+minted to do it was revoked in the same run.
+
+Two photos is the ceiling on what exists publicly, and it took reading his own
+LinkedIn session to get the second: the 800x800 display photo is the largest
+rendition LinkedIn publishes, and the only larger file is the 416x900 original
+behind it, which is a phone screenshot with the iOS crop chrome baked into the
+top and somebody else's shoulder at the right edge. Cropped to 386x796, it is a
+clean waist-up shot. A member profile wants three to six. The rest have to come
+off his phone.
+
+The first pass of the bio said "NYU for the MBA", sourced from a resume in
+another repo. His LinkedIn says NYU School of Professional Studies, a master's
+in real estate development, 2018 to 2020. SPS is not Stern and does not grant
+the MBA. Corrected before anyone read it, and worth remembering: a resume
+assembled from public sources is not itself a source.
+
+His `lookingFor` and `dealBreakers` are empty on purpose. Career facts are
+sourced and a bio can be written from them; what somebody wants in a partner
+cannot be, and inventing it is how a matchmaking profile starts lying. He fills
+those in, and `openToMatch` flips, before he is introduced to anyone.
 
 ## 2026-08-17: one friend's answer cancelled four other applicants' nudges
 
