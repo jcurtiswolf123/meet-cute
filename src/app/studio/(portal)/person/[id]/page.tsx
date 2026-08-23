@@ -158,7 +158,7 @@ export default async function PersonPage({
                 .filter(Boolean)
                 .join(" · ")}
             </p>
-            <p className="mt-1 text-sm text-ink">{p.headline}</p>
+            {p.headline && <p className="mt-1 text-sm text-ink">{p.headline}</p>}
             {(p.instagram || p.linkedin) && (
               <p className="mt-1.5 flex flex-wrap gap-3 text-sm">
                 {p.instagram && (
