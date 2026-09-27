@@ -7,6 +7,9 @@ import {
   setNonOperatorMemberStatus,
 } from "../src/lib/operator-access";
 import { deleteNonOperatorPersonRecord } from "../src/lib/account-deletion";
+import { requireLocalDatabase } from "./require-local-database";
+
+requireLocalDatabase("The operator role checks");
 
 const suffix = randomUUID();
 const fixtureEmail = (label: string) => `${label}-${suffix}@roles.test`;

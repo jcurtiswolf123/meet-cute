@@ -1,3 +1,4 @@
+import { requireLocalDatabase } from "./require-local-database";
 import { randomBytes } from "node:crypto";
 import { strict as assert } from "node:assert";
 import type { PrismaClient } from "@prisma/client";
@@ -15,6 +16,7 @@ async function createPerson(prisma: PrismaClient, suffix: string, label: string)
 
 async function main() {
   if (process.env.DIRECT_URL) process.env.DATABASE_URL = process.env.DIRECT_URL;
+  requireLocalDatabase("The introduction race checks");
   const { prisma } = await import("../src/lib/prisma");
   // Keep this verification isolated from real delivery providers. The test
   // creates only temporary example.test rows and removes them in finally.
