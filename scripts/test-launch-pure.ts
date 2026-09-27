@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
 import { bookingUnavailableMessage } from "../src/lib/operator-actions";
 import { makeDeliveryKey, retryDelayMs } from "../src/lib/delivery";
 import { uploadStorageMode } from "../src/lib/uploads";
@@ -172,5 +173,33 @@ assert.equal(currentStep({ ...seeded, name: "Josh Wolf" }, 1), "extras");
 // Anyone already through the first half is left alone: requiring a surname
 // today is not a reason to stop someone who answered that screen yesterday.
 assert.equal(currentStep({ ...seeded, basicsAt: new Date() }, 1), "extras");
+
+
+// Every check that touches Prisma has to assert its own database before it
+// writes a row. The repo's `.env` points DATABASE_URL at the production Neon
+// branch and every `test:launch:*` script loads it, so an unguarded check
+// creates its fixture people in the live roster. Seven scripts had drifted
+// without one. This is the thing that stops the eighth.
+{
+  const dir = new URL("./", import.meta.url);
+  // A deliberate live-database fixture seeder, not a check. Its own header says so.
+  const liveByDesign = new Set(["test-fixture.ts"]);
+  const missing: string[] = [];
+  for (const entry of readdirSync(dir).sort()) {
+    if (!entry.startsWith("test-") || !entry.endsWith(".ts")) continue;
+    if (liveByDesign.has(entry)) continue;
+    const source = readFileSync(new URL(entry, dir), "utf8");
+    if (!/["']\.\.\/src\/lib\/prisma["']/.test(source)) continue;
+    const guarded =
+      source.includes("requireLocalDatabase(") ||
+      source.includes('["127.0.0.1", "localhost"].includes');
+    if (!guarded) missing.push(entry);
+  }
+  assert.deepEqual(
+    missing,
+    [],
+    `these checks write to whatever DATABASE_URL points at: ${missing.join(", ")}`,
+  );
+}
 
 console.log("launch pure checks passed");

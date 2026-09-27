@@ -4,6 +4,7 @@
 // the click. `pairStates` is what lets the composer say so at pick time, so the
 // two must agree: anything the action refuses has to come back "open" or
 // "blocked" here, and anything it allows must not.
+import { requireLocalDatabase } from "./require-local-database";
 import { randomBytes } from "node:crypto";
 import { strict as assert } from "node:assert";
 import type { PrismaClient } from "@prisma/client";
@@ -21,6 +22,7 @@ async function createPerson(prisma: PrismaClient, suffix: string, label: string)
 
 async function main() {
   if (process.env.DIRECT_URL) process.env.DATABASE_URL = process.env.DIRECT_URL;
+  requireLocalDatabase("The pair state checks");
   const { prisma } = await import("../src/lib/prisma");
   const { pairStates, LIVE_INTRO_STAGES } = await import("../src/lib/introductions");
   const { pairKey } = await import("../src/lib/pairs");

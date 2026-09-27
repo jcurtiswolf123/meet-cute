@@ -1,8 +1,10 @@
+import { requireLocalDatabase } from "./require-local-database";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 
 async function main() {
   if (process.env.DIRECT_URL) process.env.DATABASE_URL = process.env.DIRECT_URL;
+  requireLocalDatabase("The photo storage checks");
   Reflect.set(process.env, "NODE_ENV", "production");
   process.env.BLOB_READ_WRITE_TOKEN = "";
   const [{ prisma }, { readUpload, writeUpload }] = await Promise.all([

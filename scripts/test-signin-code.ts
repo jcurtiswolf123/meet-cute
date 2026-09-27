@@ -11,6 +11,9 @@ import assert from "node:assert/strict";
 import { prisma } from "../src/lib/prisma";
 import { createLoginCode, consumeLoginCode, createLoginToken, consumeLoginToken } from "../src/lib/auth";
 import { magicLinkEmail } from "../src/lib/email";
+import { requireLocalDatabase } from "./require-local-database";
+
+requireLocalDatabase("The sign-in code checks");
 
 const domain = "signin-code.test";
 const addr = (label: string) => `${label}-${process.pid}@${domain}`;

@@ -1,9 +1,11 @@
+import { requireLocalDatabase } from "./require-local-database";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { DeliverySendResult } from "../src/lib/delivery";
 
 async function main() {
   if (process.env.DIRECT_URL) process.env.DATABASE_URL = process.env.DIRECT_URL;
+  requireLocalDatabase("The delivery outbox checks");
   const [{ prisma }, delivery] = await Promise.all([
     import("../src/lib/prisma"),
     import("../src/lib/delivery"),
